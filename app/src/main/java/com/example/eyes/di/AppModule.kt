@@ -2,12 +2,17 @@ package com.example.eyes.di
 
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.system.HapticService
+import com.example.eyes.system.SpeechOutput
 import com.example.eyes.system.TtsService
+import com.example.eyes.ui.home.HomeViewModel
 import org.koin.android.ext.koin.androidContext
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val appModule = module {
     single { TtsService(androidContext()) }
+    single<SpeechOutput> { get<TtsService>() }
     single { HapticService(androidContext()) }
     single { DataStoreManager(androidContext()) }
+    viewModel { HomeViewModel(get()) }
 }
