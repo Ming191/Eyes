@@ -7,6 +7,7 @@ import com.example.eyes.system.SpeechOutput
 import com.example.eyes.system.TtsService
 import com.example.eyes.ui.camera.CameraViewModel
 import com.example.eyes.ui.home.HomeViewModel
+import com.example.eyes.ui.settings.SettingsViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -19,4 +20,5 @@ val appModule = module {
     single { CameraManager(androidContext()) }
     viewModel { HomeViewModel(get()) }
     viewModel { CameraViewModel() }
+    viewModel { SettingsViewModel(get()) }
 }
