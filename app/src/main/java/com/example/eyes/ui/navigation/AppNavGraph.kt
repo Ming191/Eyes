@@ -17,7 +17,9 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -93,7 +95,12 @@ private fun MainNavigationScaffold() {
             modifier = Modifier.semantics { contentDescription = "Khung điều hướng chính" },
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text(text = currentTopLevelDestination.title) },
+                    title = {
+                        Text(
+                            text = currentTopLevelDestination.title,
+                            modifier = Modifier.semantics { heading() }
+                        )
+                    },
                     modifier = Modifier.semantics {
                         contentDescription = "Thanh tiêu đề ${currentTopLevelDestination.title}"
                     }
@@ -106,16 +113,21 @@ private fun MainNavigationScaffold() {
                     }
                 ) {
                     TopLevelDestination.entries.forEach { destination ->
+                        val isSelected = currentDestination.isInHierarchy(destination)
+
                         NavigationBarItem(
-                            selected = currentDestination.isInHierarchy(destination),
+                            selected = isSelected,
                             onClick = { navController.navigateToTopLevelDestination(destination) },
                             icon = {
                                 Icon(
                                     imageVector = destination.icon,
-                                    contentDescription = destination.label
+                                    contentDescription = null
                                 )
                             },
-                            label = { Text(text = destination.label) }
+                            label = { Text(text = destination.label) },
+                            modifier = Modifier.semantics {
+                                stateDescription = if (isSelected) "Đang được chọn" else "Chưa chọn"
+                            }
                         )
                     }
                 }

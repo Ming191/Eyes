@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -24,6 +25,7 @@ fun SettingSliderCard(
     summary: String,
     valueLabel: String,
     contentDescription: String,
+    sliderStateDescription: String,
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
     onValueChange: (Float) -> Unit,
@@ -66,6 +68,7 @@ fun SettingSliderCard(
                     .fillMaxWidth()
                     .semantics {
                         this.contentDescription = contentDescription
+                        this.stateDescription = sliderStateDescription
                         progressBarRangeInfo = androidx.compose.ui.semantics.ProgressBarRangeInfo(
                             current = value,
                             range = valueRange
@@ -85,6 +88,7 @@ private fun SettingSliderCardPreview() {
             summary = "Điều chỉnh nhịp đọc để dễ nghe trong môi trường đông người.",
             valueLabel = "1.25x",
             contentDescription = "Thanh trượt tốc độ đọc 1.25 lần",
+            sliderStateDescription = "Giá trị hiện tại 1.25 lần",
             value = 1.25f,
             valueRange = 0.5f..2.0f,
             onValueChange = {}

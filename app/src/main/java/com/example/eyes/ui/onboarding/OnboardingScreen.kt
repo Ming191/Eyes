@@ -20,9 +20,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.eyes.ui.permission.PermissionScreen
@@ -112,6 +115,11 @@ fun OnboardingScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
+                .semantics {
+                    contentDescription = "Khu vực các bước thiết lập ban đầu"
+                    stateDescription = "Đang ở bước ${pagerState.currentPage + 1} trên ${pages.size}"
+                    liveRegion = LiveRegionMode.Polite
+                }
         ) { page ->
             val item = pages[page]
             Surface(
@@ -166,7 +174,14 @@ fun OnboardingScreen(
                 modifier = Modifier
                     .weight(1f)
                     .heightIn(min = 56.dp)
-                    .semantics { contentDescription = "Nút quay lại bước trước" }
+                    .semantics {
+                        contentDescription = "Nút quay lại bước trước"
+                        stateDescription = if (pagerState.currentPage > 0) {
+                            "Có thể bấm"
+                        } else {
+                            "Không khả dụng ở bước đầu"
+                        }
+                    }
             ) {
                 Text("Quay lại")
             }

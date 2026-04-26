@@ -3,7 +3,10 @@ package com.example.eyes.ui.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,6 +50,7 @@ fun SettingsScreen(
             summary = "Giữ nhịp đọc rõ ràng khi nghe qua loa ngoài hoặc tai nghe một bên.",
             valueLabel = "${"%.2f".format(state.ttsSpeed)}x",
             contentDescription = "Thanh trượt tốc độ đọc ${"%.2f".format(state.ttsSpeed)} lần",
+            sliderStateDescription = "Giá trị hiện tại ${"%.2f".format(state.ttsSpeed)} lần",
             value = state.ttsSpeed,
             valueRange = 0.5f..2.0f,
             onValueChange = viewModel::setTtsSpeed
@@ -57,10 +61,23 @@ fun SettingsScreen(
             summary = "Tăng khi cần phản hồi sớm hơn về vật cản, giảm khi cần ít thông báo hơn.",
             valueLabel = "${(state.alertSensitivity * 100).toInt()}%",
             contentDescription = "Thanh trượt độ nhạy cảnh báo ${(state.alertSensitivity * 100).toInt()} phần trăm",
+            sliderStateDescription = "Giá trị hiện tại ${(state.alertSensitivity * 100).toInt()} phần trăm",
             value = state.alertSensitivity,
             valueRange = 0f..1f,
             onValueChange = viewModel::setAlertSensitivity
         )
+
+        Button(
+            onClick = { viewModel.previewFeedback(state) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 88.dp)
+                .semantics {
+                    contentDescription = "Nút nghe thử phản hồi bằng âm thanh và rung theo cài đặt hiện tại"
+                }
+        ) {
+            Text("Nghe thử phản hồi")
+        }
     }
 }
 
@@ -101,6 +118,7 @@ private fun SettingsScreenContentPreview() {
             summary = "Giữ nhịp đọc rõ ràng khi nghe qua loa ngoài hoặc tai nghe một bên.",
             valueLabel = "${"%.2f".format(state.ttsSpeed)}x",
             contentDescription = "Thanh trượt tốc độ đọc ${"%.2f".format(state.ttsSpeed)} lần",
+            sliderStateDescription = "Giá trị hiện tại ${"%.2f".format(state.ttsSpeed)} lần",
             value = state.ttsSpeed,
             valueRange = 0.5f..2.0f,
             onValueChange = {}
@@ -110,6 +128,7 @@ private fun SettingsScreenContentPreview() {
             summary = "Tăng khi cần phản hồi sớm hơn về vật cản, giảm khi cần ít thông báo hơn.",
             valueLabel = "${(state.alertSensitivity * 100).toInt()}%",
             contentDescription = "Thanh trượt độ nhạy cảnh báo ${(state.alertSensitivity * 100).toInt()} phần trăm",
+            sliderStateDescription = "Giá trị hiện tại ${(state.alertSensitivity * 100).toInt()} phần trăm",
             value = state.alertSensitivity,
             valueRange = 0f..1f,
             onValueChange = {}

@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "android-accessibility": {
+      "source": "new-silvermoon/awesome-android-agent-skills",
+      "sourceType": "github",
+      "computedHash": "d8d9d563f8930625eaf20ea4fdd2827b2020700f3205e9f6c15f97d38c391e25"
+    },
     "modern-jetpack-compose": {
       "source": "anhvt52/jetpack-compose-skills",
       "sourceType": "github",

@@ -21,7 +21,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -66,8 +68,9 @@ fun PermissionScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .semantics {
+                .semantics(mergeDescendants = true) {
                     contentDescription = "Tổng quan quyền truy cập. Đã cấp $grantedCount trên ${REQUIRED_PERMISSIONS.size} quyền."
+                    liveRegion = LiveRegionMode.Polite
                 },
             shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.surfaceVariant
@@ -100,7 +103,9 @@ fun PermissionScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 88.dp)
-                .semantics { contentDescription = "Nút yêu cầu cấp quyền" }
+                .semantics {
+                    contentDescription = "Nút yêu cầu cấp quyền camera, micro và vị trí"
+                }
         ) {
             Text("Yêu cầu quyền")
         }

@@ -28,6 +28,7 @@ class TtsService(context: Context) : SpeechOutput {
     private var initState: InitState = InitState.PENDING
 
     private val tts: TextToSpeech
+    private var speechRate: Float = DEFAULT_SPEECH_RATE
 
     private val audioManager = context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var audioFocusRequest: AudioFocusRequest? = null
@@ -47,7 +48,7 @@ class TtsService(context: Context) : SpeechOutput {
                 if (localeResult == TextToSpeech.LANG_MISSING_DATA || localeResult == TextToSpeech.LANG_NOT_SUPPORTED) {
                     Log.w(TAG, "vi-VN locale unavailable on this device; using engine default locale")
                 }
-                tts.setSpeechRate(1.2f)
+                tts.setSpeechRate(speechRate)
 
                 setupProgressListener()
 
@@ -88,6 +89,15 @@ class TtsService(context: Context) : SpeechOutput {
 
     override fun speak(text: String) {
         speak(text, Priority.NORMAL)
+    }
+
+    override fun setSpeechRate(rate: Float) {
+        synchronized(lock) {
+            speechRate = rate.coerceIn(MIN_SPEECH_RATE, MAX_SPEECH_RATE)
+            if (initState == InitState.READY) {
+                tts.setSpeechRate(speechRate)
+            }
+        }
     }
 
     fun speak(text: String, priority: Priority = Priority.NORMAL) {
@@ -242,6 +252,9 @@ class TtsService(context: Context) : SpeechOutput {
 
     private companion object {
         private const val TAG = "TtsService"
+        private const val DEFAULT_SPEECH_RATE = 1.2f
+        private const val MIN_SPEECH_RATE = 0.5f
+        private const val MAX_SPEECH_RATE = 2.0f
         private val VIETNAMESE_LOCALE = Locale.Builder()
             .setLanguage("vi")
             .setRegion("VN")

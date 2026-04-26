@@ -18,8 +18,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -69,8 +71,9 @@ fun CameraScreen(
                 .align(Alignment.TopCenter)
                 .padding(16.dp)
                 .fillMaxWidth()
-                .semantics {
-                    contentDescription = "Bảng trạng thái camera. ${uiState.title}. ${uiState.summary}. ${uiState.statusMessage}"
+                .semantics(mergeDescendants = true) {
+                    contentDescription = "Bảng trạng thái camera"
+                    stateDescription = "${uiState.title}. ${uiState.statusMessage}"
                     liveRegion = LiveRegionMode.Polite
                 },
             shape = MaterialTheme.shapes.large,
@@ -83,7 +86,8 @@ fun CameraScreen(
             ) {
                 Text(
                     text = uiState.title,
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.semantics { heading() }
                 )
                 Text(
                     text = uiState.summary,

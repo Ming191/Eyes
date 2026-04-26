@@ -22,5 +22,5 @@ val appModule = module {
     viewModel { AppNavViewModel(get()) }
     viewModel { HomeViewModel(get()) }
     viewModel { CameraViewModel() }
-    viewModel { SettingsViewModel(get()) }
+    viewModel { SettingsViewModel(get(), get(), get()) }
 }

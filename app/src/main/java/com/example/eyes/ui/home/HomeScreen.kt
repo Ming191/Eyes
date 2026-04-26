@@ -90,7 +90,7 @@ fun HomeContent(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .semantics {
+                    .semantics(mergeDescendants = true) {
                         contentDescription = "Mẹo sử dụng. Đeo tai nghe một bên để nghe hướng dẫn và vẫn giữ nhận biết âm thanh xung quanh."
                     },
                 shape = MaterialTheme.shapes.medium,
@@ -125,7 +125,7 @@ private fun HomeHeroCard(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .semantics {
+            .semantics(mergeDescendants = true) {
                 contentDescription = "Tóm tắt trang chủ. $title. $summary"
             },
         shape = MaterialTheme.shapes.large,
@@ -153,7 +153,8 @@ private fun HomeHeroCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.semantics { heading() }
             )
             Text(
                 text = summary,

@@ -34,7 +34,7 @@ fun MapScreen() {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .semantics {
+                .semantics(mergeDescendants = true) {
                     contentDescription = "Khu vực giữ chỗ cho bản đồ. Tính năng dẫn đường đang được hoàn thiện."
                 },
             shape = MaterialTheme.shapes.large,

@@ -3,6 +3,8 @@ package com.example.eyes.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.data.DataStoreManager
+import com.example.eyes.system.HapticService
+import com.example.eyes.system.SpeechOutput
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -15,7 +17,9 @@ data class SettingsUiState(
 )
 
 class SettingsViewModel(
-    private val dataStoreManager: DataStoreManager
+    private val dataStoreManager: DataStoreManager,
+    private val speechOutput: SpeechOutput,
+    private val hapticService: HapticService
 ) : ViewModel() {
 
     val uiState: StateFlow<SettingsUiState> = combine(
@@ -34,6 +38,7 @@ class SettingsViewModel(
 
     fun setTtsSpeed(value: Float) {
         viewModelScope.launch {
+            speechOutput.setSpeechRate(value)
             dataStoreManager.setTtsSpeed(value)
         }
     }
@@ -42,5 +47,16 @@ class SettingsViewModel(
         viewModelScope.launch {
             dataStoreManager.setAlertSensitivity(value)
         }
+    }
+
+    fun previewFeedback(state: SettingsUiState) {
+        val speedLabel = String.format("%.2f", state.ttsSpeed)
+        val sensitivityLabel = (state.alertSensitivity * 100).toInt()
+
+        speechOutput.setSpeechRate(state.ttsSpeed)
+        speechOutput.speak(
+            "Đang phát thử phản hồi. Tốc độ đọc $speedLabel lần. Độ nhạy cảnh báo $sensitivityLabel phần trăm."
+        )
+        hapticService.confirm()
     }
 }

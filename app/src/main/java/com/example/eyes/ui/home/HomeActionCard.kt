@@ -33,7 +33,10 @@ fun HomeActionCard(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 112.dp)
-            .clickable(onClick = onClick)
+            .clickable(
+                onClickLabel = "Mở ${action.title.lowercase()}",
+                onClick = onClick
+            )
             .semantics(mergeDescendants = true) {
                 contentDescription = action.accessibilityLabel
                 role = Role.Button
