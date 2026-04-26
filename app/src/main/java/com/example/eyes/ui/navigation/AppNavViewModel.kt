@@ -1,0 +1,41 @@
+package com.example.eyes.ui.navigation
+
+import androidx.compose.runtime.Immutable
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.eyes.data.DataStoreManager
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+@Immutable
+data class AppNavUiState(
+    val isLoading: Boolean = true,
+    val onboardingCompleted: Boolean = false
+)
+
+class AppNavViewModel(
+    private val dataStoreManager: DataStoreManager
+) : ViewModel() {
+
+    val uiState: StateFlow<AppNavUiState> = dataStoreManager.onboardingCompletedFlow
+        .map { completed ->
+            AppNavUiState(
+                isLoading = false,
+                onboardingCompleted = completed
+            )
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = AppNavUiState()
+        )
+
+    fun completeOnboarding() {
+        viewModelScope.launch {
+            dataStoreManager.setOnboardingCompleted(true)
+        }
+    }
+}

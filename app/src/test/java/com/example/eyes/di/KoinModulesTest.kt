@@ -4,8 +4,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
 import org.junit.After
-import org.junit.Before
 import org.junit.Assert.assertNotNull
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.android.ext.koin.androidContext
@@ -44,6 +44,7 @@ class KoinModulesTest : KoinTest {
         assertNotNull(get<TtsService>())
         assertNotNull(get<HapticService>())
         assertNotNull(get<com.example.eyes.data.DataStoreManager>())
+        assertNotNull(get<com.example.eyes.ui.navigation.AppNavViewModel>())
         assertNotNull(get<com.example.eyes.ui.home.HomeViewModel>())
     }
 

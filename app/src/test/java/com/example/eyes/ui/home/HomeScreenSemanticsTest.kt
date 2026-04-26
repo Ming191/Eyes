@@ -1,11 +1,10 @@
 package com.example.eyes.ui.home
 
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
-import androidx.navigation.compose.rememberNavController
 import com.example.eyes.system.SpeechOutput
 import org.junit.Rule
 import org.junit.Test
@@ -26,7 +25,9 @@ class HomeScreenSemanticsTest {
         // WHEN
         composeTestRule.setContent {
             HomeScreen(
-                navController = rememberNavController(),
+                onOpenCamera = {},
+                onOpenMap = {},
+                onOpenSettings = {},
                 viewModel = viewModel
             )
         }
@@ -36,7 +37,7 @@ class HomeScreenSemanticsTest {
             .assertIsDisplayed()
 
         composeTestRule.onNodeWithContentDescription(
-            "mở camera nhận dạng vật cản",
+            "Mở camera để nhận biết vật cản",
             substring = true
         )
             .assertHasClickAction()

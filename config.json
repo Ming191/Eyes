@@ -1,0 +1,40 @@
+{
+  "agent": {
+    "orchestrator": {
+      "model": "github-copilot/gpt-5.3-codex",
+      "variant": "high",
+      "options": {},
+      "permission": {}
+    },
+    "oracle": {
+      "model": "github-copilot/gpt-5.3-codex",
+      "variant": "high",
+      "options": {},
+      "permission": {}
+    },
+    "librarian": {
+      "model": "github-copilot/gpt-5.3-codex",
+      "variant": "low",
+      "options": {},
+      "permission": {}
+    },
+    "explorer": {
+      "model": "github-copilot/gpt-5.3-codex",
+      "variant": "low",
+      "options": {},
+      "permission": {}
+    },
+    "designer": {
+      "model": "github-copilot/gpt-5.3-codex",
+      "variant": "medium",
+      "options": {},
+      "permission": {}
+    },
+    "fixer": {
+      "model": "github-copilot/gpt-5.3-codex",
+      "variant": "low",
+      "options": {},
+      "permission": {}
+    }
+  }
+}

@@ -8,7 +8,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -59,18 +63,65 @@ fun PermissionScreen(
         modifier = modifier.semantics { contentDescription = "Khu vực cấp quyền" },
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(text = "Quyền đã cấp: $grantedCount/${REQUIRED_PERMISSIONS.size}")
-        Text(text = "Camera: ${if (statuses[Manifest.permission.CAMERA] == true) "Đã cấp" else "Chưa cấp"}")
-        Text(text = "Micro: ${if (statuses[Manifest.permission.RECORD_AUDIO] == true) "Đã cấp" else "Chưa cấp"}")
-        Text(text = "Vị trí: ${if (statuses[Manifest.permission.ACCESS_FINE_LOCATION] == true) "Đã cấp" else "Chưa cấp"}")
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = "Tổng quan quyền truy cập. Đã cấp $grantedCount trên ${REQUIRED_PERMISSIONS.size} quyền."
+                },
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceVariant
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Đã cấp $grantedCount/${REQUIRED_PERMISSIONS.size} quyền",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                PermissionLine(
+                    label = "Camera",
+                    granted = statuses[Manifest.permission.CAMERA] == true
+                )
+                PermissionLine(
+                    label = "Micro",
+                    granted = statuses[Manifest.permission.RECORD_AUDIO] == true
+                )
+                PermissionLine(
+                    label = "Vị trí",
+                    granted = statuses[Manifest.permission.ACCESS_FINE_LOCATION] == true
+                )
+            }
+        }
 
         Button(
             onClick = { permissionsLauncher.launch(REQUIRED_PERMISSIONS.toTypedArray()) },
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 88.dp)
                 .semantics { contentDescription = "Nút yêu cầu cấp quyền" }
         ) {
             Text("Yêu cầu quyền")
         }
     }
+}
+
+@Composable
+private fun PermissionLine(
+    label: String,
+    granted: Boolean
+) {
+    Text(
+        text = "$label: ${if (granted) "Đã cấp" else "Chưa cấp"}",
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (granted) {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        },
+        modifier = Modifier.semantics {
+            contentDescription = "$label ${if (granted) "đã cấp quyền" else "chưa cấp quyền"}"
+        }
+    )
 }

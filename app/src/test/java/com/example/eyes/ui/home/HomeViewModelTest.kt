@@ -7,15 +7,16 @@ import org.junit.Test
 class HomeViewModelTest {
 
     @Test
-    fun greet_callsSpeakOnce_withExpectedVietnameseMessage() {
+    fun onScreenShown_callsSpeakOnce_withExpectedVietnameseMessage() {
         val fakeSpeechOutput = FakeSpeechOutput()
         val viewModel = HomeViewModel(fakeSpeechOutput)
 
-        viewModel.greet()
+        viewModel.onScreenShown()
+        viewModel.onScreenShown()
 
         assertEquals(1, fakeSpeechOutput.spokenTexts.size)
         assertEquals(
-            "Chào mừng. Nhấn Xem, Đọc hoặc Đi để bắt đầu.",
+            "Chào mừng. Chọn Xem, Đọc, Đi hoặc Cài đặt để bắt đầu.",
             fakeSpeechOutput.spokenTexts.single()
         )
     }

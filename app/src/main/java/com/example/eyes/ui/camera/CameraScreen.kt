@@ -1,14 +1,29 @@
 package com.example.eyes.ui.camera
 
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.camera.FrameThrottle
 import org.koin.androidx.compose.koinViewModel
@@ -21,9 +36,13 @@ fun CameraScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraManager: CameraManager = koinInject()
     val frameThrottle = remember { FrameThrottle() }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .semantics { contentDescription = "Màn hình camera hỗ trợ quan sát" },
         contentAlignment = Alignment.Center
     ) {
         AndroidView(
@@ -44,5 +63,39 @@ fun CameraScreen(
             },
             modifier = Modifier.fillMaxSize()
         )
+
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(16.dp)
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = "Bảng trạng thái camera. ${uiState.title}. ${uiState.summary}. ${uiState.statusMessage}"
+                    liveRegion = LiveRegionMode.Polite
+                },
+            shape = MaterialTheme.shapes.large,
+            tonalElevation = 4.dp,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = uiState.title,
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Text(
+                    text = uiState.summary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = uiState.statusMessage,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
     }
 }
