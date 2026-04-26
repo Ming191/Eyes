@@ -6,6 +6,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,8 +21,6 @@ import com.example.eyes.ui.home.HomeScreen
 import com.example.eyes.ui.map.MapScreen
 import com.example.eyes.ui.onboarding.OnboardingScreen
 import com.example.eyes.ui.settings.SettingsScreen
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -30,10 +29,15 @@ fun AppNavGraph() {
     val navController = rememberNavController()
     val dataStoreManager: DataStoreManager = koinInject()
     val coroutineScope = rememberCoroutineScope()
-    val onboardingCompleted by dataStoreManager.onboardingCompletedFlow
-        .map<Boolean, Boolean?> { it }
-        .onStart { emit(null) }
-        .collectAsState(initial = null)
+
+    // Dùng collectAsState(initial = null) trực tiếp trên flow val stable.
+    // KHÔNG dùng .map { }.onStart { emit(null) } — chuỗi đó tạo Flow object MỚI
+    // mỗi lần AppNavGraph recompose, khiến collectAsState() hủy subscription cũ
+    // và subscribe lại → onStart emit null → spinner hiện → NavHost unmount/mount
+    // liên tục → flicker vô hạn.
+    val onboardingCompleted: Boolean? by remember(dataStoreManager) {
+        dataStoreManager.onboardingCompletedFlow
+    }.collectAsState(initial = null)
 
     if (onboardingCompleted == null) {
         Box(
