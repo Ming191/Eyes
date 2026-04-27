@@ -17,10 +17,44 @@ class CameraManager(
 ) {
     private val analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var analysisUseCase: ImageAnalysis? = null
+    private var previewUseCase: Preview? = null
 
     fun bindToLifecycle(
         lifecycleOwner: LifecycleOwner,
         previewView: PreviewView,
+        onFrame: (ImageProxy) -> Unit
+    ) {
+        bindInternal(
+            lifecycleOwner = lifecycleOwner,
+            previewView = previewView,
+            onFrame = onFrame
+        )
+    }
+
+    fun bindAnalysisToLifecycle(
+        lifecycleOwner: LifecycleOwner,
+        onFrame: (ImageProxy) -> Unit
+    ) {
+        bindInternal(
+            lifecycleOwner = lifecycleOwner,
+            previewView = null,
+            onFrame = onFrame
+        )
+    }
+
+    fun unbindAll() {
+        val providerFuture = ProcessCameraProvider.getInstance(context)
+        providerFuture.addListener(
+            {
+                providerFuture.get().unbindAll()
+            },
+            ContextCompat.getMainExecutor(context)
+        )
+    }
+
+    private fun bindInternal(
+        lifecycleOwner: LifecycleOwner,
+        previewView: PreviewView?,
         onFrame: (ImageProxy) -> Unit
     ) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
@@ -28,8 +62,10 @@ class CameraManager(
             {
                 val cameraProvider = cameraProviderFuture.get()
 
-                val preview = Preview.Builder().build().also {
-                    it.surfaceProvider = previewView.surfaceProvider
+                previewUseCase = previewView?.let { view ->
+                    Preview.Builder().build().also { preview ->
+                        preview.surfaceProvider = view.surfaceProvider
+                    }
                 }
 
                 analysisUseCase = ImageAnalysis.Builder()
@@ -43,12 +79,22 @@ class CameraManager(
                     }
 
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA,
-                    preview,
-                    analysisUseCase
-                )
+                val analysis = analysisUseCase ?: return@addListener
+                val preview = previewUseCase
+                if (preview != null) {
+                    cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        CameraSelector.DEFAULT_BACK_CAMERA,
+                        preview,
+                        analysis
+                    )
+                } else {
+                    cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        CameraSelector.DEFAULT_BACK_CAMERA,
+                        analysis
+                    )
+                }
             },
             ContextCompat.getMainExecutor(context)
         )
