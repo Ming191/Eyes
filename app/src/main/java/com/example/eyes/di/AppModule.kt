@@ -2,12 +2,14 @@ package com.example.eyes.di
 
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.data.DataStoreManager
+import com.example.eyes.ocr.MlKitOcrEngine
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.SpeechOutput
 import com.example.eyes.system.TtsService
 import com.example.eyes.ui.camera.CameraViewModel
 import com.example.eyes.ui.home.HomeViewModel
 import com.example.eyes.ui.navigation.AppNavViewModel
+import com.example.eyes.ui.ocr.OcrViewModel
 import com.example.eyes.ui.settings.SettingsViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
@@ -19,8 +21,10 @@ val appModule = module {
     single { HapticService(androidContext()) }
     single { DataStoreManager(androidContext()) }
     single { CameraManager(androidContext()) }
+    single { MlKitOcrEngine() }
     viewModel { AppNavViewModel(get()) }
     viewModel { HomeViewModel(get()) }
     viewModel { CameraViewModel() }
+    viewModel { OcrViewModel(get(), get(), get()) }
     viewModel { SettingsViewModel(get(), get(), get()) }
 }

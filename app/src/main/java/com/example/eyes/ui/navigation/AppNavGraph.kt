@@ -32,6 +32,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.eyes.ui.camera.CameraScreen
 import com.example.eyes.ui.home.HomeScreen
 import com.example.eyes.ui.map.MapScreen
+import com.example.eyes.ui.ocr.OcrScreen
 import com.example.eyes.ui.onboarding.OnboardingScreen
 import com.example.eyes.ui.settings.SettingsScreen
 import org.koin.androidx.compose.koinViewModel
@@ -143,6 +144,11 @@ private fun MainNavigationScaffold() {
                         onOpenCamera = {
                             navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
                         },
+                        onOpenOcr = {
+                            navController.navigate(OcrRoute) {
+                                launchSingleTop = true
+                            }
+                        },
                         onOpenMap = {
                             navController.navigateToTopLevelDestination(TopLevelDestination.MAP)
                         },
@@ -153,6 +159,9 @@ private fun MainNavigationScaffold() {
                 }
                 composable<CameraRoute> {
                     CameraScreen()
+                }
+                composable<OcrRoute> {
+                    OcrScreen()
                 }
                 composable<MapRoute> {
                     MapScreen()

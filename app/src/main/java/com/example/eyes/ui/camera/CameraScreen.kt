@@ -13,7 +13,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -27,7 +26,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.camera.CameraManager
-import com.example.eyes.camera.FrameThrottle
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
@@ -37,7 +35,6 @@ fun CameraScreen(
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraManager: CameraManager = koinInject()
-    val frameThrottle = remember { FrameThrottle() }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Box(
@@ -53,14 +50,7 @@ fun CameraScreen(
                     cameraManager.bindToLifecycle(
                         lifecycleOwner = lifecycleOwner,
                         previewView = previewView
-                    ) { imageProxy ->
-                        val shouldProcess = frameThrottle.shouldProcess(System.currentTimeMillis())
-                        if (shouldProcess) {
-                            viewModel.processFrame(imageProxy)
-                        } else {
-                            imageProxy.close()
-                        }
-                    }
+                    )
                 }
             },
             modifier = Modifier.fillMaxSize()
