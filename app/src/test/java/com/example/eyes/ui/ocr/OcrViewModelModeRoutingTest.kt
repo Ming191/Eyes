@@ -8,6 +8,7 @@ import com.example.eyes.data.DataStoreManager
 import com.example.eyes.ocr.OcrEngine
 import com.example.eyes.ocr.OcrMode
 import com.example.eyes.ocr.OcrResult
+import com.example.eyes.ocr.OcrTranslator
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
 import kotlinx.coroutines.runBlocking
@@ -44,6 +45,7 @@ class OcrViewModelModeRoutingTest {
         val viewModel = OcrViewModel(
             quickOcrEngine = quickEngine,
             accuracyOcrEngine = accuracyEngine,
+            translator = FakeTranslator(),
             dataStoreManager = DataStoreManager(context),
             tts = TtsService(context),
             haptic = HapticService(context)
@@ -68,6 +70,7 @@ class OcrViewModelModeRoutingTest {
         val viewModel = OcrViewModel(
             quickOcrEngine = quickEngine,
             accuracyOcrEngine = accuracyEngine,
+            translator = FakeTranslator(),
             dataStoreManager = DataStoreManager(context),
             tts = TtsService(context),
             haptic = HapticService(context)
@@ -92,6 +95,7 @@ class OcrViewModelModeRoutingTest {
         val viewModel = OcrViewModel(
             quickOcrEngine = quickEngine,
             accuracyOcrEngine = accuracyEngine,
+            translator = FakeTranslator(),
             dataStoreManager = DataStoreManager(context),
             tts = TtsService(context),
             haptic = HapticService(context)
@@ -125,5 +129,9 @@ class OcrViewModelModeRoutingTest {
         }
 
         override fun close() = Unit
+    }
+
+    private class FakeTranslator : OcrTranslator {
+        override suspend fun translateToVietnamese(text: String): String = text
     }
 }

@@ -6,15 +6,18 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,6 +38,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.camera.CameraManager
+import com.example.eyes.ocr.OcrLanguage
 import com.example.eyes.ocr.OcrMode
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -47,6 +51,8 @@ fun OcrScreen(
     val cameraManager: CameraManager = koinInject()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val ocrMode by viewModel.ocrMode.collectAsStateWithLifecycle()
+    val ocrLanguage by viewModel.ocrLanguage.collectAsStateWithLifecycle()
+    val translateToVietnamese by viewModel.ocrTranslateToVietnamese.collectAsStateWithLifecycle()
     val currentUiState by rememberUpdatedState(uiState)
     var previewViewReady by remember { mutableStateOf(false) }
 
@@ -101,13 +107,24 @@ fun OcrScreen(
             is OcrUiState.Idle -> IdleOverlay(previewReady = previewViewReady)
         }
 
-        OcrModeSelector(
-            mode = ocrMode,
-            onModeSelected = viewModel::setOcrMode,
+        Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 16.dp, start = 16.dp, end = 16.dp)
-        )
+                .semantics { contentDescription = "Tùy chọn OCR" },
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OcrModeSelector(
+                mode = ocrMode,
+                onModeSelected = viewModel::setOcrMode
+            )
+            OcrLanguageSelector(
+                language = ocrLanguage,
+                translateToVietnamese = translateToVietnamese,
+                onLanguageSelected = viewModel::setOcrLanguage,
+                onTranslateToggle = viewModel::setTranslateToVietnamese
+            )
+        }
     }
 }
 
@@ -154,7 +171,7 @@ private fun OcrModeSelector(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            androidx.compose.foundation.layout.Row(
+            Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -165,17 +182,124 @@ private fun OcrModeSelector(
                     selected = mode == OcrMode.QUICK,
                     onClick = { onModeSelected(OcrMode.QUICK) },
                     label = { Text("Quick mode") },
-                    modifier = Modifier.semantics {
-                        contentDescription = "Chọn Quick mode để dùng ML Kit"
-                    }
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .semantics {
+                            contentDescription = "Chọn Quick mode để dùng ML Kit"
+                        }
                 )
                 FilterChip(
                     selected = mode == OcrMode.ACCURACY,
                     onClick = { onModeSelected(OcrMode.ACCURACY) },
                     label = { Text("Accuracy mode") },
-                    modifier = Modifier.semantics {
-                        contentDescription = "Chọn Accuracy mode để dùng GPT-4o"
-                    }
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .semantics {
+                            contentDescription = "Chọn Accuracy mode để dùng GPT-4o"
+                        }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OcrLanguageSelector(
+    language: OcrLanguage,
+    translateToVietnamese: Boolean,
+    onLanguageSelected: (OcrLanguage) -> Unit,
+    onTranslateToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = "Tùy chọn ngôn ngữ OCR" },
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 3.dp,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Ngôn ngữ OCR",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = when (language) {
+                    OcrLanguage.AUTO -> "Tự động nhận biết"
+                    OcrLanguage.VI -> "Ưu tiên tiếng Việt"
+                    OcrLanguage.EN -> "Ưu tiên tiếng Anh"
+                },
+                style = MaterialTheme.typography.titleMedium
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Bộ chọn ngôn ngữ OCR" }
+            ) {
+                FilterChip(
+                    selected = language == OcrLanguage.AUTO,
+                    onClick = { onLanguageSelected(OcrLanguage.AUTO) },
+                    label = { Text("Tự động") },
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .semantics { contentDescription = "Chọn ngôn ngữ tự động" }
+                )
+                FilterChip(
+                    selected = language == OcrLanguage.VI,
+                    onClick = { onLanguageSelected(OcrLanguage.VI) },
+                    label = { Text("Tiếng Việt") },
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .semantics { contentDescription = "Chọn tiếng Việt" }
+                )
+                FilterChip(
+                    selected = language == OcrLanguage.EN,
+                    onClick = { onLanguageSelected(OcrLanguage.EN) },
+                    label = { Text("Tiếng Anh") },
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .semantics { contentDescription = "Chọn tiếng Anh" }
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = if (translateToVietnamese) {
+                            "Đang bật dịch sang tiếng Việt"
+                        } else {
+                            "Đang tắt dịch sang tiếng Việt"
+                        }
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = "Dịch sang tiếng Việt",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = "Khi OCR tiếng Anh, đọc bằng tiếng Việt",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = translateToVietnamese,
+                    onCheckedChange = onTranslateToggle,
+                    modifier = Modifier.semantics { contentDescription = "Bật hoặc tắt dịch sang tiếng Việt" }
                 )
             }
         }

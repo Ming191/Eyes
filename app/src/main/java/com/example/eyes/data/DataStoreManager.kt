@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.eyes.ocr.OcrLanguage
 import com.example.eyes.ocr.OcrMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -20,6 +21,8 @@ class DataStoreManager(private val context: Context) {
         val AlertSensitivity = floatPreferencesKey("alert_sensitivity")
         val OnboardingCompleted = booleanPreferencesKey("onboarding_completed")
         val OcrMode = stringPreferencesKey("ocr_mode")
+        val OcrLanguage = stringPreferencesKey("ocr_language")
+        val OcrTranslateToVietnamese = booleanPreferencesKey("ocr_translate_to_vi")
     }
 
     val ttsSpeedFlow: Flow<Float> = context.dataStore.data.map { preferences: Preferences ->
@@ -40,6 +43,16 @@ class DataStoreManager(private val context: Context) {
         val raw = preferences[PreferenceKeys.OcrMode]
         runCatching { if (raw == null) OcrMode.QUICK else OcrMode.valueOf(raw) }
             .getOrDefault(OcrMode.QUICK)
+    }
+
+    val ocrLanguageFlow: Flow<OcrLanguage> = context.dataStore.data.map { preferences: Preferences ->
+        val raw = preferences[PreferenceKeys.OcrLanguage]
+        runCatching { if (raw == null) OcrLanguage.AUTO else OcrLanguage.valueOf(raw) }
+            .getOrDefault(OcrLanguage.AUTO)
+    }
+
+    val ocrTranslateToVietnameseFlow: Flow<Boolean> = context.dataStore.data.map { preferences: Preferences ->
+        preferences[PreferenceKeys.OcrTranslateToVietnamese] ?: false
     }
 
     suspend fun setTtsSpeed(value: Float) {
@@ -63,6 +76,18 @@ class DataStoreManager(private val context: Context) {
     suspend fun setOcrMode(mode: OcrMode) {
         context.dataStore.edit { preferences ->
             preferences[PreferenceKeys.OcrMode] = mode.name
+        }
+    }
+
+    suspend fun setOcrLanguage(language: OcrLanguage) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferenceKeys.OcrLanguage] = language.name
+        }
+    }
+
+    suspend fun setOcrTranslateToVietnamese(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferenceKeys.OcrTranslateToVietnamese] = enabled
         }
     }
 }

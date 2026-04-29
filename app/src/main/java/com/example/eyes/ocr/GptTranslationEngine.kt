@@ -1,34 +1,20 @@
 package com.example.eyes.ocr
 
-import android.graphics.Bitmap
-import android.util.Base64
-import androidx.camera.core.ImageProxy
 import com.example.eyes.BuildConfig
-import com.example.eyes.camera.toBitmapWithRotation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
-import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
 import java.net.URL
 import java.nio.charset.StandardCharsets
 
-class Gpt4oOcrEngine : OcrEngine {
+class GptTranslationEngine : OcrTranslator {
     private val json = Json { ignoreUnknownKeys = true }
 
-    override suspend fun recognize(imageProxy: ImageProxy): OcrResult {
-        return try {
-            val bitmap = imageProxy.toBitmapWithRotation()
-            recognize(bitmap)
-        } finally {
-            imageProxy.close()
-        }
-    }
-
-    override suspend fun recognize(bitmap: Bitmap): OcrResult {
+    override suspend fun translateToVietnamese(text: String): String {
         return withContext(Dispatchers.IO) {
             val apiKey = BuildConfig.OPENAI_API_KEY
             if (apiKey.isBlank()) {
@@ -37,23 +23,20 @@ class Gpt4oOcrEngine : OcrEngine {
 
             val endpoint = BuildConfig.OPENAI_BASE_URL.ifBlank { DEFAULT_ENDPOINT }
             val model = BuildConfig.OPENAI_OCR_MODEL.ifBlank { DEFAULT_MODEL }
-            val imageDataUrl = bitmap.toDataUrl()
-            val requestBody = buildRequestBody(model = model, imageDataUrl = imageDataUrl)
+            val requestBody = buildRequestBody(model = model, sourceText = text)
 
             val rawResponse = retryTransient(maxAttempts = 2) {
                 postJson(endpoint = endpoint, apiKey = apiKey, requestBody = requestBody)
             }
-            val extractedText = OpenAiResponseTextExtractor.extract(rawResponse, json)
+            val translatedText = OpenAiResponseTextExtractor.extract(rawResponse, json)
 
-            if (extractedText.isBlank()) {
-                throw IOException("GPT-4o không trả về văn bản hợp lệ")
+            if (translatedText.isBlank()) {
+                throw IOException("GPT-4o không trả về bản dịch hợp lệ")
             }
 
-            OcrPostProcessor.process(extractedText)
+            translatedText
         }
     }
-
-    override fun close() = Unit
 
     private fun postJson(endpoint: String, apiKey: String, requestBody: String): String {
         val url = URL(endpoint)
@@ -103,45 +86,37 @@ class Gpt4oOcrEngine : OcrEngine {
                 kotlinx.coroutines.delay(RETRY_DELAY_MS)
             }
         }
-        throw lastError ?: IOException("Không thể thực hiện yêu cầu OCR")
+        throw lastError ?: IOException("Không thể thực hiện yêu cầu dịch")
     }
 
     private fun Throwable.isTransientNetworkError(): Boolean {
         return this is SocketTimeoutException || this is IOException && message?.contains("timeout", ignoreCase = true) == true
     }
 
-    private fun buildRequestBody(model: String, imageDataUrl: String): String {
-        val systemPrompt = "Bạn là OCR đa ngôn ngữ (Việt/Anh). Trích xuất văn bản nguyên bản, giữ nguyên dấu, ký tự, xuống dòng. Không diễn giải thêm."
-        val userPrompt = "Hãy trả về toàn bộ văn bản nhìn thấy trong ảnh. Chỉ trả về văn bản gốc."
+    private fun buildRequestBody(model: String, sourceText: String): String {
+        val systemPrompt = "Ban la cong cu dich. Neu van ban la tieng Anh, hay dich sang tieng Viet tu nhien va ro nghia. Neu khong phai tieng Anh, giu nguyen."
+        val userPrompt = "Dich sang tieng Viet va chi tra ve ban dich:\n\n$sourceText"
 
-        return """
-            {
-              "model": "$model",
-              "temperature": 0,
-              "input": [
-                {
-                  "role": "system",
-                  "content": [
+                return """
+                        {
+                            "model": "$model",
+                            "temperature": 0,
+                            "input": [
+                                {
+                                    "role": "system",
+                                    "content": [
                                         { "type": "input_text", "text": ${json.encodeToString(String.serializer(), systemPrompt)} }
-                  ]
-                },
-                {
-                  "role": "user",
-                  "content": [
-                                        { "type": "input_text", "text": ${json.encodeToString(String.serializer(), userPrompt)} },
-                    { "type": "input_image", "image_url": "$imageDataUrl" }
-                  ]
-                }
-              ]
-            }
-        """.trimIndent()
-    }
-
-    private fun Bitmap.toDataUrl(): String {
-        val output = ByteArrayOutputStream()
-        compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)
-        val base64 = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
-        return "data:image/jpeg;base64,$base64"
+                                    ]
+                                },
+                                {
+                                    "role": "user",
+                                    "content": [
+                                        { "type": "input_text", "text": ${json.encodeToString(String.serializer(), userPrompt)} }
+                                    ]
+                                }
+                            ]
+                        }
+                """.trimIndent()
     }
 
     private companion object {
@@ -150,6 +125,5 @@ class Gpt4oOcrEngine : OcrEngine {
         private const val CONNECT_TIMEOUT_MS = 20_000
         private const val READ_TIMEOUT_MS = 60_000
         private const val RETRY_DELAY_MS = 400L
-        private const val JPEG_QUALITY = 95
     }
 }

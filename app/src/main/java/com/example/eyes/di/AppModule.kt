@@ -3,8 +3,10 @@ package com.example.eyes.di
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.ocr.Gpt4oOcrEngine
+import com.example.eyes.ocr.GptTranslationEngine
 import com.example.eyes.ocr.MlKitOcrEngine
 import com.example.eyes.ocr.OcrEngine
+import com.example.eyes.ocr.OcrTranslator
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.SpeechOutput
 import com.example.eyes.system.TtsService
@@ -26,6 +28,7 @@ val appModule = module {
     single { CameraManager(androidContext()) }
     factory<OcrEngine>(named("quick-ocr")) { MlKitOcrEngine() }
     factory<OcrEngine>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
+    factory<OcrTranslator> { GptTranslationEngine() }
     viewModel { AppNavViewModel(get()) }
     viewModel { HomeViewModel(get()) }
     viewModel { CameraViewModel() }
@@ -33,6 +36,7 @@ val appModule = module {
         OcrViewModel(
             quickOcrEngine = get(named("quick-ocr")),
             accuracyOcrEngine = get(named("accuracy-ocr")),
+            translator = get(),
             dataStoreManager = get(),
             tts = get(),
             haptic = get()

@@ -7,9 +7,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.eyes.camera.toBitmapWithRotation
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.ocr.OcrEngine
+import com.example.eyes.ocr.OcrLanguage
 import com.example.eyes.ocr.OcrMode
 import com.example.eyes.ocr.OcrPostProcessor
 import com.example.eyes.ocr.OcrResult
+import com.example.eyes.ocr.OcrTranslator
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +41,7 @@ sealed class OcrUiState {
 class OcrViewModel(
     private val quickOcrEngine: OcrEngine,
     private val accuracyOcrEngine: OcrEngine,
+    private val translator: OcrTranslator,
     private val dataStoreManager: DataStoreManager,
     private val tts: TtsService,
     private val haptic: HapticService
@@ -46,6 +49,10 @@ class OcrViewModel(
 
     private companion object {
         private const val TAG = "OcrViewModel"
+        private val VI_DIACRITIC_REGEX = Regex(
+            "[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
+            RegexOption.IGNORE_CASE
+        )
     }
 
     internal data class CaptureRecognitionOutcome(
@@ -64,6 +71,20 @@ class OcrViewModel(
             initialValue = OcrMode.QUICK
         )
 
+    val ocrLanguage: StateFlow<OcrLanguage> = dataStoreManager.ocrLanguageFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = OcrLanguage.AUTO
+        )
+
+    val ocrTranslateToVietnamese: StateFlow<Boolean> = dataStoreManager.ocrTranslateToVietnameseFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false
+        )
+
     fun setOcrMode(mode: OcrMode) {
         viewModelScope.launch {
             dataStoreManager.setOcrMode(mode)
@@ -77,6 +98,30 @@ class OcrViewModel(
                 },
                 TtsService.Priority.NORMAL
             )
+        }
+    }
+
+    fun setOcrLanguage(language: OcrLanguage) {
+        viewModelScope.launch {
+            dataStoreManager.setOcrLanguage(language)
+            val announcement = when (language) {
+                OcrLanguage.AUTO -> "Đã chọn ngôn ngữ OCR: tự động."
+                OcrLanguage.VI -> "Đã chọn ngôn ngữ OCR: tiếng Việt."
+                OcrLanguage.EN -> "Đã chọn ngôn ngữ OCR: tiếng Anh."
+            }
+            tts.speak(announcement, TtsService.Priority.NORMAL)
+        }
+    }
+
+    fun setTranslateToVietnamese(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStoreManager.setOcrTranslateToVietnamese(enabled)
+            val announcement = if (enabled) {
+                "Đã bật dịch sang tiếng Việt."
+            } else {
+                "Đã tắt dịch sang tiếng Việt."
+            }
+            tts.speak(announcement, TtsService.Priority.NORMAL)
         }
     }
 
@@ -114,8 +159,9 @@ class OcrViewModel(
 
             outcome.result
                 .onSuccess { data ->
+                    val displayResult = prepareResultForReading(data)
                     withContext(Dispatchers.Main) {
-                        enterDocumentMode(data)
+                        enterDocumentMode(displayResult)
                     }
                 }
                 .onFailure { error ->
@@ -244,6 +290,38 @@ class OcrViewModel(
         tts.speak("$position. ${state.currentSentence}", TtsService.Priority.HIGH)
     }
 
+    private suspend fun prepareResultForReading(result: OcrResult): OcrResult {
+        val languagePref = ocrLanguage.value
+        val translateEnabled = ocrTranslateToVietnamese.value
+        val resolvedLanguage = resolveLanguage(result.fullText, languagePref)
+        val processed = OcrPostProcessor.process(result.fullText, resolvedLanguage)
+
+        if (!translateEnabled || resolvedLanguage != OcrLanguage.EN || processed.fullText.isBlank()) {
+            return processed
+        }
+
+        return try {
+            val translatedText = translator.translateToVietnamese(processed.fullText)
+            OcrPostProcessor.process(translatedText, OcrLanguage.VI)
+        } catch (error: Throwable) {
+            Log.w(TAG, "Translation failed; falling back to original text", error)
+            withContext(Dispatchers.Main) {
+                tts.speak(
+                    "Không thể dịch sang tiếng Việt. Đang đọc bản gốc.",
+                    TtsService.Priority.NORMAL
+                )
+            }
+            processed
+        }
+    }
+
+    private fun resolveLanguage(text: String, preference: OcrLanguage): OcrLanguage {
+        return when (preference) {
+            OcrLanguage.AUTO -> if (VI_DIACRITIC_REGEX.containsMatchIn(text)) OcrLanguage.VI else OcrLanguage.EN
+            else -> preference
+        }
+    }
+
     private fun buildAccuracyFallbackErrorMessage(error: Throwable): String {
         return when (error) {
             is java.net.SocketTimeoutException -> "Chế độ chính xác bị timeout khi gọi GPT-4o. Đã chuyển sang chế độ nhanh."
@@ -260,6 +338,7 @@ class OcrViewModel(
             else -> "Chế độ chính xác gặp lỗi: ${error.message ?: "không rõ nguyên nhân"}. Đã chuyển sang chế độ nhanh."
         }
     }
+
 
     override fun onCleared() {
         super.onCleared()
