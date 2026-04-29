@@ -1,6 +1,7 @@
 package com.example.eyes.camera
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.Matrix
 import android.graphics.Rect
@@ -9,7 +10,12 @@ import androidx.camera.core.ImageProxy
 import java.io.ByteArrayOutputStream
 
 fun ImageProxy.toBitmapWithRotation(): Bitmap {
-    val bitmap = toBitmapYuv420888()
+    val bitmap = when (format) {
+        ImageFormat.JPEG -> toBitmapFromJpeg()
+        ImageFormat.YUV_420_888 -> toBitmapFromYuv()
+        else -> throw IllegalStateException("Unsupported image format: $format")
+    }
+
     val rotation = imageInfo.rotationDegrees
     if (rotation == 0) return bitmap
 
@@ -17,22 +23,31 @@ fun ImageProxy.toBitmapWithRotation(): Bitmap {
     return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
 }
 
-private fun ImageProxy.toBitmapYuv420888(): Bitmap {
-    val nv21 = yuv420888ToNv21(this)
-    val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
-    val out = ByteArrayOutputStream()
-    yuvImage.compressToJpeg(Rect(0, 0, width, height), 100, out)
-    val jpegBytes = out.toByteArray()
-    return android.graphics.BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
+private fun ImageProxy.toBitmapFromJpeg(): Bitmap {
+    val plane = planes.firstOrNull()
+        ?: throw IllegalStateException("JPEG image has no planes")
+    val buffer = plane.buffer
+    buffer.rewind()
+    val bytes = ByteArray(buffer.remaining())
+    buffer.get(bytes)
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        ?: throw IllegalStateException("Failed to decode JPEG image")
 }
 
-private fun yuv420888ToNv21(image: ImageProxy): ByteArray {
-    val width = image.width
-    val height = image.height
+private fun ImageProxy.toBitmapFromYuv(): Bitmap {
+    val nv21 = yuv420888ToNv21()
+    val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
+    val outputStream = ByteArrayOutputStream()
+    yuvImage.compressToJpeg(Rect(0, 0, width, height), 95, outputStream)
+    val jpegBytes = outputStream.toByteArray()
+    return BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
+        ?: throw IllegalStateException("Failed to decode YUV image")
+}
 
-    val yPlane = image.planes[0]
-    val uPlane = image.planes[1]
-    val vPlane = image.planes[2]
+private fun ImageProxy.yuv420888ToNv21(): ByteArray {
+    val yPlane = planes[0]
+    val uPlane = planes[1]
+    val vPlane = planes[2]
 
     val ySize = width * height
     val uvSize = width * height / 4
@@ -62,7 +77,7 @@ private fun imagePlaneToByteArray(
     var outputPos = outOffset
 
     for (row in 0 until height) {
-        val bytesToRead = if (buffer.remaining() >= rowStride) rowStride else buffer.remaining()
+        val bytesToRead = minOf(rowStride, buffer.remaining())
         buffer.get(rowData, 0, bytesToRead)
         var inputPos = 0
         for (col in 0 until width) {

@@ -1,37 +1,30 @@
 package com.example.eyes.ui.ocr
 
+import android.util.Log
 import androidx.camera.core.ImageProxy
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.eyes.camera.FrameThrottle
-import com.example.eyes.ocr.MlKitOcrEngine
+import com.example.eyes.camera.toBitmapWithRotation
+import com.example.eyes.data.DataStoreManager
+import com.example.eyes.ocr.OcrEngine
+import com.example.eyes.ocr.OcrMode
 import com.example.eyes.ocr.OcrPostProcessor
 import com.example.eyes.ocr.OcrResult
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-// ── UI State ──────────────────────────────────────────────────────────────────
+import java.io.IOException
 
 sealed class OcrUiState {
-    /** Màn hình vừa mở, chưa có frame nào xử lý. */
-    object Idle : OcrUiState()
-
-    /** Đang xử lý frame / chụp ảnh. */
-    object Scanning : OcrUiState()
-
-    /** Chế độ Realtime: hiển thị text mới nhất nhận dạng được. */
-    data class RealtimeResult(val text: String) : OcrUiState()
-
-    /**
-     * Chế độ Document: user đã chụp ảnh, điều hướng từng câu bằng swipe.
-     * [currentIndex] luôn trong đoạn [0, sentences.lastIndex].
-     */
+    data object Idle : OcrUiState()
+    data object Scanning : OcrUiState()
     data class DocumentMode(
         val sentences: List<String>,
         val currentIndex: Int = 0
@@ -40,127 +33,144 @@ sealed class OcrUiState {
         val hasNext: Boolean get() = currentIndex < sentences.lastIndex
         val hasPrev: Boolean get() = currentIndex > 0
     }
-
-    /** Lỗi không thể recover tự động. */
     data class Error(val message: String) : OcrUiState()
 }
 
-// ── ViewModel ─────────────────────────────────────────────────────────────────
-
 class OcrViewModel(
-    private val ocrEngine: MlKitOcrEngine,
+    private val quickOcrEngine: OcrEngine,
+    private val accuracyOcrEngine: OcrEngine,
+    private val dataStoreManager: DataStoreManager,
     private val tts: TtsService,
     private val haptic: HapticService
 ) : ViewModel() {
 
+    private companion object {
+        private const val TAG = "OcrViewModel"
+    }
+
+    internal data class CaptureRecognitionOutcome(
+        val result: Result<OcrResult>,
+        val usedFallbackFromAccuracy: Boolean,
+        val primaryError: Throwable? = null
+    )
+
     private val _uiState = MutableStateFlow<OcrUiState>(OcrUiState.Idle)
     val uiState: StateFlow<OcrUiState> = _uiState.asStateFlow()
 
-    private val _lastRealtimeResult = MutableStateFlow(OcrResult.EMPTY)
-    val lastRealtimeResult: StateFlow<OcrResult> = _lastRealtimeResult.asStateFlow()
+    val ocrMode: StateFlow<OcrMode> = dataStoreManager.ocrModeFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = OcrMode.QUICK
+        )
 
-    // Throttle riêng cho OCR: tối đa 1 frame mỗi 2 giây
-    // (khác với FrameThrottle 200ms của CameraScreen dùng cho obstacle detection)
-    private val ocrThrottle = FrameThrottle(intervalMs = 2_000L)
-
-    // Text đã đọc gần nhất — dùng để so sánh similarity, tránh đọc lại
-    private var lastSpokenText = ""
-
-    // ── Realtime mode ──────────────────────────────────────────────────────────
-
-    /**
-     * Được gọi từ CameraX ImageAnalysis callback (có thể từ background thread).
-     * Tự động throttle 1fps và bỏ qua khi đang ở DocumentMode.
-     *
-     * AI inference chạy trên [Dispatchers.Default] — không bao giờ block Main thread.
-     */
-    fun processFrame(imageProxy: ImageProxy) {
-        // Throttle: 1 frame mỗi 2 giây
-        if (!ocrThrottle.shouldProcess(System.currentTimeMillis())) {
-            imageProxy.close()
-            return
-        }
-
-        // Không process khi đang ở Document mode — user đang đọc
-        if (_uiState.value is OcrUiState.DocumentMode) {
-            imageProxy.close()
-            return
-        }
-
-        viewModelScope.launch(Dispatchers.Default) {
-            runCatching { ocrEngine.recognize(imageProxy) }
-                .onSuccess { result ->
-                    handleRealtimeResult(result)
-                }
-                .onFailure {
-                    withContext(Dispatchers.Main) {
-                        haptic.error()
-                        // Không update state về Error — realtime failure là expected (blur, tối, v.v.)
-                    }
-                }
+    fun setOcrMode(mode: OcrMode) {
+        viewModelScope.launch {
+            dataStoreManager.setOcrMode(mode)
+            if (_uiState.value !is OcrUiState.DocumentMode) {
+                _uiState.value = OcrUiState.Idle
+            }
+            tts.speak(
+                when (mode) {
+                    OcrMode.QUICK -> "Đã chuyển sang chế độ nhanh."
+                    OcrMode.ACCURACY -> "Đã chuyển sang chế độ chính xác. Ảnh sẽ được gửi lên cloud để nhận dạng tốt hơn."
+                },
+                TtsService.Priority.NORMAL
+            )
         }
     }
 
     fun processCapturedImage(imageProxy: ImageProxy) {
         _uiState.value = OcrUiState.Scanning
         viewModelScope.launch(Dispatchers.Default) {
-            try {
-                runCatching { ocrEngine.recognize(imageProxy) }
-                    .onSuccess { result ->
-                        withContext(Dispatchers.Main) {
-                            enterDocumentMode(result)
-                        }
-                    }
-                    .onFailure {
-                        withContext(Dispatchers.Main) {
-                            _uiState.value = OcrUiState.Error("Không thể đọc ảnh đã chụp")
-                            haptic.error()
-                        }
-                    }
+            val bitmap = try {
+                imageProxy.toBitmapWithRotation()
+            } catch (_: Throwable) {
+                withContext(Dispatchers.Main) {
+                    _uiState.value = OcrUiState.Error("Không thể xử lý ảnh đã chụp")
+                    haptic.error()
+                }
+                return@launch
             } finally {
                 imageProxy.close()
             }
+
+            val mode = ocrMode.value
+            val outcome = recognizeCapturedBitmap(bitmap = bitmap, mode = mode)
+
+            if (outcome.usedFallbackFromAccuracy) {
+                withContext(Dispatchers.Main) {
+                    val detailMessage = outcome.primaryError?.let { buildAccuracyFallbackErrorMessage(it) }
+                        ?: "Chế độ chính xác gặp lỗi. Đã chuyển sang chế độ nhanh."
+                    Log.w(
+                        TAG,
+                        "Accuracy OCR failed; fallback to quick. " +
+                            "${outcome.primaryError?.javaClass?.simpleName}: ${outcome.primaryError?.message}",
+                        outcome.primaryError
+                    )
+                    tts.speak(detailMessage, TtsService.Priority.HIGH)
+                }
+            }
+
+            outcome.result
+                .onSuccess { data ->
+                    withContext(Dispatchers.Main) {
+                        enterDocumentMode(data)
+                    }
+                }
+                .onFailure { error ->
+                    withContext(Dispatchers.Main) {
+                        val reason = when {
+                            outcome.usedFallbackFromAccuracy && outcome.primaryError != null -> buildAccuracyFallbackErrorMessage(outcome.primaryError)
+                            error is IOException -> "Không thể đọc ảnh đã chụp. Vui lòng thử lại."
+                            else -> "Không thể đọc ảnh đã chụp: ${error.message ?: "lỗi không xác định"}"
+                        }
+                        Log.e(
+                            TAG,
+                            "Captured OCR failed. mode=$mode usedFallback=${outcome.usedFallbackFromAccuracy}. $reason",
+                            error
+                        )
+                        _uiState.value = OcrUiState.Error(reason)
+                        haptic.error()
+                    }
+                }
         }
     }
 
-    private fun handleRealtimeResult(result: OcrResult) {
-        if (result.isEmpty) return
-        _lastRealtimeResult.value = result
-        val similarity = OcrPostProcessor.similarityRatio(result.fullText, lastSpokenText)
-        if (similarity < 0.7f) {
-            lastSpokenText = result.fullText
-            viewModelScope.launch(Dispatchers.Main) {
-                _uiState.value = OcrUiState.RealtimeResult(result.fullText)
-                haptic.confirm()
-                tts.speak(result.fullText, TtsService.Priority.NORMAL)
+    internal suspend fun recognizeCapturedBitmap(
+        bitmap: android.graphics.Bitmap,
+        mode: OcrMode
+    ): CaptureRecognitionOutcome {
+        return when (mode) {
+            OcrMode.QUICK -> {
+                CaptureRecognitionOutcome(
+                    result = runCatching { quickOcrEngine.recognize(bitmap) },
+                    usedFallbackFromAccuracy = false
+                )
+            }
+
+            OcrMode.ACCURACY -> {
+                val accuracyResult = runCatching { accuracyOcrEngine.recognize(bitmap) }
+                if (accuracyResult.isSuccess) {
+                    CaptureRecognitionOutcome(
+                        result = accuracyResult,
+                        usedFallbackFromAccuracy = false
+                    )
+                } else {
+                    val fallbackResult = runCatching { quickOcrEngine.recognize(bitmap) }
+                    CaptureRecognitionOutcome(
+                        result = fallbackResult,
+                        usedFallbackFromAccuracy = true,
+                        primaryError = accuracyResult.exceptionOrNull()
+                    )
+                }
             }
         }
     }
 
-    private fun preprocessForOcr(bitmap: android.graphics.Bitmap): android.graphics.Bitmap {
-        val scaled = scaleBitmapForOcr(bitmap)
-        return if (scaled != bitmap) scaled else bitmap
-    }
-
-    private fun scaleBitmapForOcr(bitmap: android.graphics.Bitmap): android.graphics.Bitmap {
-        val maxDimension = 1600
-        val width = bitmap.width
-        val height = bitmap.height
-        if (width <= maxDimension && height <= maxDimension) return bitmap
-        val scale = minOf(maxDimension.toFloat() / width, maxDimension.toFloat() / height)
-        val targetWidth = (width * scale).toInt().coerceAtLeast(1)
-        val targetHeight = (height * scale).toInt().coerceAtLeast(1)
-        return android.graphics.Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
-    }
-
-    // ── Document mode ──────────────────────────────────────────────────────────
-
-    /**
-     * Chuyển sang Document mode sau khi chụp ảnh full-res.
-     * Nếu [result] rỗng → thông báo lỗi và giữ nguyên Realtime mode.
-     */
     fun enterDocumentMode(result: OcrResult) {
         if (result.isEmpty) {
+            _uiState.value = OcrUiState.Idle
             haptic.error()
             tts.speak(
                 "Không phát hiện văn bản. Hãy hướng camera vào trang sách hoặc biển hiệu.",
@@ -180,6 +190,7 @@ class OcrViewModel(
         }
 
         if (sentences.isEmpty()) {
+            _uiState.value = OcrUiState.Idle
             haptic.error()
             tts.speak(
                 "Không tách được câu đọc. Hãy thử chụp rõ hơn.",
@@ -218,12 +229,7 @@ class OcrViewModel(
     }
 
     fun exitDocumentMode() {
-        _uiState.value = if (lastRealtimeResult.value.isEmpty) {
-            OcrUiState.Idle
-        } else {
-            OcrUiState.RealtimeResult(lastRealtimeResult.value.fullText)
-        }
-        lastSpokenText = ""
+        _uiState.value = OcrUiState.Idle
         tts.speak("Chế độ đọc tài liệu đã tắt.", TtsService.Priority.NORMAL)
     }
 
@@ -238,8 +244,26 @@ class OcrViewModel(
         tts.speak("$position. ${state.currentSentence}", TtsService.Priority.HIGH)
     }
 
+    private fun buildAccuracyFallbackErrorMessage(error: Throwable): String {
+        return when (error) {
+            is java.net.SocketTimeoutException -> "Chế độ chính xác bị timeout khi gọi GPT-4o. Đã chuyển sang chế độ nhanh."
+            is java.io.IOException -> {
+                val message = error.message.orEmpty()
+                when {
+                    message.contains("401") -> "Sai API key OpenAI. Hãy kiểm tra lại OPENAI_API_KEY trong .env."
+                    message.contains("403") -> "API key không có quyền truy cập model hoặc endpoint."
+                    message.contains("429") -> "OpenAI đang giới hạn request hoặc hết quota."
+                    message.contains("400") -> "Request gửi lên GPT-4o không hợp lệ."
+                    else -> "Chế độ chính xác gặp lỗi I/O: ${message.ifBlank { "không rõ nguyên nhân" }}. Đã chuyển sang chế độ nhanh."
+                }
+            }
+            else -> "Chế độ chính xác gặp lỗi: ${error.message ?: "không rõ nguyên nhân"}. Đã chuyển sang chế độ nhanh."
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
-        ocrEngine.close()
+        quickOcrEngine.close()
+        accuracyOcrEngine.close()
     }
 }

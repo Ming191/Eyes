@@ -2,7 +2,6 @@ package com.example.eyes.ocr
 
 import android.graphics.Bitmap
 import androidx.camera.core.ImageProxy
-import com.example.eyes.camera.toBitmapWithRotation
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -10,11 +9,11 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
-class MlKitOcrEngine {
+class MlKitOcrEngine : OcrEngine {
 
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
-    suspend fun recognize(imageProxy: ImageProxy): OcrResult =
+    override suspend fun recognize(imageProxy: ImageProxy): OcrResult =
         suspendCoroutine { cont ->
             val mediaImage = imageProxy.image
             if (mediaImage == null) {
@@ -40,7 +39,7 @@ class MlKitOcrEngine {
                 }
         }
 
-    suspend fun recognize(bitmap: Bitmap): OcrResult =
+    override suspend fun recognize(bitmap: Bitmap): OcrResult =
         suspendCoroutine { cont ->
             val inputImage = InputImage.fromBitmap(bitmap, 0)
             recognizer.process(inputImage)
@@ -52,7 +51,7 @@ class MlKitOcrEngine {
                 }
         }
 
-    fun close() {
+    override fun close() {
         recognizer.close()
     }
 }

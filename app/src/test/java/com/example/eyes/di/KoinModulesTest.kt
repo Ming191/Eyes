@@ -1,5 +1,6 @@
 package com.example.eyes.di
 
+import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
@@ -14,8 +15,10 @@ import org.koin.core.context.stopKoin
 import org.koin.test.KoinTest
 import org.koin.test.get
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
+@Config(application = Application::class)
 class KoinModulesTest : KoinTest {
 
     @Before

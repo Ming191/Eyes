@@ -1,6 +1,5 @@
 package com.example.eyes.ui.ocr
 
-import androidx.camera.core.ImageCaptureException
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -13,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -35,6 +35,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.camera.CameraManager
+import com.example.eyes.ocr.OcrMode
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
@@ -45,6 +46,7 @@ fun OcrScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraManager: CameraManager = koinInject()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val ocrMode by viewModel.ocrMode.collectAsStateWithLifecycle()
     val currentUiState by rememberUpdatedState(uiState)
     var previewViewReady by remember { mutableStateOf(false) }
 
@@ -93,37 +95,89 @@ fun OcrScreen(
         )
 
         when (val state = uiState) {
-            is OcrUiState.RealtimeResult -> RealtimeOverlay(text = state.text)
             is OcrUiState.DocumentMode -> DocumentOverlay(state = state, onExit = viewModel::exitDocumentMode)
-            is OcrUiState.Scanning -> ScanningOverlay()
+            is OcrUiState.Scanning -> ScanningOverlay(mode = ocrMode)
             is OcrUiState.Error -> ErrorOverlay(message = state.message)
             is OcrUiState.Idle -> IdleOverlay(previewReady = previewViewReady)
         }
+
+        OcrModeSelector(
+            mode = ocrMode,
+            onModeSelected = viewModel::setOcrMode,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 16.dp, start = 16.dp, end = 16.dp)
+        )
     }
 }
 
 @Composable
-private fun RealtimeOverlay(text: String) {
-    Box(
-        modifier = Modifier
+private fun OcrModeSelector(
+    mode: OcrMode,
+    onModeSelected: (OcrMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
             .fillMaxWidth()
-            .padding(16.dp),
-        contentAlignment = Alignment.BottomCenter
+            .semantics {
+                contentDescription = when (mode) {
+                    OcrMode.QUICK -> "Chế độ OCR hiện tại là Quick mode, dùng ML Kit"
+                    OcrMode.ACCURACY -> "Chế độ OCR hiện tại là Accuracy mode, dùng GPT-4o"
+                }
+            },
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 3.dp,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-            shape = MaterialTheme.shapes.medium,
-            modifier = Modifier.semantics {
-                liveRegion = LiveRegionMode.Polite
-                contentDescription = "Kết quả OCR: $text"
-            }
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = text,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(12.dp),
-                maxLines = 5
+                text = "Chế độ OCR",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Text(
+                text = when (mode) {
+                    OcrMode.QUICK -> "Quick mode · ML Kit"
+                    OcrMode.ACCURACY -> "Accuracy mode · GPT-4o"
+                },
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = when (mode) {
+                    OcrMode.QUICK -> "Nhanh hơn, phù hợp khi cần đọc sơ bộ."
+                    OcrMode.ACCURACY -> "Chính xác hơn cho tiếng Việt, chấp nhận chậm hơn một chút."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            androidx.compose.foundation.layout.Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Bộ chọn chế độ OCR" }
+            ) {
+                FilterChip(
+                    selected = mode == OcrMode.QUICK,
+                    onClick = { onModeSelected(OcrMode.QUICK) },
+                    label = { Text("Quick mode") },
+                    modifier = Modifier.semantics {
+                        contentDescription = "Chọn Quick mode để dùng ML Kit"
+                    }
+                )
+                FilterChip(
+                    selected = mode == OcrMode.ACCURACY,
+                    onClick = { onModeSelected(OcrMode.ACCURACY) },
+                    label = { Text("Accuracy mode") },
+                    modifier = Modifier.semantics {
+                        contentDescription = "Chọn Accuracy mode để dùng GPT-4o"
+                    }
+                )
+            }
         }
     }
 }
@@ -141,7 +195,9 @@ private fun DocumentOverlay(
     ) {
         TextButton(
             onClick = onExit,
-            modifier = Modifier.align(Alignment.End)
+            modifier = Modifier
+                .align(Alignment.End)
+                .semantics { contentDescription = "Thoát chế độ đọc tài liệu" }
         ) {
             Text("Thoát đọc tài liệu")
         }
@@ -177,11 +233,36 @@ private fun DocumentOverlay(
 }
 
 @Composable
-private fun ScanningOverlay() {
+private fun ScanningOverlay(mode: OcrMode) {
+    val scanningMessage = when (mode) {
+        OcrMode.QUICK -> "Đang nhận dạng nhanh bằng ML Kit"
+        OcrMode.ACCURACY -> "Đang nhận dạng chính xác bằng GPT-4o, vui lòng chờ lâu hơn một chút"
+    }
+
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(
-            modifier = Modifier.semantics { contentDescription = "Đang nhận dạng văn bản" }
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.semantics { contentDescription = scanningMessage }
+            )
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+            ) {
+                Text(
+                    text = scanningMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .semantics {
+                            liveRegion = LiveRegionMode.Polite
+                            contentDescription = scanningMessage
+                        }
+                )
+            }
+        }
     }
 }
 

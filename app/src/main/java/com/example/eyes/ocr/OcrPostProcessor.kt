@@ -5,17 +5,46 @@ package com.example.eyes.ocr
  */
 object OcrPostProcessor {
 
+    private val noiseTokens = listOf(
+        "|",
+        "•",
+        "~",
+        "_"
+    )
+
+    private val correctionRules = mapOf(
+        "ko" to "không",
+        "k" to "không",
+        "dc" to "được",
+        "mk" to "mình"
+    )
+
     fun process(rawText: String): OcrResult {
-        val normalizedText = rawText.trim()
-        val sentences = splitToSentences(normalizedText)
-        return OcrResult(fullText = normalizedText, sentences = sentences)
+        val normalizedText = normalizeText(rawText)
+        val correctedText = applyLightCorrections(normalizedText)
+        val sentences = splitToSentences(correctedText)
+        return OcrResult(fullText = correctedText, sentences = sentences)
+    }
+
+    fun normalizeText(text: String): String {
+        return text
+            .replace(Regex("\u00A0"), " ")
+            .replace(Regex("\\r\\n|\\r"), "\n")
+            .replace(Regex("[ \t]+"), " ")
+            .replace(Regex("\\n[ \\t]+"), "\n")
+            .replace(Regex("\\s+"), " ")
+            .replace(Regex("[“”]"), "\"")
+            .replace(Regex("[‘’]"), "'")
+            .trim()
     }
 
     fun splitToSentences(text: String): List<String> =
         text
-            .split(Regex("[.!?。…]+"))
-            .map { it.trim() }
-            .filter { sentence -> sentence.split(Regex("\\s+")).size >= 2 }
+            .split(Regex("[.!?。…]+|\\n+"))
+            .map { it.trim().trimEnd(',', ';', ':') }
+            .filter { sentence ->
+                sentence.isNotBlank() && sentence.split(Regex("\\s+")).size >= 2
+            }
 
     fun similarityRatio(a: String, b: String): Float {
         if (a.isBlank() && b.isBlank()) return 1f
@@ -23,6 +52,18 @@ object OcrPostProcessor {
         val maxLen = maxOf(a.length, b.length).toFloat()
         val distance = levenshtein(a, b)
         return 1f - (distance / maxLen)
+    }
+
+    fun applyLightCorrections(text: String): String {
+        if (text.isBlank()) return text
+        var corrected = text
+        noiseTokens.forEach { token ->
+            corrected = corrected.replace(token, " ")
+        }
+        correctionRules.forEach { (from, to) ->
+            corrected = corrected.replace(Regex("\\b${Regex.escape(from)}\\b", RegexOption.IGNORE_CASE), to)
+        }
+        return corrected.replace(Regex("\\s+"), " ").trim()
     }
 
     private fun levenshtein(a: String, b: String): Int {

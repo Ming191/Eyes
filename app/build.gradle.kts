@@ -5,6 +5,53 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+fun String.escapeForBuildConfig(): String =
+    replace("\\", "\\\\").replace("\"", "\\\"")
+
+fun loadDotEnv(projectDir: java.io.File): Map<String, String> {
+    val envFile = projectDir.resolve(".env")
+    if (!envFile.exists()) return emptyMap()
+
+    return envFile.readLines()
+        .mapNotNull { rawLine ->
+            val line = rawLine.trim()
+            if (line.isBlank() || line.startsWith("#") || !line.contains("=")) return@mapNotNull null
+            val index = line.indexOf("=")
+            val key = line.substring(0, index).trim()
+            val value = line.substring(index + 1).trim().trim('"')
+            if (key.isBlank()) null else key to value
+        }
+        .toMap()
+}
+
+val dotEnv = loadDotEnv(projectDir)
+
+fun resolveConfigValue(vararg candidates: String?, fallback: String): String {
+    return candidates.firstOrNull { !it.isNullOrBlank() } ?: fallback
+}
+
+val openAiApiKey = resolveConfigValue(
+    providers.gradleProperty("OPENAI_API_KEY").orNull,
+    providers.environmentVariable("OPENAI_API_KEY").orNull,
+    dotEnv["OPENAI_API_KEY"],
+    providers.gradleProperty("OPEN_API_KEY").orNull,
+    providers.environmentVariable("OPEN_API_KEY").orNull,
+    dotEnv["OPEN_API_KEY"],
+    fallback = ""
+).escapeForBuildConfig()
+val openAiBaseUrl = resolveConfigValue(
+    providers.gradleProperty("OPENAI_BASE_URL").orNull,
+    providers.environmentVariable("OPENAI_BASE_URL").orNull,
+    dotEnv["OPENAI_BASE_URL"],
+    fallback = "https://api.openai.com/v1/responses"
+).escapeForBuildConfig()
+val openAiOcrModel = resolveConfigValue(
+    providers.gradleProperty("OPENAI_OCR_MODEL").orNull,
+    providers.environmentVariable("OPENAI_OCR_MODEL").orNull,
+    dotEnv["OPENAI_OCR_MODEL"],
+    fallback = "gpt-4o"
+).escapeForBuildConfig()
+
 android {
     namespace = "com.example.eyes"
     compileSdk = 36
@@ -15,6 +62,9 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "OPENAI_API_KEY", "\"$openAiApiKey\"")
+        buildConfigField("String", "OPENAI_BASE_URL", "\"$openAiBaseUrl\"")
+        buildConfigField("String", "OPENAI_OCR_MODEL", "\"$openAiOcrModel\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -37,6 +87,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {
