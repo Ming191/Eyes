@@ -26,19 +26,36 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.LaunchedEffect
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.camera.FrameThrottle
+import com.example.eyes.ui.navigation.CameraMode
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Navigation
+import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.ui.graphics.vector.ImageVector
+
 @Composable
 fun CameraScreen(
+    mode: CameraMode = CameraMode.Navigation,
     viewModel: CameraViewModel = koinViewModel()
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraManager: CameraManager = koinInject()
     val frameThrottle = remember { FrameThrottle() }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(mode) {
+        viewModel.setMode(mode)
+    }
 
     Box(
         modifier = Modifier
@@ -101,5 +118,66 @@ fun CameraScreen(
                 )
             }
         }
+
+        // Mode Selector at Bottom
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp)
+                .semantics { contentDescription = "Chọn chế độ camera" },
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+            tonalElevation = 8.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ModeButton(
+                    selected = uiState.currentMode == CameraMode.Navigation,
+                    icon = Icons.Rounded.Navigation,
+                    label = "Xem",
+                    onClick = { viewModel.setMode(CameraMode.Navigation) }
+                )
+                ModeButton(
+                    selected = uiState.currentMode == CameraMode.OCR,
+                    icon = Icons.Rounded.TextFields,
+                    label = "Đọc",
+                    onClick = { viewModel.setMode(CameraMode.OCR) }
+                )
+                ModeButton(
+                    selected = uiState.currentMode == CameraMode.Currency,
+                    icon = Icons.Rounded.Payments,
+                    label = "Tiền",
+                    onClick = { viewModel.setMode(CameraMode.Currency) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModeButton(
+    selected: Boolean,
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        colors = if (selected) {
+            ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+        } else {
+            ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+        },
+        modifier = Modifier.semantics {
+            stateDescription = if (selected) "Đang chọn" else ""
+        }
+    ) {
+        Icon(icon, contentDescription = null)
+        Text(text = label, modifier = Modifier.padding(start = 4.dp))
     }
 }

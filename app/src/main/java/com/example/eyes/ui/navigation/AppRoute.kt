@@ -15,13 +15,19 @@ data object OnboardingRoute
 data object HomeRoute
 
 @Serializable
-data object CameraRoute
+data class CameraRoute(val mode: CameraMode = CameraMode.Navigation)
 
 @Serializable
 data object MapRoute
 
 @Serializable
 data object SettingsRoute
+
+enum class CameraMode {
+    Navigation,
+    OCR,
+    Currency
+}
 
 enum class TopLevelDestination(
     val title: String,

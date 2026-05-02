@@ -21,6 +21,6 @@ val appModule = module {
     single { CameraManager(androidContext()) }
     viewModel { AppNavViewModel(get()) }
     viewModel { HomeViewModel(get()) }
-    viewModel { CameraViewModel() }
+    viewModel { CameraViewModel(get(), get(), androidContext()) }
     viewModel { SettingsViewModel(get(), get(), get()) }
 }

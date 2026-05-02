@@ -23,12 +23,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.eyes.ui.navigation.CameraMode
 import com.example.eyes.ui.theme.EyesTheme
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun HomeScreen(
-    onOpenCamera: () -> Unit,
+    onOpenCamera: (CameraMode) -> Unit,
     onOpenMap: () -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: HomeViewModel = koinViewModel()
@@ -43,8 +44,9 @@ fun HomeScreen(
         uiState = uiState,
         onActionSelected = { action ->
             when (action) {
-                HomeActionType.ScanAround,
-                HomeActionType.ReadText -> onOpenCamera()
+                HomeActionType.ScanAround -> onOpenCamera(CameraMode.Navigation)
+                HomeActionType.ReadText -> onOpenCamera(CameraMode.OCR)
+                HomeActionType.IdentifyCurrency -> onOpenCamera(CameraMode.Currency)
 
                 HomeActionType.Navigate -> onOpenMap()
                 HomeActionType.Settings -> onOpenSettings()

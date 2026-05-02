@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 enum class HomeActionType {
     ScanAround,
     ReadText,
+    IdentifyCurrency,
     Navigate,
     Settings
 }
@@ -44,6 +45,13 @@ private fun defaultHomeActions(): List<HomeAction> = listOf(
         description = "Dùng camera để đọc nhãn, biển báo hoặc tài liệu ngắn bằng tiếng Việt.",
         supportingLabel = "Chế độ OCR nhanh",
         accessibilityLabel = "Đọc văn bản. Dùng camera để đọc nhãn, biển báo hoặc tài liệu ngắn."
+    ),
+    HomeAction(
+        type = HomeActionType.IdentifyCurrency,
+        title = "Nhận diện tiền",
+        description = "Dùng camera để nhận biết các mệnh giá tiền mặt Việt Nam đang cầm trên tay.",
+        supportingLabel = "Hỗ trợ tiền polymer",
+        accessibilityLabel = "Nhận diện tiền. Mở camera để nhận biết mệnh giá tiền mặt Việt Nam."
     ),
     HomeAction(
         type = HomeActionType.Navigate,

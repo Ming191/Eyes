@@ -22,6 +22,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -29,6 +30,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import com.example.eyes.ui.camera.CameraScreen
 import com.example.eyes.ui.home.HomeScreen
 import com.example.eyes.ui.map.MapScreen
@@ -140,8 +142,14 @@ private fun MainNavigationScaffold() {
             ) {
                 composable<HomeRoute> {
                     HomeScreen(
-                        onOpenCamera = {
-                            navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
+                        onOpenCamera = { mode ->
+                            navController.navigate(CameraRoute(mode = mode)) {
+                                launchSingleTop = true
+                                restoreState = true
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                            }
                         },
                         onOpenMap = {
                             navController.navigateToTopLevelDestination(TopLevelDestination.MAP)
@@ -151,8 +159,9 @@ private fun MainNavigationScaffold() {
                         }
                     )
                 }
-                composable<CameraRoute> {
-                    CameraScreen()
+                composable<CameraRoute> { backStackEntry ->
+                    val route: CameraRoute = backStackEntry.toRoute()
+                    CameraScreen(mode = route.mode)
                 }
                 composable<MapRoute> {
                     MapScreen()
@@ -170,7 +179,7 @@ private fun NavHostController.navigateToTopLevelDestination(
 ) {
     val route = when (destination) {
         TopLevelDestination.HOME -> HomeRoute
-        TopLevelDestination.CAMERA -> CameraRoute
+        TopLevelDestination.CAMERA -> CameraRoute()
         TopLevelDestination.MAP -> MapRoute
         TopLevelDestination.SETTINGS -> SettingsRoute
     }
@@ -196,10 +205,10 @@ private fun NavDestination?.toTopLevelDestination(): TopLevelDestination {
 private fun NavDestination?.isInHierarchy(destination: TopLevelDestination): Boolean {
     return this?.hierarchy?.any { currentDestination ->
         when (destination) {
-            TopLevelDestination.HOME -> currentDestination.route == HomeRoute::class.qualifiedName
-            TopLevelDestination.CAMERA -> currentDestination.route == CameraRoute::class.qualifiedName
-            TopLevelDestination.MAP -> currentDestination.route == MapRoute::class.qualifiedName
-            TopLevelDestination.SETTINGS -> currentDestination.route == SettingsRoute::class.qualifiedName
+            TopLevelDestination.HOME -> currentDestination.hasRoute<HomeRoute>()
+            TopLevelDestination.CAMERA -> currentDestination.hasRoute<CameraRoute>()
+            TopLevelDestination.MAP -> currentDestination.hasRoute<MapRoute>()
+            TopLevelDestination.SETTINGS -> currentDestination.hasRoute<SettingsRoute>()
         }
     } == true
 }
