@@ -3,7 +3,6 @@ package com.example.eyes.service
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -15,11 +14,15 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import com.example.eyes.R
+import com.example.eyes.ai.AlertSource
+import com.example.eyes.ai.DepthHazard
+import com.example.eyes.ai.DepthHazardDetector
 import com.example.eyes.ai.DepthMap
+import com.example.eyes.ai.HazardFusionEngine
 import com.example.eyes.ai.MiDasDepthEstimator
-import com.example.eyes.ai.ObstacleSpamFilter
-import com.example.eyes.ai.Zone
+import com.example.eyes.ai.SpeechRateLimiter
 import com.example.eyes.ai.YoloDetector
+import com.example.eyes.ai.Zone
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.camera.FrameThrottle
 import com.example.eyes.camera.toBitmapWithRotation
@@ -34,6 +37,7 @@ import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 class ObstacleDetectionService : LifecycleService() {
@@ -48,9 +52,14 @@ class ObstacleDetectionService : LifecycleService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val frameThrottle = FrameThrottle()
-    private val spamFilter = ObstacleSpamFilter()
+    private val depthHazardDetector = DepthHazardDetector()
+    private val hazardFusionEngine = HazardFusionEngine()
+    private val speechRateLimiter = SpeechRateLimiter()
+    private val depthHazardAtMs = AtomicLong(0L)
+    private var lastHapticAtMs: Long = 0L
     private val isFrameProcessing = AtomicBoolean(false)
     private val depthMap = AtomicReference<DepthMap?>(null)
+    private val depthHazard = AtomicReference<DepthHazard?>(null)
     private val depthUpdating = AtomicBoolean(false)
     private val frameCounter = AtomicInteger(0)
 
@@ -119,28 +128,44 @@ class ObstacleDetectionService : LifecycleService() {
                         .asSequence()
                         .filter { it.isPriority() }
                         .filter { it.isNearby(alertSensitivity) }
-                        .filter { !spamFilter.isSpam(it) }
                         .maxByOrNull { detection ->
                             val depthScore =
                                 if (detection.midasDepth > 0f) detection.midasDepth else detection.bboxDepthScore
                             (depthScore * 0.7f) + (detection.confidence * 0.3f)
                         }
 
-                    if (candidate != null) {
-                        when (candidate.zone) {
-                            Zone.LEFT -> hapticService.obstacleLeft()
-                            Zone.CENTER -> hapticService.obstacleCenter()
-                            Zone.RIGHT -> hapticService.obstacleRight()
+                    val nowMs = System.currentTimeMillis()
+                    val depthCandidate = getFreshDepthCandidate(nowMs)
+                    val fusedAlert = hazardFusionEngine.fuse(candidate, depthCandidate)
+
+                    if (fusedAlert != null) {
+                        if (shouldTriggerHaptic(nowMs)) {
+                            when (fusedAlert.primaryZone) {
+                                Zone.LEFT -> hapticService.obstacleLeft()
+                                Zone.CENTER -> hapticService.obstacleCenter()
+                                Zone.RIGHT -> hapticService.obstacleRight()
+                            }
+
+                            fusedAlert.secondaryHapticZone?.let { secondaryZone ->
+                                when (secondaryZone) {
+                                    Zone.LEFT -> hapticService.obstacleLeft()
+                                    Zone.CENTER -> hapticService.obstacleCenter()
+                                    Zone.RIGHT -> hapticService.obstacleRight()
+                                }
+                            }
                         }
 
-                        if (!isHeadsetConnected()) {
-                            ttsService.speak(
-                                "Chú ý! ${candidate.labelVi} ở ${candidate.zone.labelVi}.",
-                                TtsService.Priority.URGENT
-                            )
+                        val announcement = when {
+                            fusedAlert.primarySource == AlertSource.YOLO && candidate != null -> {
+                                "Chú ý! ${candidate.labelVi} ở ${candidate.zone.labelVi}."
+                            }
+                            else -> fusedAlert.speechText ?: "Chú ý! Có vật cản gần ${fusedAlert.primaryZone.labelVi}."
                         }
 
-                        spamFilter.record(candidate)
+                        if (!isHeadsetConnected() && speechRateLimiter.shouldSpeak(nowMs)) {
+                            ttsService.speak(announcement, TtsService.Priority.URGENT)
+                            speechRateLimiter.record(nowMs)
+                        }
                     }
                 } finally {
                     imageProxy.close()
@@ -158,11 +183,28 @@ class ObstacleDetectionService : LifecycleService() {
         val snapshot = bitmap.copy(Bitmap.Config.ARGB_8888, false)
         serviceScope.launch {
             try {
-                depthMap.set(miDasDepthEstimator.estimateDepth(snapshot))
+                val map = miDasDepthEstimator.estimateDepth(snapshot)
+                depthMap.set(map)
+                val hazard = depthHazardDetector.detect(map)
+                depthHazard.set(hazard)
+                depthHazardAtMs.set(if (hazard != null) System.currentTimeMillis() else 0L)
             } finally {
                 depthUpdating.set(false)
             }
         }
+    }
+
+    private fun getFreshDepthCandidate(nowMs: Long): DepthHazard? {
+        val hazardAtMs = depthHazardAtMs.get()
+        if (hazardAtMs <= 0L) return null
+        if (nowMs - hazardAtMs > DEPTH_HAZARD_TTL_MS) return null
+        return depthHazard.get()
+    }
+
+    private fun shouldTriggerHaptic(nowMs: Long): Boolean {
+        if (nowMs - lastHapticAtMs < HAPTIC_COOLDOWN_MS) return false
+        lastHapticAtMs = nowMs
+        return true
     }
 
     private fun startAsForeground() {
@@ -222,7 +264,9 @@ class ObstacleDetectionService : LifecycleService() {
         private const val NOTIFICATION_ID = 101
         private const val ACTION_START = "com.example.eyes.service.action.START"
         private const val ACTION_STOP = "com.example.eyes.service.action.STOP"
-        private const val DEPTH_FRAME_INTERVAL = 30
+        private const val DEPTH_FRAME_INTERVAL = 3
+        private const val DEPTH_HAZARD_TTL_MS = 1_200L
+        private const val HAPTIC_COOLDOWN_MS = 800L
         private const val DEFAULT_ALERT_SENSITIVITY = 0.5f
 
         @Volatile

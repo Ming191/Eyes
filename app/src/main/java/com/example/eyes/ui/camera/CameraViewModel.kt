@@ -2,6 +2,7 @@ package com.example.eyes.ui.camera
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
@@ -9,10 +10,15 @@ import androidx.camera.core.ImageProxy
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.eyes.ai.AlertSource
 import com.example.eyes.ai.DepthMap
+import com.example.eyes.ai.DepthHazard
+import com.example.eyes.ai.DepthHazardDetector
 import com.example.eyes.ai.Detection
+import com.example.eyes.ai.HazardFusionEngine
+import com.example.eyes.ai.HazardSeverity
 import com.example.eyes.ai.MiDasDepthEstimator
-import com.example.eyes.ai.ObstacleSpamFilter
+import com.example.eyes.ai.SpeechRateLimiter
 import com.example.eyes.ai.Zone
 import com.example.eyes.ai.YoloDetector
 import com.example.eyes.camera.toBitmapWithRotation
@@ -28,7 +34,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
+import androidx.core.graphics.createBitmap
 
 @Immutable
 data class CameraUiState(
@@ -36,6 +44,8 @@ data class CameraUiState(
     val summary: String = "Ứng dụng đang theo dõi vật cản liên tục. Nhấn giữ màn hình để mô tả cảnh xung quanh.",
     val statusMessage: String = "Đang chờ khung hình tiếp theo",
     val lastAnnouncement: String = "Chưa có cảnh báo mới",
+    val debugMetrics: String = "Debug: đang chờ dữ liệu",
+    val depthPreviewBitmap: Bitmap? = null,
     val isDescribingScene: Boolean = false,
     val isStatusCardVisible: Boolean = true,
     val boundingBoxes: List<BoundingBoxUi> = emptyList()
@@ -68,9 +78,15 @@ class CameraViewModel(
     private val isProcessingFrame = AtomicBoolean(false)
     private val isDepthUpdating = AtomicBoolean(false)
     private val frameCounter = AtomicInteger(0)
-    private val spamFilter = ObstacleSpamFilter()
+    private val depthHazardDetector = DepthHazardDetector()
+    private val hazardFusionEngine = HazardFusionEngine()
+    private val speechRateLimiter = SpeechRateLimiter()
+    private val latestDepthHazardAtMs = AtomicLong(0L)
+    private var noHazardStreak: Int = 0
+    private var lastHapticAtMs: Long = 0L
 
     private val latestDepthMap = AtomicReference<DepthMap?>(null)
+    private val latestDepthHazard = AtomicReference<DepthHazard?>(null)
     private val latestFrame = AtomicReference<Bitmap?>(null)
     private val latestDetections = AtomicReference<List<Detection>>(emptyList())
 
@@ -192,51 +208,185 @@ class CameraViewModel(
         val snapshot = bitmap.copy(Bitmap.Config.ARGB_8888, false)
         viewModelScope.launch(Dispatchers.Default) {
             try {
-                latestDepthMap.set(miDasDepthEstimator.estimateDepth(snapshot))
+                val newMap = miDasDepthEstimator.estimateDepth(snapshot)
+                latestDepthMap.set(newMap)
+                val hazard = depthHazardDetector.detect(newMap)
+                latestDepthHazard.set(hazard)
+                latestDepthHazardAtMs.set(if (hazard != null) System.currentTimeMillis() else 0L)
+                val previewBitmap = buildDepthPreviewBitmap(newMap)
+                _uiState.update { state ->
+                    state.copy(depthPreviewBitmap = previewBitmap)
+                }
             } finally {
                 isDepthUpdating.set(false)
             }
         }
     }
 
+    private fun buildDepthPreviewBitmap(depthMap: DepthMap): Bitmap {
+        val pixels = IntArray(depthMap.width * depthMap.height)
+        depthMap.values.forEachIndexed { index, value ->
+            val intensity = (value.coerceIn(0f, 1f) * 255f).toInt().coerceIn(0, 255)
+            pixels[index] = Color.argb(255, intensity, intensity, intensity)
+        }
+
+        return createBitmap(depthMap.width, depthMap.height)
+            .apply {
+                setPixels(pixels, 0, depthMap.width, 0, 0, depthMap.width, depthMap.height)
+            }
+    }
+
     private fun handleObstacleAlert(detections: List<Detection>) {
-        val candidate = detections
+        val yoloCandidate = detections
             .asSequence()
             .filter { it.isPriority() }
             .filter { it.isNearby(alertSensitivity.value) }
-            .filter { !spamFilter.isSpam(it) }
             .maxByOrNull { detection ->
                 val depthScore = if (detection.midasDepth > 0f) detection.midasDepth else detection.bboxDepthScore
                 (depthScore * 0.7f) + (detection.confidence * 0.3f)
             }
+        val yoloCompositeScore = yoloCandidate?.let { detection ->
+            val depthScore = if (detection.midasDepth > 0f) detection.midasDepth else detection.bboxDepthScore
+            (depthScore * 0.7f) + (detection.confidence * 0.3f)
+        }
 
-        if (candidate == null) {
+        val nowMs = System.currentTimeMillis()
+        val depthCandidate = getFreshDepthCandidate(nowMs)
+        val fusedAlert = hazardFusionEngine.fuse(yoloCandidate, depthCandidate)
+        val headsetConnected = isHeadsetConnected()
+        var speechSpoken = false
+
+        if (fusedAlert == null) {
+            noHazardStreak = (noHazardStreak + 1).coerceAtMost(SAFE_STATUS_STREAK_FRAMES + 1)
             _uiState.update {
-                it.copy(statusMessage = "Lối đi tạm ổn, tiếp tục quét môi trường")
+                it.copy(
+                    statusMessage = if (noHazardStreak >= SAFE_STATUS_STREAK_FRAMES) {
+                        "Lối đi tạm ổn, tiếp tục quét môi trường"
+                    } else {
+                        it.statusMessage
+                    },
+                    debugMetrics = buildDebugMetrics(
+                        yoloCandidate = yoloCandidate,
+                        yoloCompositeScore = yoloCompositeScore,
+                        depthCandidate = depthCandidate,
+                        fusedAlert = null,
+                        speechSpoken = false,
+                        speechSuppressedByHeadset = headsetConnected,
+                        sensitivity = alertSensitivity.value
+                    )
+                )
             }
             return
         }
 
-        when (candidate.zone) {
-            Zone.LEFT -> hapticService.obstacleLeft()
-            Zone.CENTER -> hapticService.obstacleCenter()
-            Zone.RIGHT -> hapticService.obstacleRight()
+        noHazardStreak = 0
+
+        if (shouldTriggerHaptic(nowMs)) {
+            when (fusedAlert.primaryZone) {
+                Zone.LEFT -> hapticService.obstacleLeft()
+                Zone.CENTER -> hapticService.obstacleCenter()
+                Zone.RIGHT -> hapticService.obstacleRight()
+            }
+
+            fusedAlert.secondaryHapticZone?.let { secondaryZone ->
+                when (secondaryZone) {
+                    Zone.LEFT -> hapticService.obstacleLeft()
+                    Zone.CENTER -> hapticService.obstacleCenter()
+                    Zone.RIGHT -> hapticService.obstacleRight()
+                }
+            }
         }
 
-        val announcement = "Chú ý! ${candidate.labelVi} ở ${candidate.zone.labelVi}."
-        if (!isHeadsetConnected()) {
+        val announcement = when {
+            fusedAlert.primarySource == AlertSource.YOLO && yoloCandidate != null -> {
+                "Chú ý! ${yoloCandidate.labelVi} ở ${yoloCandidate.zone.labelVi}."
+            }
+            else -> fusedAlert.speechText ?: "Chú ý! Có vật cản gần ${fusedAlert.primaryZone.labelVi}."
+        }
+
+        if (!headsetConnected && speechRateLimiter.shouldSpeak(nowMs)) {
             ttsService.speak(announcement, TtsService.Priority.URGENT)
+            speechRateLimiter.record(nowMs)
+            speechSpoken = true
         }
-
-        spamFilter.record(candidate)
 
         _uiState.update {
             it.copy(
-                statusMessage = "Phát hiện ${candidate.labelVi} ${candidate.zone.labelVi}",
-                lastAnnouncement = announcement
+                statusMessage = when (fusedAlert.primarySource) {
+                    AlertSource.YOLO -> {
+                        val label = yoloCandidate?.labelVi ?: "vật cản"
+                        "Phát hiện $label ${fusedAlert.primaryZone.labelVi}"
+                    }
+                    AlertSource.DEPTH -> "Phát hiện vật cản gần ${fusedAlert.primaryZone.labelVi}"
+                },
+                lastAnnouncement = announcement,
+                debugMetrics = buildDebugMetrics(
+                    yoloCandidate = yoloCandidate,
+                    yoloCompositeScore = yoloCompositeScore,
+                    depthCandidate = depthCandidate,
+                    fusedAlert = fusedAlert,
+                    speechSpoken = speechSpoken,
+                    speechSuppressedByHeadset = headsetConnected,
+                    sensitivity = alertSensitivity.value
+                )
             )
         }
     }
+
+    private fun getFreshDepthCandidate(nowMs: Long): DepthHazard? {
+        val hazardAtMs = latestDepthHazardAtMs.get()
+        if (hazardAtMs <= 0L) return null
+        if (nowMs - hazardAtMs > DEPTH_HAZARD_TTL_MS) return null
+        return latestDepthHazard.get()
+    }
+
+    private fun shouldTriggerHaptic(nowMs: Long): Boolean {
+        if (nowMs - lastHapticAtMs < HAPTIC_COOLDOWN_MS) return false
+        lastHapticAtMs = nowMs
+        return true
+    }
+
+    private fun buildDebugMetrics(
+        yoloCandidate: Detection?,
+        yoloCompositeScore: Float?,
+        depthCandidate: DepthHazard?,
+        fusedAlert: com.example.eyes.ai.FusedHazardAlert?,
+        speechSpoken: Boolean,
+        speechSuppressedByHeadset: Boolean,
+        sensitivity: Float
+    ): String {
+        val yoloLine = if (yoloCandidate == null) {
+            "YOLO: không có candidate"
+        } else {
+            val depthScore = if (yoloCandidate.midasDepth > 0f) yoloCandidate.midasDepth else yoloCandidate.bboxDepthScore
+            "YOLO: ${yoloCandidate.labelVi} ${yoloCandidate.zone.labelVi} | conf=${fmt(yoloCandidate.confidence)} depth=${fmt(depthScore)} score=${fmt(yoloCompositeScore ?: 0f)}"
+        }
+
+        val depthLine = if (depthCandidate == null) {
+            "MiDaS: không có hazard đạt ngưỡng"
+        } else {
+            val severityLabel = when (depthCandidate.severity) {
+                HazardSeverity.HIGH -> "HIGH"
+                HazardSeverity.MEDIUM -> "MEDIUM"
+            }
+            "MiDaS: ${depthCandidate.zone.labelVi} ${depthCandidate.band.name} | severity=$severityLabel score=${fmt(depthCandidate.score)}"
+        }
+
+        val fusionLine = if (fusedAlert == null) {
+            "Fusion: không cảnh báo"
+        } else {
+            val secondaryLabel = fusedAlert.secondaryHapticZone?.labelVi ?: "không"
+            "Fusion: primary=${fusedAlert.primarySource.name} ${fusedAlert.primaryZone.labelVi} | secondary=$secondaryLabel"
+        }
+
+        val speechLine = "Speech: spoken=$speechSpoken headset=$speechSuppressedByHeadset"
+        val configLine = "Cfg: sensitivity=${fmt(sensitivity)}"
+
+        return listOf(yoloLine, depthLine, fusionLine, speechLine, configLine).joinToString("\n")
+    }
+
+    @SuppressLint("DefaultLocale")
+    private fun fmt(value: Float): String = String.format("%.2f", value)
 
     @SuppressLint("ObsoleteSdkInt")
     private fun isHeadsetConnected(): Boolean {
@@ -257,7 +407,10 @@ class CameraViewModel(
     }
 
     private companion object {
-        private const val DEPTH_FRAME_INTERVAL = 30
+        private const val DEPTH_FRAME_INTERVAL = 3
+        private const val DEPTH_HAZARD_TTL_MS = 1_200L
+        private const val HAPTIC_COOLDOWN_MS = 800L
+        private const val SAFE_STATUS_STREAK_FRAMES = 2
         private const val DEFAULT_ALERT_SENSITIVITY = 0.5f
         private const val MAX_OVERLAY_BOXES = 8
     }

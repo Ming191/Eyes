@@ -1,6 +1,7 @@
 package com.example.eyes.ui.camera
 
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
@@ -29,9 +31,12 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.camera.CameraManager
@@ -101,7 +106,7 @@ fun CameraScreen(
                     .fillMaxWidth()
                     .semantics(mergeDescendants = true) {
                         contentDescription = "Bảng trạng thái camera"
-                        stateDescription = "${uiState.title}. ${uiState.statusMessage}. ${uiState.lastAnnouncement}"
+                        stateDescription = "${uiState.title}. ${uiState.statusMessage}. ${uiState.lastAnnouncement}. ${uiState.debugMetrics}"
                         liveRegion = LiveRegionMode.Polite
                     },
                 shape = MaterialTheme.shapes.large,
@@ -132,6 +137,28 @@ fun CameraScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Text(
+                        text = uiState.debugMetrics,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clearAndSetSemantics { }
+                    )
+
+                    uiState.depthPreviewBitmap?.let { depthBitmap ->
+                        Text(
+                            text = "Depth map (MiDaS)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Image(
+                            bitmap = depthBitmap.asImageBitmap(),
+                            contentDescription = "Bản đồ độ sâu MiDaS, vùng sáng là gần và vùng tối là xa",
+                            contentScale = ContentScale.FillWidth,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp)
+                        )
+                    }
                 }
             }
         }
