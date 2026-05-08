@@ -23,8 +23,10 @@ class HomeViewModelTest {
 
     private class FakeSpeechOutput : SpeechOutput {
         val spokenTexts = mutableListOf<String>()
-
         override fun speak(text: String) {
+            spokenTexts.add(text)
+        }
+        override fun speak(text: String, priority: SpeechOutput.Priority) {
             spokenTexts.add(text)
         }
     }
