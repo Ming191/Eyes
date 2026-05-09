@@ -96,7 +96,7 @@ class CameraViewModel(
     private val frameCounter = AtomicInteger(0)
     private val depthHazardDetector = DepthHazardDetector()
     private val hazardFusionEngine = HazardFusionEngine()
-    private val speechRateLimiter = SpeechRateLimiter()
+    private val speechRateLimiter = SpeechRateLimiter(cooldownMs = SPEECH_COOLDOWN_MS)
     private val latestDepthHazardAtMs = AtomicLong(0L)
     private var noHazardStreak: Int = 0
     private var lastHapticAtMs: Long = 0L
@@ -494,9 +494,10 @@ class CameraViewModel(
     }
 
     private companion object {
-        private const val DEPTH_FRAME_INTERVAL = 3
-        private const val DEPTH_HAZARD_TTL_MS = 1_200L
-        private const val HAPTIC_COOLDOWN_MS = 800L
+        private const val DEPTH_FRAME_INTERVAL = 1
+        private const val DEPTH_HAZARD_TTL_MS = 2_800L
+        private const val HAPTIC_COOLDOWN_MS = 300L
+        private const val SPEECH_COOLDOWN_MS = 1_300L
         private const val SAFE_STATUS_STREAK_FRAMES = 2
         private const val DEFAULT_ALERT_SENSITIVITY = 0.5f
         private const val MAX_OVERLAY_BOXES = 8

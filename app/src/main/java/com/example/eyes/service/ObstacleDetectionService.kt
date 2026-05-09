@@ -54,7 +54,7 @@ class ObstacleDetectionService : LifecycleService() {
     private val frameThrottle = FrameThrottle()
     private val depthHazardDetector = DepthHazardDetector()
     private val hazardFusionEngine = HazardFusionEngine()
-    private val speechRateLimiter = SpeechRateLimiter()
+    private val speechRateLimiter = SpeechRateLimiter(cooldownMs = SPEECH_COOLDOWN_MS)
     private val depthHazardAtMs = AtomicLong(0L)
     private var lastHapticAtMs: Long = 0L
     private val isFrameProcessing = AtomicBoolean(false)
@@ -264,9 +264,10 @@ class ObstacleDetectionService : LifecycleService() {
         private const val NOTIFICATION_ID = 101
         private const val ACTION_START = "com.example.eyes.service.action.START"
         private const val ACTION_STOP = "com.example.eyes.service.action.STOP"
-        private const val DEPTH_FRAME_INTERVAL = 3
-        private const val DEPTH_HAZARD_TTL_MS = 1_200L
-        private const val HAPTIC_COOLDOWN_MS = 800L
+        private const val DEPTH_FRAME_INTERVAL = 1
+        private const val DEPTH_HAZARD_TTL_MS = 2_800L
+        private const val HAPTIC_COOLDOWN_MS = 300L
+        private const val SPEECH_COOLDOWN_MS = 1_300L
         private const val DEFAULT_ALERT_SENSITIVITY = 0.5f
 
         @Volatile

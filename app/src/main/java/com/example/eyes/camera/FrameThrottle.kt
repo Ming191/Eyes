@@ -1,7 +1,7 @@
 package com.example.eyes.camera
 
 class FrameThrottle(
-    private val intervalMs: Long = 100L
+    private val intervalMs: Long = 66L
 ) {
     private var lastProcessedAtMs: Long? = null
 

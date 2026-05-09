@@ -1,7 +1,7 @@
 package com.example.eyes.ai
 
 class SpeechRateLimiter(
-    private val cooldownMs: Long = 2_500L
+    private val cooldownMs: Long = 1_300L
 ) {
     private var lastSpokenAtMs: Long? = null
 
