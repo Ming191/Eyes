@@ -10,13 +10,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,7 +70,7 @@ fun CameraScreen(
                 )
             }
             .semantics {
-                contentDescription = "Màn hình camera hỗ trợ quan sát. Nhấn giữ để mô tả cảnh xung quanh."
+                contentDescription = "Màn hình camera ở chế độ ${uiState.activeMode.descriptionVi}. Nhấn giữ để mô tả cảnh xung quanh."
                 onLongClick(label = "Mô tả cảnh xung quanh") {
                     viewModel.describeScene()
                     true
@@ -106,7 +111,7 @@ fun CameraScreen(
                     .fillMaxWidth()
                     .semantics(mergeDescendants = true) {
                         contentDescription = "Bảng trạng thái camera"
-                        stateDescription = "${uiState.title}. ${uiState.statusMessage}. ${uiState.lastAnnouncement}. ${uiState.debugMetrics}"
+                        stateDescription = "${uiState.title}. ${uiState.statusMessage}. ${uiState.lastAnnouncement}."
                         liveRegion = LiveRegionMode.Polite
                     },
                 shape = MaterialTheme.shapes.large,
@@ -163,6 +168,14 @@ fun CameraScreen(
             }
         }
 
+        CameraModeSelector(
+            activeMode = uiState.activeMode,
+            onModeSelected = viewModel::selectMode,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 16.dp, vertical = 24.dp)
+        )
+
         FilledTonalIconButton(
             onClick = viewModel::toggleStatusCardVisibility,
             modifier = Modifier
@@ -180,6 +193,51 @@ fun CameraScreen(
                 imageVector = if (uiState.isStatusCardVisible) Icons.Rounded.Close else Icons.Rounded.Info,
                 contentDescription = null
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun CameraModeSelector(
+    activeMode: CameraMode,
+    onModeSelected: (CameraMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val modes = remember { CameraMode.entries }
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                contentDescription = "Chọn chế độ camera"
+            },
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 4.dp,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+    ) {
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+                .semantics {
+                    contentDescription = "Thanh chọn chế độ camera"
+                }
+        ) {
+            modes.forEachIndexed { index, mode ->
+                val selected = mode == activeMode
+                SegmentedButton(
+                    selected = selected,
+                    onClick = { onModeSelected(mode) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
+                    modifier = Modifier
+                        .heightIn(min = 88.dp)
+                        .semantics {
+                            contentDescription = "Chuyển sang chế độ ${mode.descriptionVi}"
+                            stateDescription = if (selected) "Đang chọn" else "Chưa chọn"
+                        },
+                    label = { Text(text = mode.labelVi) }
+                )
+            }
         }
     }
 }

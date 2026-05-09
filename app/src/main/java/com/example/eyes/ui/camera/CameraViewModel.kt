@@ -40,7 +40,8 @@ import androidx.core.graphics.createBitmap
 
 @Immutable
 data class CameraUiState(
-    val title: String = "Camera đang hoạt động",
+    val activeMode: CameraMode = CameraMode.OBSTACLE,
+    val title: String = "Chế độ phát hiện vật cản",
     val summary: String = "Ứng dụng đang theo dõi vật cản liên tục. Nhấn giữ màn hình để mô tả cảnh xung quanh.",
     val statusMessage: String = "Đang chờ khung hình tiếp theo",
     val lastAnnouncement: String = "Chưa có cảnh báo mới",
@@ -61,6 +62,21 @@ data class BoundingBoxUi(
     val zoneLabel: String,
     val confidence: Float
 )
+
+@Immutable
+enum class CameraMode(
+    val labelVi: String,
+    val descriptionVi: String
+) {
+    OBSTACLE(
+        labelVi = "Vật cản",
+        descriptionVi = "phát hiện vật cản"
+    ),
+    OCR(
+        labelVi = "Đọc chữ",
+        descriptionVi = "đọc chữ OCR"
+    )
+}
 
 class CameraViewModel(
     private val yoloDetector: YoloDetector,
@@ -111,38 +127,10 @@ class CameraViewModel(
                 val bitmap = imageProxy.toBitmapWithRotation()
                 latestFrame.set(bitmap)
 
-                maybeRefreshDepth(bitmap)
-
-                val detections = yoloDetector.detect(bitmap)
-                latestDetections.set(detections)
-
-                val depthMap = latestDepthMap.get()
-                if (depthMap != null) {
-                    detections.forEach { detection ->
-                        detection.midasDepth = miDasDepthEstimator.depthAt(depthMap, detection.bbox)
-                    }
+                when (_uiState.value.activeMode) {
+                    CameraMode.OBSTACLE -> processObstacleFrame(bitmap)
+                    CameraMode.OCR -> processOcrFrameStub()
                 }
-
-                _uiState.update {
-                    it.copy(
-                        boundingBoxes = detections
-                            .sortedByDescending { detection -> detection.confidence }
-                            .take(MAX_OVERLAY_BOXES)
-                            .map { detection ->
-                                BoundingBoxUi(
-                                    left = detection.bbox.left,
-                                    top = detection.bbox.top,
-                                    right = detection.bbox.right,
-                                    bottom = detection.bbox.bottom,
-                                    labelVi = detection.labelVi,
-                                    zoneLabel = detection.zone.labelVi,
-                                    confidence = detection.confidence
-                                )
-                            }
-                    )
-                }
-
-                handleObstacleAlert(detections)
             } catch (_: Throwable) {
                 _uiState.update {
                     it.copy(statusMessage = "Khung hình chưa rõ, đang thử lại")
@@ -150,6 +138,59 @@ class CameraViewModel(
             } finally {
                 imageProxy.close()
                 isProcessingFrame.set(false)
+            }
+        }
+    }
+
+    fun selectMode(mode: CameraMode) {
+        val current = _uiState.value.activeMode
+        if (mode == current) return
+
+        when (mode) {
+            CameraMode.OBSTACLE -> {
+                hapticService.confirm()
+                if (!isHeadsetConnected()) {
+                    ttsService.speak(
+                        "Đã chuyển sang chế độ phát hiện vật cản",
+                        TtsService.Priority.HIGH
+                    )
+                }
+                _uiState.update {
+                    it.copy(
+                        activeMode = CameraMode.OBSTACLE,
+                        title = "Chế độ phát hiện vật cản",
+                        summary = "Ứng dụng đang theo dõi vật cản liên tục. Nhấn giữ màn hình để mô tả cảnh xung quanh.",
+                        statusMessage = "Đang quét vật cản",
+                        lastAnnouncement = "Đã chuyển sang chế độ phát hiện vật cản"
+                    )
+                }
+            }
+
+            CameraMode.OCR -> {
+                hapticService.confirm()
+                if (!isHeadsetConnected()) {
+                    ttsService.speak(
+                        "Đã chuyển sang chế độ đọc chữ. Tính năng này đang được phát triển",
+                        TtsService.Priority.HIGH
+                    )
+                }
+                latestDetections.set(emptyList())
+                latestDepthMap.set(null)
+                latestDepthHazard.set(null)
+                latestDepthHazardAtMs.set(0L)
+                noHazardStreak = 0
+                _uiState.update {
+                    it.copy(
+                        activeMode = CameraMode.OCR,
+                        title = "Chế độ đọc chữ",
+                        summary = "Đọc chữ từ camera. Tính năng đang được phát triển.",
+                        statusMessage = "TODO: Chưa triển khai OCR",
+                        lastAnnouncement = "Đã chuyển sang chế độ đọc chữ",
+                        boundingBoxes = emptyList(),
+                        depthPreviewBitmap = null,
+                        debugMetrics = "OCR TODO: chưa có dữ liệu phân tích"
+                    )
+                }
             }
         }
     }
@@ -197,6 +238,52 @@ class CameraViewModel(
     fun toggleStatusCardVisibility() {
         _uiState.update { state ->
             state.copy(isStatusCardVisible = !state.isStatusCardVisible)
+        }
+    }
+
+    private fun processObstacleFrame(bitmap: Bitmap) {
+        maybeRefreshDepth(bitmap)
+
+        val detections = yoloDetector.detect(bitmap)
+        latestDetections.set(detections)
+
+        val depthMap = latestDepthMap.get()
+        if (depthMap != null) {
+            detections.forEach { detection ->
+                detection.midasDepth = miDasDepthEstimator.depthAt(depthMap, detection.bbox)
+            }
+        }
+
+        _uiState.update {
+            it.copy(
+                boundingBoxes = detections
+                    .sortedByDescending { detection -> detection.confidence }
+                    .take(MAX_OVERLAY_BOXES)
+                    .map { detection ->
+                        BoundingBoxUi(
+                            left = detection.bbox.left,
+                            top = detection.bbox.top,
+                            right = detection.bbox.right,
+                            bottom = detection.bbox.bottom,
+                            labelVi = detection.labelVi,
+                            zoneLabel = detection.zone.labelVi,
+                            confidence = detection.confidence
+                        )
+                    }
+            )
+        }
+
+        handleObstacleAlert(detections)
+    }
+
+    private fun processOcrFrameStub() {
+        // TODO: Implement OCR frame processing pipeline.
+        _uiState.update {
+            it.copy(
+                statusMessage = "TODO: Chưa triển khai OCR",
+                boundingBoxes = emptyList(),
+                depthPreviewBitmap = null
+            )
         }
     }
 
