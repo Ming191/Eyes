@@ -18,6 +18,7 @@ class MiDasDepthEstimator(context: Context) {
         Interpreter.Options().apply {
             numThreads = 4
             setUseNNAPI(false)
+            setUseXNNPACK(false)
         }
     )
 
@@ -28,24 +29,33 @@ class MiDasDepthEstimator(context: Context) {
     private val inputWidth = inputShape[2]
     private val outputHeight = outputShape[1]
     private val outputWidth = outputShape[2]
+    private val inputPixels = IntArray(inputWidth * inputHeight)
+    private val inputBuffer = ByteBuffer.allocateDirect(inputWidth * inputHeight * 3 * FLOAT_BYTES)
+        .order(ByteOrder.nativeOrder())
+    private val outputBuffer = Array(1) { Array(outputHeight) { Array(outputWidth) { FloatArray(1) } } }
+    private val flattenedOutput = FloatArray(outputWidth * outputHeight)
 
+    @Synchronized
     fun estimateDepth(bitmap: Bitmap): DepthMap {
         val scaled = bitmap.scale(inputWidth, inputHeight)
-        val input = bitmapToFloatBuffer(scaled)
+        try {
+            val input = bitmapToFloatBuffer(scaled)
+            interpreter.run(input, outputBuffer)
 
-        val output = Array(1) { Array(outputHeight) { Array(outputWidth) { FloatArray(1) } } }
-        interpreter.run(input, output)
+            var index = 0
+            for (y in 0 until outputHeight) {
+                for (x in 0 until outputWidth) {
+                    flattenedOutput[index++] = outputBuffer[0][y][x][0]
+                }
+            }
 
-        val flattened = FloatArray(outputWidth * outputHeight)
-        var index = 0
-        for (y in 0 until outputHeight) {
-            for (x in 0 until outputWidth) {
-                flattened[index++] = output[0][y][x][0]
+            val normalized = normalizeDepth(flattenedOutput)
+            return DepthMap(values = normalized, width = outputWidth, height = outputHeight)
+        } finally {
+            if (scaled !== bitmap) {
+                scaled.recycle()
             }
         }
-
-        val normalized = normalizeDepth(flattened)
-        return DepthMap(values = normalized, width = outputWidth, height = outputHeight)
     }
 
     fun depthAt(depthMap: DepthMap, bbox: RectF): Float {
@@ -87,20 +97,17 @@ class MiDasDepthEstimator(context: Context) {
     }
 
     private fun bitmapToFloatBuffer(bitmap: Bitmap): ByteBuffer {
-        val pixels = IntArray(inputWidth * inputHeight)
-        bitmap.getPixels(pixels, 0, inputWidth, 0, 0, inputWidth, inputHeight)
+        bitmap.getPixels(inputPixels, 0, inputWidth, 0, 0, inputWidth, inputHeight)
 
-        val buffer = ByteBuffer.allocateDirect(inputWidth * inputHeight * 3 * FLOAT_BYTES)
-            .order(ByteOrder.nativeOrder())
-
-        pixels.forEach { px ->
-            buffer.putFloat((px shr 16 and 0xFF) / 255f)
-            buffer.putFloat((px shr 8 and 0xFF) / 255f)
-            buffer.putFloat((px and 0xFF) / 255f)
+        inputBuffer.rewind()
+        inputPixels.forEach { px ->
+            inputBuffer.putFloat((px shr 16 and 0xFF) / 255f)
+            inputBuffer.putFloat((px shr 8 and 0xFF) / 255f)
+            inputBuffer.putFloat((px and 0xFF) / 255f)
         }
 
-        buffer.rewind()
-        return buffer
+        inputBuffer.rewind()
+        return inputBuffer
     }
 
     private companion object {

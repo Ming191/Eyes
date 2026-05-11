@@ -72,6 +72,28 @@ class DepthHazardDetectorTest {
         assertNull(result)
     }
 
+    @Test
+    fun detect_emitsSideHazardWhenPeripheralRegionIsPartiallyHot() {
+        // GIVEN
+        val detector = DepthHazardDetector(persistenceFrames = 1)
+        val width = 9
+        val height = 9
+        val values = FloatArray(width * height) { 0.2f }
+        values[3 * width + 6] = 0.93f
+        values[4 * width + 7] = 0.93f
+        values[5 * width + 8] = 0.93f
+        val map = DepthMap(values, width, height)
+
+        // WHEN
+        val result = detector.detect(map)
+
+        // THEN
+        assertNotNull(result)
+        assertEquals(Zone.RIGHT, result!!.zone)
+        assertEquals(VerticalBand.TORSO, result.band)
+        assertEquals(HazardSeverity.HIGH, result.severity)
+    }
+
     private fun depthMapWithHotRegion(zone: Zone, band: VerticalBand, hotValue: Float): DepthMap {
         val width = 9
         val height = 9

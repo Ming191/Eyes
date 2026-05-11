@@ -4,14 +4,19 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Info
@@ -36,12 +41,12 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.camera.CameraManager
@@ -104,68 +109,27 @@ fun CameraScreen(
         )
 
         if (uiState.isStatusCardVisible) {
-            Surface(
+            CameraStatusPanel(
+                uiState = uiState,
+                onDismiss = viewModel::toggleStatusCardVisibility,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
-                    .fillMaxWidth()
-                    .semantics(mergeDescendants = true) {
-                        contentDescription = "Bảng trạng thái camera"
-                        stateDescription = "${uiState.title}. ${uiState.statusMessage}. ${uiState.lastAnnouncement}."
-                        liveRegion = LiveRegionMode.Polite
-                    },
-                shape = MaterialTheme.shapes.large,
-                tonalElevation = 4.dp,
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = uiState.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.semantics { heading() }
-                    )
-                    Text(
-                        text = uiState.summary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = uiState.statusMessage,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = uiState.lastAnnouncement,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = uiState.debugMetrics,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.clearAndSetSemantics { }
-                    )
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            )
+        }
 
-                    uiState.depthPreviewBitmap?.let { depthBitmap ->
-                        Text(
-                            text = "Depth map (MiDaS)",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Image(
-                            bitmap = depthBitmap.asImageBitmap(),
-                            contentDescription = "Bản đồ độ sâu MiDaS, vùng sáng là gần và vùng tối là xa",
-                            contentScale = ContentScale.FillWidth,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(160.dp)
-                        )
-                    }
-                }
-            }
+        uiState.depthPreviewBitmap?.let { depthBitmap ->
+            DepthPreviewPanel(
+                depthBitmap = depthBitmap.asImageBitmap(),
+                aspectRatio = depthBitmap.width.toFloat() / depthBitmap.height.toFloat(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(
+                        start = 16.dp,
+                        end = 16.dp,
+                        bottom = 144.dp
+                    )
+            )
         }
 
         CameraModeSelector(
@@ -176,22 +140,135 @@ fun CameraScreen(
                 .padding(horizontal = 16.dp, vertical = 24.dp)
         )
 
-        FilledTonalIconButton(
-            onClick = viewModel::toggleStatusCardVisibility,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-                .semantics {
-                    contentDescription = if (uiState.isStatusCardVisible) {
-                        "Ẩn bảng trạng thái camera"
-                    } else {
-                        "Hiện bảng trạng thái camera"
+        if (!uiState.isStatusCardVisible) {
+            FilledTonalIconButton(
+                onClick = viewModel::toggleStatusCardVisibility,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .semantics {
+                        contentDescription = "Hiện bảng trạng thái camera"
                     }
-                }
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Info,
+                    contentDescription = null
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CameraStatusPanel(
+    uiState: CameraUiState,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(max = 132.dp)
+            .semantics {
+                contentDescription = "Bảng trạng thái camera"
+                stateDescription = "${uiState.title}. ${uiState.statusMessage}. ${uiState.lastAnnouncement}."
+                liveRegion = LiveRegionMode.Polite
+            },
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 4.dp,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                imageVector = if (uiState.isStatusCardVisible) Icons.Rounded.Close else Icons.Rounded.Info,
-                contentDescription = null
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Tiêu đề và nút ẩn bảng trạng thái" },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = uiState.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics {
+                            contentDescription = uiState.title
+                            heading()
+                        }
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                FilledTonalIconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Ẩn bảng trạng thái camera"
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = null
+                    )
+                }
+            }
+            Text(
+                text = uiState.statusMessage,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.semantics {
+                    contentDescription = uiState.statusMessage
+                }
+            )
+            Text(
+                text = uiState.lastAnnouncement,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.semantics {
+                    contentDescription = uiState.lastAnnouncement
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun DepthPreviewPanel(
+    depthBitmap: ImageBitmap,
+    aspectRatio: Float,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                contentDescription = "Khung xem bản đồ độ sâu MiDaS"
+            },
+        shape = MaterialTheme.shapes.medium,
+        tonalElevation = 4.dp,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Depth map (MiDaS)",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.semantics {
+                    contentDescription = "Bản đồ độ sâu MiDaS"
+                }
+            )
+            Image(
+                bitmap = depthBitmap,
+                contentDescription = "Bản đồ độ sâu MiDaS, vùng sáng là gần và vùng tối là xa",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(aspectRatio)
+                    .heightIn(max = 360.dp)
             )
         }
     }

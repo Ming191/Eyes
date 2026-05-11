@@ -15,6 +15,7 @@ import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import com.example.eyes.R
 import com.example.eyes.ai.AlertSource
+import com.example.eyes.ai.Detection
 import com.example.eyes.ai.DepthHazard
 import com.example.eyes.ai.DepthHazardDetector
 import com.example.eyes.ai.DepthMap
@@ -126,7 +127,7 @@ class ObstacleDetectionService : LifecycleService() {
 
                     val candidate = detections
                         .asSequence()
-                        .filter { it.isPriority() }
+                        .filter { it.isAlertCandidate() }
                         .filter { it.isNearby(alertSensitivity) }
                         .maxByOrNull { detection ->
                             val depthScore =
@@ -136,6 +137,7 @@ class ObstacleDetectionService : LifecycleService() {
 
                     val nowMs = System.currentTimeMillis()
                     val depthCandidate = getFreshDepthCandidate(nowMs)
+                    val depthLabelCandidate = depthCandidate?.let { findReliableLabelForDepth(detections, it.zone) }
                     val fusedAlert = hazardFusionEngine.fuse(candidate, depthCandidate)
 
                     if (fusedAlert != null) {
@@ -159,6 +161,9 @@ class ObstacleDetectionService : LifecycleService() {
                             fusedAlert.primarySource == AlertSource.YOLO && candidate != null -> {
                                 "Chú ý! ${candidate.labelVi} ở ${candidate.zone.labelVi}."
                             }
+                            fusedAlert.primarySource == AlertSource.DEPTH && depthLabelCandidate != null -> {
+                                "Chú ý! ${depthLabelCandidate.labelVi} gần ${fusedAlert.primaryZone.labelVi}."
+                            }
                             else -> fusedAlert.speechText ?: "Chú ý! Có vật cản gần ${fusedAlert.primaryZone.labelVi}."
                         }
 
@@ -173,6 +178,14 @@ class ObstacleDetectionService : LifecycleService() {
                 }
             }
         }
+    }
+
+    private fun findReliableLabelForDepth(detections: List<Detection>, zone: Zone): Detection? {
+        return detections
+            .asSequence()
+            .filter { it.zone == zone }
+            .filter { it.hasReliableLabel() }
+            .maxByOrNull { it.confidence }
     }
 
     private fun maybeUpdateDepth(bitmap: Bitmap) {

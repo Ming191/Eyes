@@ -326,7 +326,7 @@ class CameraViewModel(
     private fun handleObstacleAlert(detections: List<Detection>) {
         val yoloCandidate = detections
             .asSequence()
-            .filter { it.isPriority() }
+            .filter { it.isAlertCandidate() }
             .filter { it.isNearby(alertSensitivity.value) }
             .maxByOrNull { detection ->
                 val depthScore = if (detection.midasDepth > 0f) detection.midasDepth else detection.bboxDepthScore
@@ -339,6 +339,7 @@ class CameraViewModel(
 
         val nowMs = System.currentTimeMillis()
         val depthCandidate = getFreshDepthCandidate(nowMs)
+        val depthLabelCandidate = depthCandidate?.let { findReliableLabelForDepth(detections, it.zone) }
         val fusedAlert = hazardFusionEngine.fuse(yoloCandidate, depthCandidate)
         val headsetConnected = isHeadsetConnected()
         var speechSpoken = false
@@ -388,6 +389,9 @@ class CameraViewModel(
             fusedAlert.primarySource == AlertSource.YOLO && yoloCandidate != null -> {
                 "Chú ý! ${yoloCandidate.labelVi} ở ${yoloCandidate.zone.labelVi}."
             }
+            fusedAlert.primarySource == AlertSource.DEPTH && depthLabelCandidate != null -> {
+                "Chú ý! ${depthLabelCandidate.labelVi} gần ${fusedAlert.primaryZone.labelVi}."
+            }
             else -> fusedAlert.speechText ?: "Chú ý! Có vật cản gần ${fusedAlert.primaryZone.labelVi}."
         }
 
@@ -404,7 +408,10 @@ class CameraViewModel(
                         val label = yoloCandidate?.labelVi ?: "vật cản"
                         "Phát hiện $label ${fusedAlert.primaryZone.labelVi}"
                     }
-                    AlertSource.DEPTH -> "Phát hiện vật cản gần ${fusedAlert.primaryZone.labelVi}"
+                    AlertSource.DEPTH -> {
+                        val label = depthLabelCandidate?.labelVi ?: "vật cản"
+                        "Phát hiện $label gần ${fusedAlert.primaryZone.labelVi}"
+                    }
                 },
                 lastAnnouncement = announcement,
                 debugMetrics = buildDebugMetrics(
@@ -418,6 +425,14 @@ class CameraViewModel(
                 )
             )
         }
+    }
+
+    private fun findReliableLabelForDepth(detections: List<Detection>, zone: Zone): Detection? {
+        return detections
+            .asSequence()
+            .filter { it.zone == zone }
+            .filter { it.hasReliableLabel() }
+            .maxByOrNull { it.confidence }
     }
 
     private fun getFreshDepthCandidate(nowMs: Long): DepthHazard? {

@@ -96,8 +96,8 @@ class DepthHazardDetector(
             band == VerticalBand.HEAD -> false
             zone == Zone.CENTER && band == VerticalBand.GROUND -> highRatio >= 0.25f
             zone == Zone.CENTER && band == VerticalBand.TORSO -> highRatio >= 0.35f
-            (zone == Zone.LEFT || zone == Zone.RIGHT) && band == VerticalBand.GROUND -> highRatio >= 0.40f
-            (zone == Zone.LEFT || zone == Zone.RIGHT) && band == VerticalBand.TORSO -> highRatio >= 0.50f
+            (zone == Zone.LEFT || zone == Zone.RIGHT) && band == VerticalBand.GROUND -> highRatio >= 0.25f
+            (zone == Zone.LEFT || zone == Zone.RIGHT) && band == VerticalBand.TORSO -> highRatio >= 0.30f
             else -> false
         }
     }
@@ -107,8 +107,8 @@ class DepthHazardDetector(
             band == VerticalBand.HEAD -> false
             zone == Zone.CENTER && band == VerticalBand.GROUND -> mediumRatio >= 0.55f
             zone == Zone.CENTER && band == VerticalBand.TORSO -> mediumRatio >= 0.60f
-            (zone == Zone.LEFT || zone == Zone.RIGHT) && band == VerticalBand.GROUND -> mediumRatio >= 0.65f
-            (zone == Zone.LEFT || zone == Zone.RIGHT) && band == VerticalBand.TORSO -> mediumRatio >= 0.75f
+            (zone == Zone.LEFT || zone == Zone.RIGHT) && band == VerticalBand.GROUND -> mediumRatio >= 0.45f
+            (zone == Zone.LEFT || zone == Zone.RIGHT) && band == VerticalBand.TORSO -> mediumRatio >= 0.50f
             else -> false
         }
     }
