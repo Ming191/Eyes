@@ -116,6 +116,17 @@ class CameraViewModel(
         }
     }
 
+    /**
+     * Processes a single camera frame according to the current camera mode and updates view state.
+     *
+     * This function converts the provided ImageProxy to a rotated bitmap, saves it as the latest frame,
+     * and dispatches mode-specific processing (obstacle detection or OCR) on a background dispatcher.
+     * If a frame is already being processed, the incoming frame is closed and ignored. The provided
+     * ImageProxy is always closed by this function. On unexpected errors the UI state's statusMessage
+     * is set to "Khung hình chưa rõ, đang thử lại".
+     *
+     * @param imageProxy The camera frame to process; this function will close the ImageProxy.
+     */
     fun processFrame(imageProxy: ImageProxy) {
         if (!isProcessingFrame.compareAndSet(false, true)) {
             imageProxy.close()
@@ -142,6 +153,18 @@ class CameraViewModel(
         }
     }
 
+    /**
+     * Switches the camera's active mode and updates UI state, user feedback, and internal caches.
+     *
+     * When changing to OBSTACLE mode this triggers a confirmation haptic, optionally speaks a short
+     * announcement if no headset is connected, and updates the UI title, summary, status message, and
+     * last announcement. When changing to OCR mode this triggers a confirmation haptic, optionally
+     * speaks an OCR-development announcement if no headset is connected, clears detection/depth/hazard
+     * caches and streaks, and updates the UI to the OCR placeholder state (cleared overlays, null
+     * depth preview, and OCR debug text).
+     *
+     * @param mode The camera mode to activate.
+     */
     fun selectMode(mode: CameraMode) {
         val current = _uiState.value.activeMode
         if (mode == current) return
@@ -195,6 +218,16 @@ class CameraViewModel(
         }
     }
 
+    /**
+     * Requests a natural-language description of the current camera view and publishes the result to UI and output devices.
+     *
+     * If a recent camera frame is not available, updates the status message and emits an error haptic, then returns.
+     *
+     * When a frame is available, marks the view model as describing the scene, emits a loading haptic, and invokes
+     * the scene repository to generate a description from the latest frame and detections. After the description is ready
+     * it emits a confirmation haptic, updates the UI (`statusMessage`, `lastAnnouncement`, `isDescribingScene`), and,
+     * if no headset is connected, speaks the description via the TTS service.
+     */
     fun describeScene() {
         val currentFrame = latestFrame.get() ?: run {
             _uiState.update {
@@ -235,12 +268,24 @@ class CameraViewModel(
         }
     }
 
+    /**
+     * Toggles the status card visibility flag in the camera UI state.
+     */
     fun toggleStatusCardVisibility() {
         _uiState.update { state ->
             state.copy(isStatusCardVisible = !state.isStatusCardVisible)
         }
     }
 
+    /**
+     * Process a rotation-corrected camera frame for obstacle detection, update overlay bounding boxes,
+     * refresh depth-related caches, and trigger hazard fusion (haptics/TTS/UI) as needed.
+     *
+     * Updates internal caches (`latestDetections`, depth caches) and publishes new `boundingBoxes` to UI state,
+     * then evaluates and handles fused obstacle alerts.
+     *
+     * @param bitmap The rotation-corrected camera frame to analyze. 
+     */
     private fun processObstacleFrame(bitmap: Bitmap) {
         maybeRefreshDepth(bitmap)
 
@@ -276,6 +321,11 @@ class CameraViewModel(
         handleObstacleAlert(detections)
     }
 
+    /**
+     * Sets the UI into a placeholder OCR state indicating OCR is not yet implemented.
+     *
+     * Updates the status message to a TODO notice, clears bounding box overlays, and removes any depth preview.
+     */
     private fun processOcrFrameStub() {
         // TODO: Implement OCR frame processing pipeline.
         _uiState.update {
@@ -287,6 +337,16 @@ class CameraViewModel(
         }
     }
 
+    /**
+     * Periodically starts a background depth estimation for the provided camera frame and publishes its results to the ViewModel state.
+     *
+     * If a depth update is not scheduled for this frame or another depth update is already in progress, this function returns without effect.
+     *
+     * Side effects:
+     * - Launches a coroutine that estimates a depth map and detects depth hazards.
+     * - Updates `latestDepthMap`, `latestDepthHazard`, and `latestDepthHazardAtMs`.
+     * - Updates the UI state's `depthPreviewBitmap`.
+     */
     private fun maybeRefreshDepth(bitmap: Bitmap) {
         val currentFrameIndex = frameCounter.incrementAndGet()
         if (currentFrameIndex % DEPTH_FRAME_INTERVAL != 0) return
@@ -310,6 +370,15 @@ class CameraViewModel(
         }
     }
 
+    /**
+     * Creates a grayscale ARGB preview bitmap from a depth map.
+     *
+     * Each depth value is clamped to [0, 1] and mapped to an 8-bit grayscale intensity
+     * (0 = black, 255 = white), then written into an ARGB bitmap sized to the depth map.
+     *
+     * @param depthMap The source depth map containing width, height, and normalized depth values.
+     * @return A bitmap where each pixel encodes the corresponding depth as a grayscale ARGB color.
+     */
     private fun buildDepthPreviewBitmap(depthMap: DepthMap): Bitmap {
         val pixels = IntArray(depthMap.width * depthMap.height)
         depthMap.values.forEachIndexed { index, value ->
@@ -323,6 +392,19 @@ class CameraViewModel(
             }
     }
 
+    /**
+     * Compute a fused obstacle alert from the given detections, update UI state accordingly,
+     * and trigger haptic and TTS notifications when appropriate.
+     *
+     * Selects a best YOLO candidate (nearby alert candidate scored by depth and confidence),
+     * obtains a fresh depth-based candidate, fuses them via the hazard fusion engine, and:
+     * - if no fused alert is produced, increments the safe-streak and updates status/debug text;
+     * - if a fused alert is produced, resets the safe-streak, optionally emits haptics (with cooldown),
+     *   optionally speaks an announcement (suppressed when a headset is connected and rate-limited),
+     *   and updates `statusMessage`, `lastAnnouncement`, and `debugMetrics` in the UI state.
+     *
+     * @param detections The list of detections from the current frame to evaluate as alert candidates.
+     */
     private fun handleObstacleAlert(detections: List<Detection>) {
         val yoloCandidate = detections
             .asSequence()
@@ -427,6 +509,13 @@ class CameraViewModel(
         }
     }
 
+    /**
+     * Selects the most confident detection inside a given zone that has a reliable label.
+     *
+     * @param detections The list of detections to search.
+     * @param zone The zone to filter detections by.
+     * @return The detection in `zone` with a reliable label and the highest confidence, or `null` if none exist.
+     */
     private fun findReliableLabelForDepth(detections: List<Detection>, zone: Zone): Detection? {
         return detections
             .asSequence()
@@ -435,6 +524,12 @@ class CameraViewModel(
             .maxByOrNull { it.confidence }
     }
 
+    /**
+     * Retrieves the most recent depth-based hazard if it exists and is still within the freshness window.
+     *
+     * @param nowMs Current timestamp in milliseconds used to determine freshness against DEPTH_HAZARD_TTL_MS.
+     * @return The latest `DepthHazard` when present and updated within `DEPTH_HAZARD_TTL_MS`, `null` otherwise.
+     */
     private fun getFreshDepthCandidate(nowMs: Long): DepthHazard? {
         val hazardAtMs = latestDepthHazardAtMs.get()
         if (hazardAtMs <= 0L) return null
@@ -442,12 +537,31 @@ class CameraViewModel(
         return latestDepthHazard.get()
     }
 
+    /**
+     * Determines whether a haptic pulse may be emitted based on the cooldown and updates the last-trigger timestamp when permitted.
+     *
+     * @param nowMs Current time in milliseconds.
+     * @return `true` if the cooldown has elapsed and the haptic should be triggered (in which case `lastHapticAtMs` is updated to `nowMs`), `false` otherwise.
+     */
     private fun shouldTriggerHaptic(nowMs: Long): Boolean {
         if (nowMs - lastHapticAtMs < HAPTIC_COOLDOWN_MS) return false
         lastHapticAtMs = nowMs
         return true
     }
 
+    /**
+     * Builds a concise multi-line debug summary of the current detection, depth, fusion, speech, and sensitivity state.
+     *
+     * @param yoloCandidate The selected YOLO detection candidate, or `null` if none.
+     * @param yoloCompositeScore Composite score computed for the YOLO candidate, or `null`.
+     * @param depthCandidate The most recent depth-based hazard, or `null` if none is fresh.
+     * @param fusedAlert The fused hazard alert combining YOLO and depth inputs, or `null` if no alert.
+     * @param speechSpoken `true` if the view model spoke the latest announcement, `false` otherwise.
+     * @param speechSuppressedByHeadset `true` if speech was suppressed due to a connected headset.
+     * @param sensitivity Current alert sensitivity value.
+     * @return A multi-line string containing five lines: YOLO candidate summary, MiDaS depth hazard summary,
+     * fusion result summary, speech state, and sensitivity configuration.
+     */
     private fun buildDebugMetrics(
         yoloCandidate: Detection?,
         yoloCompositeScore: Float?,
@@ -487,9 +601,24 @@ class CameraViewModel(
         return listOf(yoloLine, depthLine, fusionLine, speechLine, configLine).joinToString("\n")
     }
 
+    /**
+     * Formats a floating-point number to a string with two decimal places.
+     *
+     * @param value The float value to format.
+     * @return The formatted string with exactly two digits after the decimal point.
+     */
     @SuppressLint("DefaultLocale")
     private fun fmt(value: Float): String = String.format("%.2f", value)
 
+    /**
+     * Determines whether an external audio headset or similar output device is currently connected.
+     *
+     * Considers wired headsets/headphones, USB headsets, and Bluetooth audio (A2DP/SCO) as connected devices.
+     * On API 23+ this queries AudioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS) for those device types;
+     * on older APIs it falls back to legacy audio manager flags.
+     *
+     * @return `true` if any of the considered headset/output device types are connected, `false` otherwise.
+     */
     @SuppressLint("ObsoleteSdkInt")
     private fun isHeadsetConnected(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {

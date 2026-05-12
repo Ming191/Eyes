@@ -11,12 +11,36 @@ data class Detection(
     val bboxDepthScore: Float,
     var midasDepth: Float = -1f
 ) {
-    fun isPriority(): Boolean = labelEn in PRIORITY_LABELS
+    /**
+ * Checks whether this detection's English label is classified as a priority.
+ *
+ * @return `true` if the `labelEn` is contained in `PRIORITY_LABELS`, `false` otherwise.
+ */
+fun isPriority(): Boolean = labelEn in PRIORITY_LABELS
 
-    fun hasReliableLabel(): Boolean = confidence >= RELIABLE_LABEL_CONFIDENCE
+    /**
+ * Determines whether this detection's label is considered reliable.
+ *
+ * @return `true` if confidence is greater than or equal to the reliable label confidence threshold, `false` otherwise.
+ */
+fun hasReliableLabel(): Boolean = confidence >= RELIABLE_LABEL_CONFIDENCE
 
-    fun isAlertCandidate(): Boolean = isPriority() || hasReliableLabel()
+    /**
+ * Indicates whether the detection should be considered for alerts based on label priority or confidence.
+ *
+ * @return `true` if the detection's label is in the priority labels set or its confidence is greater than or equal to RELIABLE_LABEL_CONFIDENCE, `false` otherwise.
+ */
+fun isAlertCandidate(): Boolean = isPriority() || hasReliableLabel()
 
+    /**
+     * Determines whether this detection is considered nearby given an alert sensitivity.
+     *
+     * Sensitivity is clamped to the range 0..1; higher sensitivity makes the near threshold more permissive.
+     * If a positive MIDAS depth is available it is used for the proximity check, otherwise the bounding-box depth score is used.
+     *
+     * @param alertSensitivity Sensitivity in the range 0..1 (values outside this range are clamped).
+     * @return `true` if the detection is considered nearby, `false` otherwise.
+     */
     fun isNearby(alertSensitivity: Float): Boolean {
         val normalizedSensitivity = alertSensitivity.coerceIn(0f, 1f)
         val midasThreshold = MIDAS_NEAR_BASE - (normalizedSensitivity * 0.25f)

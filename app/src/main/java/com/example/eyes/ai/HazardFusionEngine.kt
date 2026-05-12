@@ -13,6 +13,21 @@ data class FusedHazardAlert(
 )
 
 class HazardFusionEngine {
+    /**
+     * Fuse a YOLO detection and a depth-based hazard into a single fused hazard alert.
+     *
+     * When both inputs are null, returns null. If a YOLO detection is present it is chosen
+     * as the primary source; the returned alert's speech text uses the YOLO label and zone.
+     * If a depth hazard is present alongside YOLO and its severity is `HazardSeverity.HIGH`
+     * and its zone differs from the YOLO zone, that depth zone is included as
+     * `secondaryHapticZone`. If YOLO is absent but a depth hazard is present, the depth
+     * hazard becomes the primary source and the speech text indicates a nearby obstacle.
+     *
+     * @param yoloDetection The object detection result from the YOLO model, or null if none.
+     * @param depthHazard The depth-based hazard detection, or null if none.
+     * @return A `FusedHazardAlert` representing the chosen primary source/zone, optional
+     * secondary haptic zone, and generated speech text, or `null` if both inputs are null.
+     */
     fun fuse(
         yoloDetection: Detection?,
         depthHazard: DepthHazard?

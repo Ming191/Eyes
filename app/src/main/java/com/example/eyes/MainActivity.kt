@@ -14,6 +14,11 @@ import com.example.eyes.ui.theme.EyesTheme
 class MainActivity : ComponentActivity() {
     private var lastVolumeDownTapAt: Long = 0L
 
+    /**
+     * Initializes the activity, enables edge-to-edge display, and sets the Jetpack Compose UI.
+     *
+     * @param savedInstanceState A [Bundle] containing the activity's previously saved state, or `null` if none.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -24,6 +29,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Intercepts volume-down key events to detect a double-tap and toggle obstacle detection.
+     *
+     * @param event The key event to dispatch; when a volume-down double-tap is detected the event is consumed.
+     * @return `true` if a volume-down double-tap was detected and consumed, `false` otherwise.
+     */
     @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN && event.action == KeyEvent.ACTION_DOWN) {

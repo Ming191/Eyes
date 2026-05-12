@@ -26,6 +26,13 @@ class DepthHazardDetector(
 ) {
     private val streakByZoneBand = mutableMapOf<Pair<Zone, VerticalBand>, Int>()
 
+    /**
+     * Detects the most severe persistent depth hazard region present in the provided depth map.
+     *
+     * @param depthMap The depth map to evaluate. Must satisfy `depthMap.values.size == depthMap.width * depthMap.height`.
+     * @return The `DepthHazard` candidate with the highest region score after applying configured thresholds and persistence, or `null` if no region qualifies.
+     * @throws IllegalArgumentException If `depthMap.values.size` does not equal `depthMap.width * depthMap.height`.
+     */
     fun detect(depthMap: DepthMap): DepthHazard? {
         require(depthMap.values.size == depthMap.width * depthMap.height) {
             "DepthMap shape does not match values size"
@@ -64,6 +71,21 @@ class DepthHazardDetector(
         val highRatio: Float
     )
 
+    /**
+     * Compute depth-derived statistics for the specified horizontal zone and vertical band.
+     *
+     * Samples depthMap values inside the region defined by `zone` and `band` and summarizes them as a
+     * percentile-based score plus two ratios indicating the fraction of samples meeting configured
+     * near thresholds.
+     *
+     * @param depthMap The depth map to sample.
+     * @param zone The horizontal zone to evaluate.
+     * @param band The vertical band to evaluate.
+     * @return A [RegionStats] containing:
+     *   - `score`: the configured-percentile value from the sampled depths (0..1),
+     *   - `mediumRatio`: fraction of samples >= `nearThresholdMedium`,
+     *   - `highRatio`: fraction of samples >= `nearThresholdHigh`.
+     */
     private fun regionStats(depthMap: DepthMap, zone: Zone, band: VerticalBand): RegionStats {
         if (band == VerticalBand.HEAD) return RegionStats(0f, 0f, 0f)
         val xRange = zoneXRange(depthMap.width, zone)
@@ -91,6 +113,20 @@ class DepthHazardDetector(
         )
     }
 
+    /**
+     * Determines whether a region satisfies the "high" proximity policy for its zone and vertical band.
+     *
+     * The HEAD band never qualifies. Required `highRatio` thresholds:
+     * - CENTER + GROUND: >= 0.25
+     * - CENTER + TORSO: >= 0.35
+     * - LEFT/RIGHT + GROUND: >= 0.25
+     * - LEFT/RIGHT + TORSO: >= 0.30
+     *
+     * @param zone The horizontal zone being evaluated.
+     * @param band The vertical band being evaluated.
+     * @param highRatio Fraction of region samples with depth >= the high threshold (0.0–1.0).
+     * @return `true` if `highRatio` meets the threshold for the given `zone` and `band`, `false` otherwise.
+     */
     private fun passesHighPolicy(zone: Zone, band: VerticalBand, highRatio: Float): Boolean {
         return when {
             band == VerticalBand.HEAD -> false
@@ -102,6 +138,18 @@ class DepthHazardDetector(
         }
     }
 
+    /**
+     * Determines whether a region satisfies the medium-severity policy for its zone and vertical band.
+     *
+     * The decision compares `mediumRatio` against zone-and-band-specific thresholds; regions in the
+     * `HEAD` band never satisfy the medium policy.
+     *
+     * @param zone The horizontal zone being evaluated (LEFT, CENTER, RIGHT).
+     * @param band The vertical band being evaluated (GROUND, TORSO, HEAD).
+     * @param mediumRatio Fraction of region samples that meet or exceed the medium depth threshold.
+     * @return `true` if the region's `mediumRatio` meets or exceeds the configured threshold for the
+     * specified `zone` and `band`, `false` otherwise.
+     */
     private fun passesMediumPolicy(zone: Zone, band: VerticalBand, mediumRatio: Float): Boolean {
         return when {
             band == VerticalBand.HEAD -> false
@@ -113,6 +161,15 @@ class DepthHazardDetector(
         }
     }
 
+    /**
+     * Computes the inclusive horizontal pixel range for a zone by splitting the image width into thirds.
+     *
+     * The returned range is clamped to valid column indices [0, width - 1] and may be empty if width is small.
+     *
+     * @param width The image width in pixels.
+     * @param zone The horizontal zone (LEFT, CENTER, RIGHT) to map to an X range.
+     * @return The inclusive X coordinate range for the specified zone, clamped to [0, width - 1].
+     */
     private fun zoneXRange(width: Int, zone: Zone): IntRange {
         val leftEnd = (width / 3) - 1
         val centerEnd = ((2 * width) / 3) - 1
@@ -123,6 +180,15 @@ class DepthHazardDetector(
         }
     }
 
+    /**
+     * Computes the inclusive row index range corresponding to the given vertical band by dividing the image height into three horizontal bands.
+     *
+     * The height is split into HEAD, TORSO, and GROUND thirds; returned ranges are coerced to valid row indices so they stay within 0..(height-1).
+     *
+     * @param height The total number of rows (image height).
+     * @param band The vertical band to map to a row range.
+     * @return An inclusive IntRange of row indices for the requested band, adjusted to valid bounds. 
+     */
     private fun bandYRange(height: Int, band: VerticalBand): IntRange {
         val headEnd = (height / 3) - 1
         val torsoEnd = ((2 * height) / 3) - 1
