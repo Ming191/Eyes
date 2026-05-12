@@ -1,6 +1,5 @@
 package com.example.eyes.ai
 
-import android.graphics.RectF
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.After
@@ -63,7 +62,7 @@ class ObstacleSpamFilterTest {
         return Detection(
             labelEn = "person",
             labelVi = "người",
-            bbox = RectF(0.2f, 0.2f, 0.6f, 0.9f),
+            bbox = BBox(0.2f, 0.2f, 0.6f, 0.9f),
             confidence = 0.9f,
             zone = zone,
             bboxDepthScore = 0.8f,

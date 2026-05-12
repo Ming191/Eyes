@@ -1,11 +1,16 @@
 package com.example.eyes.ai
 
-import android.graphics.RectF
+data class BBox(
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float
+)
 
 data class Detection(
     val labelEn: String,
     val labelVi: String,
-    val bbox: RectF,
+    val bbox: BBox,
     val confidence: Float,
     val zone: Zone,
     val bboxDepthScore: Float,

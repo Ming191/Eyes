@@ -1,6 +1,5 @@
 package com.example.eyes.ai
 
-import android.graphics.RectF
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -71,7 +70,7 @@ class HazardFusionEngineTest {
         return Detection(
             labelEn = "person",
             labelVi = "người",
-            bbox = RectF(0f, 0f, 1f, 1f),
+            bbox = BBox(0f, 0f, 1f, 1f),
             confidence = 0.95f,
             zone = zone,
             bboxDepthScore = 0.7f

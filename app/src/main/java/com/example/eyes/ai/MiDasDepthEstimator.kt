@@ -2,7 +2,6 @@ package com.example.eyes.ai
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.RectF
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.support.common.FileUtil
 import java.nio.ByteBuffer
@@ -58,7 +57,7 @@ class MiDasDepthEstimator(context: Context) {
         }
     }
 
-    fun depthAt(depthMap: DepthMap, bbox: RectF): Float {
+    fun depthAt(depthMap: DepthMap, bbox: BBox): Float {
         val x1 = (bbox.left * depthMap.width).toInt().coerceIn(0, depthMap.width - 1)
         val y1 = (bbox.top * depthMap.height).toInt().coerceIn(0, depthMap.height - 1)
         val x2 = (bbox.right * depthMap.width).toInt().coerceIn(0, depthMap.width - 1)

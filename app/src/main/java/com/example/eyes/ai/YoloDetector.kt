@@ -2,7 +2,6 @@ package com.example.eyes.ai
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.RectF
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.support.common.FileUtil
 import java.nio.ByteBuffer
@@ -61,7 +60,7 @@ class YoloDetector(context: Context) {
 
         if (x2 <= x1 || y2 <= y1) return null
 
-        val bbox = RectF(x1, y1, x2, y2)
+        val bbox = BBox(x1, y1, x2, y2)
         val zone = zoneFromCenterX((x1 + x2) / 2f)
 
         val heightScore = (y2 - y1).coerceIn(0f, 1f)
