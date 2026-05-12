@@ -1,6 +1,7 @@
 package com.example.eyes.ai
 
 import android.annotation.SuppressLint
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicLong
 
 data class AlertResult(
@@ -207,8 +208,7 @@ class HazardAlertPipeline(
         return listOf(yoloLine, depthLine, fusionLine, speechLine, configLine).joinToString("\n")
     }
 
-    @SuppressLint("DefaultLocale")
-    private fun fmt(value: Float): String = String.format("%.2f", value)
+    private fun fmt(value: Float): String = String.format(Locale.getDefault(), "%.2f", value)
 
     companion object {
         const val DEPTH_HAZARD_TTL_MS = 2_800L

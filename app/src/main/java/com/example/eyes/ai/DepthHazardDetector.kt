@@ -34,6 +34,10 @@ class DepthHazardDetector(
      * @throws IllegalArgumentException If `depthMap.values.size` does not equal `depthMap.width * depthMap.height`.
      */
     fun detect(depthMap: DepthMap): DepthHazard? {
+        require(depthMap.width > 0 && depthMap.height > 0) {
+            "DepthMap dimensions must be positive"
+        }
+
         require(depthMap.values.size == depthMap.width * depthMap.height) {
             "DepthMap shape does not match values size"
         }

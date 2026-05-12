@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import androidx.core.graphics.createBitmap
+import kotlinx.coroutines.CancellationException
 
 @Immutable
 data class CameraUiState(
@@ -144,7 +145,9 @@ class CameraViewModel(
                     CameraMode.OBSTACLE -> processObstacleFrame(bitmap)
                     CameraMode.OCR -> processOcrFrameStub()
                 }
-            } catch (_: Throwable) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
                 _uiState.update {
                     it.copy(statusMessage = "Khung hình chưa rõ, đang thử lại")
                 }
@@ -204,7 +207,7 @@ class CameraViewModel(
                 latestDepthHazard.set(null)
                 latestDepthHazardAtMs.set(0L)
                 hazardAlertPipeline.resetSafeStatus()
-                _uiState.update {
+                updateUiStateAndRecycleReplacedDepthPreview {
                     it.copy(
                         activeMode = CameraMode.OCR,
                         title = "Chế độ đọc chữ",
@@ -250,22 +253,34 @@ class CameraViewModel(
         hapticService.loading()
 
         viewModelScope.launch(Dispatchers.Default) {
-            val description = sceneRepository.describeScene(
-                bitmap = currentFrame,
-                detections = latestDetections.get()
-            )
-
-            if (!isHeadsetConnected()) {
-                ttsService.speak(description, TtsService.Priority.HIGH)
-            }
-            hapticService.confirm()
-
-            _uiState.update {
-                it.copy(
-                    statusMessage = "Đã mô tả cảnh xong",
-                    lastAnnouncement = description,
-                    isDescribingScene = false
+            try {
+                val description = sceneRepository.describeScene(
+                    bitmap = currentFrame,
+                    detections = latestDetections.get()
                 )
+                if (!isHeadsetConnected()) {
+                    ttsService.speak(description, TtsService.Priority.HIGH)
+                }
+                hapticService.confirm()
+                _uiState.update {
+                    it.copy(
+                        statusMessage = "Đã mô tả cảnh xong",
+                        lastAnnouncement = description
+                    )
+                }
+
+            } catch (_: Exception) {
+                _uiState.update {
+                    it.copy(
+                        statusMessage = "Mô tả cảnh thất bại, vui lòng thử lại"
+                    )
+                }
+                hapticService.error()
+
+            } finally {
+                _uiState.update {
+                    it.copy(isDescribingScene = false)
+                }
             }
         }
     }
@@ -335,7 +350,7 @@ class CameraViewModel(
      */
     private fun processOcrFrameStub() {
         // TODO: Implement OCR frame processing pipeline.
-        _uiState.update {
+        updateUiStateAndRecycleReplacedDepthPreview {
             it.copy(
                 statusMessage = "TODO: Chưa triển khai OCR",
                 boundingBoxes = emptyList(),
@@ -362,13 +377,17 @@ class CameraViewModel(
         val snapshot = bitmap.copy(Bitmap.Config.ARGB_8888, false)
         viewModelScope.launch(Dispatchers.Default) {
             try {
-                val newMap = miDasDepthEstimator.estimateDepth(snapshot)
+                val newMap = try {
+                    miDasDepthEstimator.estimateDepth(snapshot)
+                } finally {
+                    recycleBitmapIfNeeded(snapshot)
+                }
                 latestDepthMap.set(newMap)
                 val hazard = depthHazardDetector.detect(newMap)
                 latestDepthHazard.set(hazard)
                 latestDepthHazardAtMs.set(if (hazard != null) System.currentTimeMillis() else 0L)
                 val previewBitmap = buildDepthPreviewBitmap(newMap)
-                _uiState.update { state ->
+                updateUiStateAndRecycleReplacedDepthPreview { state ->
                     state.copy(depthPreviewBitmap = previewBitmap)
                 }
             } finally {
@@ -397,6 +416,28 @@ class CameraViewModel(
             .apply {
                 setPixels(pixels, 0, depthMap.width, 0, 0, depthMap.width, depthMap.height)
             }
+    }
+
+    private fun updateUiStateAndRecycleReplacedDepthPreview(
+        transform: (CameraUiState) -> CameraUiState
+    ) {
+        var previousPreview: Bitmap? = null
+        var nextPreview: Bitmap? = null
+        _uiState.update { state ->
+            val updatedState = transform(state)
+            previousPreview = state.depthPreviewBitmap
+            nextPreview = updatedState.depthPreviewBitmap
+            updatedState
+        }
+        if (previousPreview !== nextPreview) {
+            recycleBitmapIfNeeded(previousPreview)
+        }
+    }
+
+    private fun recycleBitmapIfNeeded(bitmap: Bitmap?) {
+        if (bitmap != null && !bitmap.isRecycled) {
+            bitmap.recycle()
+        }
     }
 
     /**
