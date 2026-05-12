@@ -14,8 +14,8 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import com.example.eyes.R
-import com.example.eyes.ai.DepthHazard
 import com.example.eyes.ai.DepthHazardDetector
+import com.example.eyes.ai.DepthHazardSnapshot
 import com.example.eyes.ai.DepthMap
 import com.example.eyes.ai.HazardAlertPipeline
 import com.example.eyes.ai.HazardFusionEngine
@@ -36,7 +36,6 @@ import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 class ObstacleDetectionService : LifecycleService() {
@@ -52,16 +51,14 @@ class ObstacleDetectionService : LifecycleService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val frameThrottle = FrameThrottle()
     private val depthHazardDetector = DepthHazardDetector()
-    private val depthHazardAtMs = AtomicLong(0L)
     private val isFrameProcessing = AtomicBoolean(false)
     private val depthMap = AtomicReference<DepthMap?>(null)
-    private val depthHazard = AtomicReference<DepthHazard?>(null)
+    private val depthHazardSnapshot = AtomicReference(DepthHazardSnapshot(hazard = null, atMs = 0L))
     private val depthUpdating = AtomicBoolean(false)
     private val frameCounter = AtomicInteger(0)
     private val hazardAlertPipeline = HazardAlertPipeline(
         hazardFusionEngine = HazardFusionEngine(),
-        latestDepthHazard = { depthHazard.get() },
-        latestDepthHazardAtMs = { depthHazardAtMs.get() },
+        latestDepthHazardSnapshot = { depthHazardSnapshot.get() },
         isHeadsetConnected = { isHeadsetConnected() },
         dispatchHaptic = ::dispatchObstacleHaptic,
         speakUrgent = { announcement -> ttsService.speak(announcement, TtsService.Priority.URGENT) }
@@ -181,7 +178,7 @@ class ObstacleDetectionService : LifecycleService() {
     /**
      * Conditionally schedules a depth estimation from the provided camera frame and updates the cached depth and hazard state.
      *
-     * This function increments an internal frame counter and, when the frame falls on the configured depth interval and no other depth update is in progress, captures a snapshot of `bitmap`, launches a background depth estimation, and updates `depthMap`, `depthHazard`, and `depthHazardAtMs` based on the result.
+     * This function increments an internal frame counter and, when the frame falls on the configured depth interval and no other depth update is in progress, captures a snapshot of `bitmap`, launches a background depth estimation, and updates `depthMap` and `depthHazardSnapshot` based on the result.
      *
      * @param bitmap The latest camera frame used to create a snapshot for depth estimation. */
     private fun maybeUpdateDepth(bitmap: Bitmap) {
@@ -195,8 +192,12 @@ class ObstacleDetectionService : LifecycleService() {
                 val map = miDasDepthEstimator.estimateDepth(snapshot)
                 depthMap.set(map)
                 val hazard = depthHazardDetector.detect(map)
-                depthHazard.set(hazard)
-                depthHazardAtMs.set(if (hazard != null) System.currentTimeMillis() else 0L)
+                depthHazardSnapshot.set(
+                    DepthHazardSnapshot(
+                        hazard = hazard,
+                        atMs = if (hazard != null) System.currentTimeMillis() else 0L
+                    )
+                )
             } finally {
                 depthUpdating.set(false)
             }

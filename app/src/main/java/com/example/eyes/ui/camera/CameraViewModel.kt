@@ -11,8 +11,8 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.ai.DepthMap
-import com.example.eyes.ai.DepthHazard
 import com.example.eyes.ai.DepthHazardDetector
+import com.example.eyes.ai.DepthHazardSnapshot
 import com.example.eyes.ai.Detection
 import com.example.eyes.ai.HazardAlertPipeline
 import com.example.eyes.ai.HazardFusionEngine
@@ -32,7 +32,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import androidx.core.graphics.createBitmap
 import kotlinx.coroutines.CancellationException
@@ -94,16 +93,14 @@ class CameraViewModel(
     private val isDepthUpdating = AtomicBoolean(false)
     private val frameCounter = AtomicInteger(0)
     private val depthHazardDetector = DepthHazardDetector()
-    private val latestDepthHazardAtMs = AtomicLong(0L)
 
     private val latestDepthMap = AtomicReference<DepthMap?>(null)
-    private val latestDepthHazard = AtomicReference<DepthHazard?>(null)
+    private val latestDepthHazardSnapshot = AtomicReference(DepthHazardSnapshot(hazard = null, atMs = 0L))
     private val latestFrame = AtomicReference<Bitmap?>(null)
     private val latestDetections = AtomicReference<List<Detection>>(emptyList())
     private val hazardAlertPipeline = HazardAlertPipeline(
         hazardFusionEngine = HazardFusionEngine(),
-        latestDepthHazard = { latestDepthHazard.get() },
-        latestDepthHazardAtMs = { latestDepthHazardAtMs.get() },
+        latestDepthHazardSnapshot = { latestDepthHazardSnapshot.get() },
         isHeadsetConnected = { isHeadsetConnected() },
         dispatchHaptic = ::dispatchObstacleHaptic,
         speakUrgent = { announcement -> ttsService.speak(announcement, TtsService.Priority.URGENT) }
@@ -204,8 +201,7 @@ class CameraViewModel(
                 }
                 latestDetections.set(emptyList())
                 latestDepthMap.set(null)
-                latestDepthHazard.set(null)
-                latestDepthHazardAtMs.set(0L)
+                latestDepthHazardSnapshot.set(DepthHazardSnapshot(hazard = null, atMs = 0L))
                 hazardAlertPipeline.resetSafeStatus()
                 updateUiStateAndRecycleReplacedDepthPreview {
                     it.copy(
@@ -366,7 +362,7 @@ class CameraViewModel(
      *
      * Side effects:
      * - Launches a coroutine that estimates a depth map and detects depth hazards.
-     * - Updates `latestDepthMap`, `latestDepthHazard`, and `latestDepthHazardAtMs`.
+     * - Updates `latestDepthMap` and `latestDepthHazardSnapshot`.
      * - Updates the UI state's `depthPreviewBitmap`.
      */
     private fun maybeRefreshDepth(bitmap: Bitmap) {
@@ -384,8 +380,12 @@ class CameraViewModel(
                 }
                 latestDepthMap.set(newMap)
                 val hazard = depthHazardDetector.detect(newMap)
-                latestDepthHazard.set(hazard)
-                latestDepthHazardAtMs.set(if (hazard != null) System.currentTimeMillis() else 0L)
+                latestDepthHazardSnapshot.set(
+                    DepthHazardSnapshot(
+                        hazard = hazard,
+                        atMs = if (hazard != null) System.currentTimeMillis() else 0L
+                    )
+                )
                 val previewBitmap = buildDepthPreviewBitmap(newMap)
                 updateUiStateAndRecycleReplacedDepthPreview { state ->
                     state.copy(depthPreviewBitmap = previewBitmap)

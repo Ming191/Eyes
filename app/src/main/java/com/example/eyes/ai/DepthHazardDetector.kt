@@ -18,6 +18,11 @@ data class DepthHazard(
     val score: Float
 )
 
+data class DepthHazardSnapshot(
+    val hazard: DepthHazard?,
+    val atMs: Long
+)
+
 class DepthHazardDetector(
     private val nearThresholdMedium: Float = 0.80f,
     private val nearThresholdHigh: Float = 0.88f,

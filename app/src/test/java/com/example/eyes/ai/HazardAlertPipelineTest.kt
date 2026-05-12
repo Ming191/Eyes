@@ -176,8 +176,12 @@ class HazardAlertPipelineTest {
     ): HazardAlertPipeline {
         return HazardAlertPipeline(
             hazardFusionEngine = HazardFusionEngine(),
-            latestDepthHazard = { depthHazard },
-            latestDepthHazardAtMs = { depthHazardAtMs },
+            latestDepthHazardSnapshot = {
+                DepthHazardSnapshot(
+                    hazard = depthHazard,
+                    atMs = depthHazardAtMs
+                )
+            },
             isHeadsetConnected = { headsetConnected },
             dispatchHaptic = { zone -> haptics += zone },
             speakUrgent = { announcement -> speech += announcement }

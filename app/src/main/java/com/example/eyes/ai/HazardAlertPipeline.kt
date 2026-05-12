@@ -1,6 +1,5 @@
 package com.example.eyes.ai
 
-import android.annotation.SuppressLint
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
@@ -15,8 +14,7 @@ data class AlertResult(
 class HazardAlertPipeline(
     private val hazardFusionEngine: HazardFusionEngine,
     private val speechRateLimiter: SpeechRateLimiter = SpeechRateLimiter(cooldownMs = SPEECH_COOLDOWN_MS),
-    private val latestDepthHazard: () -> DepthHazard?,
-    private val latestDepthHazardAtMs: () -> Long,
+    private val latestDepthHazardSnapshot: () -> DepthHazardSnapshot,
     private val isHeadsetConnected: () -> Boolean,
     private val dispatchHaptic: (Zone) -> Unit,
     private val speakUrgent: (String) -> Unit,
@@ -113,10 +111,10 @@ class HazardAlertPipeline(
     }
 
     private fun getFreshDepthCandidate(nowMs: Long): DepthHazard? {
-        val hazardAtMs = latestDepthHazardAtMs()
-        if (hazardAtMs <= 0L) return null
-        if (nowMs - hazardAtMs > DEPTH_HAZARD_TTL_MS) return null
-        return latestDepthHazard()
+        val snapshot = latestDepthHazardSnapshot()
+        if (snapshot.atMs <= 0L) return null
+        if (nowMs - snapshot.atMs > DEPTH_HAZARD_TTL_MS) return null
+        return snapshot.hazard
     }
 
     private fun findReliableLabelForDepth(detections: List<Detection>, zone: Zone): Detection? {
