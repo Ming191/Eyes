@@ -33,6 +33,8 @@ class MiDasDepthEstimator(context: Context) {
         .order(ByteOrder.nativeOrder())
     private val outputBuffer = Array(1) { Array(outputHeight) { Array(outputWidth) { FloatArray(1) } } }
     private val flattenedOutput = FloatArray(outputWidth * outputHeight)
+    private var smoothedMin = Float.NaN
+    private var smoothedMax = Float.NaN
 
     /**
      * Estimates a depth map for the provided bitmap using the internal MiDaS model.
@@ -97,13 +99,16 @@ class MiDasDepthEstimator(context: Context) {
     }
 
     /**
-     * Normalize a set of depth samples to the range 0..1.
+     * Normalize a set of depth samples to the range 0..1 using smoothed min/max bounds.
      *
      * @param values Depth values to normalize (preserved order).
-     * @return A new FloatArray where each element is scaled to [0,1]. If the input values have
-     *     effectively zero range (difference <= 0.0001), returns a new array of zeros of the same size.
+     * @return A new FloatArray where each element is scaled to [0,1]. If the smoothed bounds have
+     *     effectively zero range, returns a new array of zeros of the same size.
      */
+    @Synchronized
     private fun normalizeDepth(values: FloatArray): FloatArray {
+        if (values.isEmpty()) return FloatArray(0)
+
         var minValue = Float.MAX_VALUE
         var maxValue = -Float.MAX_VALUE
         values.forEach { value ->
@@ -111,13 +116,21 @@ class MiDasDepthEstimator(context: Context) {
             maxValue = max(maxValue, value)
         }
 
-        val range = maxValue - minValue
+        if (smoothedMin.isNaN() || smoothedMax.isNaN()) {
+            smoothedMin = minValue
+            smoothedMax = maxValue
+        } else {
+            smoothedMin = (DEPTH_SMOOTHING_ALPHA * smoothedMin) + ((1f - DEPTH_SMOOTHING_ALPHA) * minValue)
+            smoothedMax = (DEPTH_SMOOTHING_ALPHA * smoothedMax) + ((1f - DEPTH_SMOOTHING_ALPHA) * maxValue)
+        }
+
+        val range = smoothedMax - smoothedMin
         if (range <= 0.0001f) {
             return FloatArray(values.size) { 0f }
         }
 
         return FloatArray(values.size) { index ->
-            (values[index] - minValue) / range
+            ((values[index] - smoothedMin) / range).coerceIn(0f, 1f)
         }
     }
 
@@ -146,6 +159,7 @@ class MiDasDepthEstimator(context: Context) {
     private companion object {
         private const val MODEL_PATH = "models/midas.tflite"
         private const val FLOAT_BYTES = 4
+        private const val DEPTH_SMOOTHING_ALPHA = 0.95f
     }
 }
 
