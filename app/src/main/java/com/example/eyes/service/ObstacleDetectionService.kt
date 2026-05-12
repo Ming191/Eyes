@@ -121,6 +121,7 @@ class ObstacleDetectionService : LifecycleService() {
         running = false
         cameraManager.unbindAll()
         serviceScope.cancel()
+        yoloDetector.close()
         super.onDestroy()
     }
 

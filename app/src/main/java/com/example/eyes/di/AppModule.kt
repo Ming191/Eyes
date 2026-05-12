@@ -33,7 +33,7 @@ val appModule = module {
     single { HapticService(androidContext()) }
     single { DataStoreManager(androidContext()) }
     single { CameraManager(androidContext()) }
-    single { YoloDetector(androidContext()) }
+    factory { YoloDetector(androidContext()) }
     single { MiDasDepthEstimator(androidContext()) }
     single {
         OkHttpClient.Builder()

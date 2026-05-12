@@ -277,6 +277,11 @@ class CameraViewModel(
         }
     }
 
+    override fun onCleared() {
+        yoloDetector.close()
+        super.onCleared()
+    }
+
     /**
      * Process a rotation-corrected camera frame for obstacle detection, update overlay bounding boxes,
      * refresh depth-related caches, and trigger hazard fusion (haptics/TTS/UI) as needed.

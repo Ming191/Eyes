@@ -4,10 +4,12 @@ import android.content.Context
 import android.graphics.Bitmap
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.support.common.FileUtil
+import java.io.Closeable
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.atomic.AtomicBoolean
 
-class YoloDetector(context: Context) {
+class YoloDetector(context: Context) : Closeable {
 
     private val interpreter = Interpreter(
         FileUtil.loadMappedFile(context, MODEL_PATH),
@@ -25,6 +27,7 @@ class YoloDetector(context: Context) {
     private val inputHeight = inputShape[1]
     private val inputWidth = inputShape[2]
     private val outputDetections = outputShape[1]
+    private val closed = AtomicBoolean(false)
 
     /**
      * Run the YOLO model on the provided bitmap and produce filtered, sorted detections.
@@ -35,10 +38,13 @@ class YoloDetector(context: Context) {
      * @param confThreshold Minimum confidence required for a detection to be included.
      * @return A list of detections that meet `confThreshold`, sorted by descending confidence and limited to `MAX_RESULTS`.
      */
+    @Synchronized
     fun detect(
         bitmap: Bitmap,
         confThreshold: Float = DEFAULT_CONFIDENCE
     ): List<Detection> {
+        if (closed.get()) return emptyList()
+
         val scaledBitmap = Bitmap.createScaledBitmap(bitmap, inputWidth, inputHeight, true)
         val inputBuffer = bitmapToFloatBuffer(scaledBitmap)
         val output = Array(1) { Array(outputDetections) { FloatArray(6) } }
@@ -51,6 +57,13 @@ class YoloDetector(context: Context) {
             .sortedByDescending { it.confidence }
             .take(MAX_RESULTS)
             .toList()
+    }
+
+    @Synchronized
+    override fun close() {
+        if (closed.compareAndSet(false, true)) {
+            interpreter.close()
+        }
     }
 
     /**
