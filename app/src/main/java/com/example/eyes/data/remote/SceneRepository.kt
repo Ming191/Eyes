@@ -27,11 +27,15 @@ class SceneRepository(
     suspend fun describeScene(
         bitmap: Bitmap,
         detections: List<Detection>
-    ): String {
-        val fallback = buildOfflineDescription(detections)
-        if (!isNetworkAvailable()) return fallback
+    ): String = withContext(Dispatchers.IO) {
 
-        return runCatching {
+        val fallback = buildOfflineDescription(detections)
+
+        if (!isNetworkAvailable()) {
+            return@withContext fallback
+        }
+
+        runCatching {
             val body = bitmap
                 .resizeForUpload(maxSize = 512)
                 .toJpegByteArray()
@@ -43,9 +47,17 @@ class SceneRepository(
                 body = body
             )
 
-            val result = api.describe(part).text
-            result?.trim().takeUnless { it.isNullOrBlank() } ?: fallback
-        }.getOrDefault(fallback)
+            val response = api.describe(part)
+
+            response.text
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: fallback
+
+        }.getOrElse { e ->
+            Log.e("SceneDescriber", "Describe failed", e)
+            fallback
+        }
     }
 
     /**
