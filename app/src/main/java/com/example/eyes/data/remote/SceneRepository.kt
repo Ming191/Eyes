@@ -4,11 +4,15 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.util.Log
 import com.example.eyes.ai.Detection
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.ByteArrayOutputStream
+import androidx.core.graphics.scale
 
 class SceneRepository(
     private val context: Context,
@@ -110,7 +114,7 @@ class SceneRepository(
         val scale = maxSize.toFloat() / largestEdge
         val targetWidth = (width * scale).toInt().coerceAtLeast(1)
         val targetHeight = (height * scale).toInt().coerceAtLeast(1)
-        return Bitmap.createScaledBitmap(this, targetWidth, targetHeight, true)
+        return this.scale(targetWidth, targetHeight)
     }
 
     /**
