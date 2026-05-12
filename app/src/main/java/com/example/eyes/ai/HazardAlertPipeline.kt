@@ -2,6 +2,7 @@ package com.example.eyes.ai
 
 import android.annotation.SuppressLint
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 data class AlertResult(
@@ -22,7 +23,7 @@ class HazardAlertPipeline(
     private val currentTimeMs: () -> Long = { System.currentTimeMillis() }
 ) {
     private val lastHapticAtMs = AtomicLong(0L)
-    private var noHazardStreak: Int = 0
+    private val noHazardStreak = AtomicInteger(0)
 
     fun process(
         detections: List<Detection>,
@@ -37,9 +38,11 @@ class HazardAlertPipeline(
         val headsetConnected = isHeadsetConnected()
 
         if (fusedAlert == null) {
-            noHazardStreak = (noHazardStreak + 1).coerceAtMost(SAFE_STATUS_STREAK_FRAMES + 1)
+            val safeStreak = noHazardStreak.updateAndGet { current ->
+                (current + 1).coerceAtMost(SAFE_STATUS_STREAK_FRAMES + 1)
+            }
             return AlertResult(
-                statusMessage = if (noHazardStreak >= SAFE_STATUS_STREAK_FRAMES) {
+                statusMessage = if (safeStreak >= SAFE_STATUS_STREAK_FRAMES) {
                     "Lối đi tạm ổn, tiếp tục quét môi trường"
                 } else {
                     null
@@ -58,7 +61,7 @@ class HazardAlertPipeline(
             )
         }
 
-        noHazardStreak = 0
+        noHazardStreak.set(0)
 
         if (shouldTriggerHaptic(nowMs)) {
             dispatchHaptic(fusedAlert.primaryZone)
@@ -90,7 +93,7 @@ class HazardAlertPipeline(
     }
 
     fun resetSafeStatus() {
-        noHazardStreak = 0
+        noHazardStreak.set(0)
     }
 
     private fun selectYoloCandidate(

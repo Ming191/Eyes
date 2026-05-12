@@ -47,6 +47,7 @@ class YoloDetector(context: Context) : Closeable {
 
         val scaledBitmap = Bitmap.createScaledBitmap(bitmap, inputWidth, inputHeight, true)
         val inputBuffer = bitmapToFloatBuffer(scaledBitmap)
+        scaledBitmap.recycle()
         val output = Array(1) { Array(outputDetections) { FloatArray(6) } }
 
         interpreter.run(inputBuffer, output)
