@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
+import android.util.Log
 import androidx.camera.core.ImageProxy
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
@@ -265,7 +266,10 @@ class CameraViewModel(
                     )
                 }
 
-            } catch (_: Exception) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Describe scene failed", e)
                 _uiState.update {
                     it.copy(
                         statusMessage = "Mô tả cảnh thất bại, vui lòng thử lại"
@@ -373,11 +377,7 @@ class CameraViewModel(
         val snapshot = bitmap.copy(Bitmap.Config.ARGB_8888, false)
         viewModelScope.launch(Dispatchers.Default) {
             try {
-                val newMap = try {
-                    miDasDepthEstimator.estimateDepth(snapshot)
-                } finally {
-                    recycleBitmapIfNeeded(snapshot)
-                }
+                val newMap = miDasDepthEstimator.estimateDepth(snapshot)
                 latestDepthMap.set(newMap)
                 val hazard = depthHazardDetector.detect(newMap)
                 latestDepthHazardSnapshot.set(
@@ -390,7 +390,12 @@ class CameraViewModel(
                 updateUiStateAndRecycleReplacedDepthPreview { state ->
                     state.copy(depthPreviewBitmap = previewBitmap)
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (t: Throwable) {
+                Log.e(TAG, "Depth refresh failed", t)
             } finally {
+                recycleBitmapIfNeeded(snapshot)
                 isDepthUpdating.set(false)
             }
         }
@@ -495,6 +500,7 @@ class CameraViewModel(
     }
 
     private companion object {
+        private const val TAG = "CameraViewModel"
         private const val DEPTH_FRAME_INTERVAL = 1
         private const val MAX_OVERLAY_BOXES = 8
     }

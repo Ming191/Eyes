@@ -10,6 +10,7 @@ import android.graphics.Bitmap
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
@@ -29,6 +30,7 @@ import com.example.eyes.data.DataStoreManager
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -49,7 +51,7 @@ class ObstacleDetectionService : LifecycleService() {
     private val audioManager: AudioManager by inject()
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val frameThrottle = FrameThrottle()
+    private val frameThrottle = FrameThrottle(intervalMs = 200L)
     private val depthHazardDetector = DepthHazardDetector()
     private val isFrameProcessing = AtomicBoolean(false)
     private val depthMap = AtomicReference<DepthMap?>(null)
@@ -151,11 +153,13 @@ class ObstacleDetectionService : LifecycleService() {
             }
 
             serviceScope.launch {
+                var bitmap: Bitmap? = null
                 try {
-                    val bitmap = imageProxy.toBitmapWithRotation()
-                    maybeUpdateDepth(bitmap)
+                    val frameBitmap = imageProxy.toBitmapWithRotation()
+                    bitmap = frameBitmap
+                    maybeUpdateDepth(frameBitmap)
 
-                    val detections = yoloDetector.detect(bitmap)
+                    val detections = yoloDetector.detect(frameBitmap)
                     val latestDepth = depthMap.get()
                     if (latestDepth != null) {
                         detections.forEach { detection ->
@@ -167,7 +171,12 @@ class ObstacleDetectionService : LifecycleService() {
                         detections = detections,
                         alertSensitivity = alertSensitivity
                     )
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Obstacle frame processing failed", e)
                 } finally {
+                    recycleBitmapIfNeeded(bitmap)
                     imageProxy.close()
                     isFrameProcessing.set(false)
                 }
@@ -198,9 +207,20 @@ class ObstacleDetectionService : LifecycleService() {
                         atMs = if (hazard != null) System.currentTimeMillis() else 0L
                     )
                 )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Depth update failed", e)
             } finally {
+                recycleBitmapIfNeeded(snapshot)
                 depthUpdating.set(false)
             }
+        }
+    }
+
+    private fun recycleBitmapIfNeeded(bitmap: Bitmap?) {
+        if (bitmap != null && !bitmap.isRecycled) {
+            bitmap.recycle()
         }
     }
 
@@ -286,6 +306,7 @@ class ObstacleDetectionService : LifecycleService() {
     }
 
     companion object {
+        private const val TAG = "ObstacleDetectionService"
         private const val CHANNEL_ID = "obstacle_detection_channel"
         private const val NOTIFICATION_ID = 101
         private const val ACTION_START = "com.example.eyes.service.action.START"
