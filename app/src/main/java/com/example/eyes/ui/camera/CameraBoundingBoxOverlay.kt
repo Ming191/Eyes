@@ -18,6 +18,16 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+/**
+ * Renders labeled bounding boxes over a camera preview based on normalized coordinates.
+ *
+ * Displays each box's rounded stroked rectangle and a colored label showing the Vietnamese
+ * display label with confidence percentage; sets an accessibility contentDescription summarizing
+ * up to three boxes or an empty message when none are provided.
+ *
+ * @param boxes List of bounding boxes with normalized `left`, `top`, `right`, `bottom` (0..1),
+ *              `labelVi`, `zoneLabel`, and `confidence`. Boxes with invalid dimensions are ignored.
+ */
 @Composable
 fun CameraBoundingBoxOverlay(
     boxes: List<BoundingBoxUi>,

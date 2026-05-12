@@ -26,6 +26,15 @@ class YoloDetector(context: Context) {
     private val inputWidth = inputShape[2]
     private val outputDetections = outputShape[1]
 
+    /**
+     * Run the YOLO model on the provided bitmap and produce filtered, sorted detections.
+     *
+     * The bitmap is scaled to the model's input size before inference.
+     *
+     * @param bitmap The input image to analyze; will be resized to the model's expected dimensions.
+     * @param confThreshold Minimum confidence required for a detection to be included.
+     * @return A list of detections that meet `confThreshold`, sorted by descending confidence and limited to `MAX_RESULTS`.
+     */
     fun detect(
         bitmap: Bitmap,
         confThreshold: Float = DEFAULT_CONFIDENCE
@@ -44,6 +53,17 @@ class YoloDetector(context: Context) {
             .toList()
     }
 
+    /**
+     * Convert a model output row into a Detection when confidence and geometry are valid.
+     *
+     * @receiver A per-row model output expected as six floats in order: `[x1, y1, x2, y2, conf, class]`.
+     *           Coordinates may be normalized to `0..1` or provided in pixel space; the function normalizes
+     *           coordinates against the model input dimensions and coerces them into `0..1`.
+     *           The `class` value is treated as an integer index into the loaded labels.
+     * @param confThreshold Minimum confidence required for the row to be considered a detection.
+     * @return A populated `Detection` when the row's confidence is at or above `confThreshold` and the
+     *         bounding box has positive area; `null` otherwise.
+     */
     private fun FloatArray.toDetection(confThreshold: Float): Detection? {
         val confidence = this[4]
         if (confidence < confThreshold) return null
@@ -77,6 +97,15 @@ class YoloDetector(context: Context) {
         )
     }
 
+    /**
+     * Converts a bitmap into a direct ByteBuffer of normalized RGB float values for model input.
+     *
+     * The provided `bitmap` must already be scaled to the detector's expected `inputWidth` x `inputHeight`.
+     *
+     * @param bitmap The source image sized to the model input dimensions.
+     * @return A direct, native-order ByteBuffer containing floats in RGB channel order for each pixel,
+     *         where each channel value is normalized to the range 0.0..1.0.
+     */
     private fun bitmapToFloatBuffer(bitmap: Bitmap): ByteBuffer {
         val pixels = IntArray(inputWidth * inputHeight)
         bitmap.getPixels(pixels, 0, inputWidth, 0, 0, inputWidth, inputHeight)
@@ -94,6 +123,12 @@ class YoloDetector(context: Context) {
         return buffer
     }
 
+    /**
+     * Maps a normalized horizontal center coordinate to a left/center/right zone.
+     *
+     * @param centerX The bounding-box center X in normalized coordinates (0.0–1.0).
+     * @return `Zone.LEFT` if `centerX < 0.33`, `Zone.RIGHT` if `centerX > 0.66`, otherwise `Zone.CENTER`.
+     */
     private fun zoneFromCenterX(centerX: Float): Zone {
         return when {
             centerX < 0.33f -> Zone.LEFT
@@ -102,6 +137,12 @@ class YoloDetector(context: Context) {
         }
     }
 
+    /**
+     * Parse a raw label line into a LabelEntry containing English and Vietnamese text.
+     *
+     * @param raw A single label line, optionally containing an English and Vietnamese part separated by `|`.
+     * @return A LabelEntry where `en` is the first part (trimmed, or empty if missing) and `vi` is the second part trimmed if present and not blank, otherwise the same as `en`.
+     */
     private fun parseLabel(raw: String): LabelEntry {
         val parts = raw.split("|", limit = 2)
         val en = parts.firstOrNull()?.trim().orEmpty()
@@ -109,6 +150,15 @@ class YoloDetector(context: Context) {
         return LabelEntry(en = en, vi = vi)
     }
 
+    /**
+     * Normalize a coordinate value to the range expected by the model.
+     *
+     * If `value` is greater than 1, it is treated as a pixel coordinate and divided by `dimension` to produce a normalized value; otherwise `value` is returned unchanged. If `dimension` is less than or equal to 0, returns 0.
+     *
+     * @param value Coordinate value in either normalized form (0..1) or pixel units.
+     * @param dimension Size of the corresponding image dimension (width or height) in pixels.
+     * @return A normalized coordinate (ratio relative to `dimension`) or `0f` when `dimension <= 0`.
+     */
     private fun normalizeCoordinate(value: Float, dimension: Float): Float {
         if (dimension <= 0f) return 0f
         return if (value > 1f) value / dimension else value

@@ -15,6 +15,15 @@ class SceneRepository(
     private val api: SceneApi
 ) {
 
+    /**
+     * Provides a scene description by uploading the given bitmap to the remote API and
+     * falling back to a locally built description derived from detections when no network
+     * is available or the API returns no meaningful text.
+     *
+     * @param bitmap The scene image to upload.
+     * @param detections Detection results used to construct the offline fallback description.
+     * @return The API-provided description trimmed of surrounding whitespace if non-blank, otherwise the offline fallback description.
+     */
     suspend fun describeScene(
         bitmap: Bitmap,
         detections: List<Detection>
@@ -39,6 +48,16 @@ class SceneRepository(
         }.getOrDefault(fallback)
     }
 
+    /**
+     * Constructs a Vietnamese offline description of the scene from detection results.
+     *
+     * Uses up to the three highest-confidence detections to produce a short sentence
+     * describing which objects are located in which zones. If no detections are
+     * available, returns a message asking the user to hold the phone steady and try again.
+     *
+     * @param detections List of detection results; at most the three highest-confidence items are included in the description.
+     * @return A Vietnamese description string: either a retry prompt when no detections exist, or a sentence beginning with "Phía trước có ..." listing detected objects and their zones.
+     */
     fun buildOfflineDescription(detections: List<Detection>): String {
         if (detections.isEmpty()) {
             return "Tôi chưa phát hiện vật cản rõ ràng. Bạn hãy giữ điện thoại ổn định và thử lại."
@@ -52,6 +71,11 @@ class SceneRepository(
         return "Phía trước có ${parts.joinToString(", ")}."
     }
 
+    /**
+     * Checks whether the device currently has an active network that provides internet capability.
+     *
+     * @return `true` if an active network with `NET_CAPABILITY_INTERNET` is available, `false` otherwise.
+     */
     private fun isNetworkAvailable(): Boolean {
         val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -61,6 +85,12 @@ class SceneRepository(
         return capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
     }
 
+    /**
+     * Scale the bitmap so its largest edge does not exceed the specified maximum while preserving aspect ratio.
+     *
+     * @param maxSize Maximum length in pixels for the bitmap's longest side.
+     * @return A bitmap whose largest edge is less than or equal to `maxSize`; returns the original bitmap if no scaling was needed.
+     */
     private fun Bitmap.resizeForUpload(maxSize: Int): Bitmap {
         val largestEdge = maxOf(width, height)
         if (largestEdge <= maxSize) return this
@@ -71,6 +101,12 @@ class SceneRepository(
         return Bitmap.createScaledBitmap(this, targetWidth, targetHeight, true)
     }
 
+    /**
+     * Encodes the bitmap as JPEG and returns the encoded bytes.
+     *
+     * @param quality JPEG compression quality from 0 (lowest) to 100 (highest); defaults to 85.
+     * @return A byte array containing the JPEG-encoded image data.
+     */
     private fun Bitmap.toJpegByteArray(quality: Int = 85): ByteArray {
         return ByteArrayOutputStream().use { stream ->
             compress(Bitmap.CompressFormat.JPEG, quality, stream)

@@ -54,6 +54,18 @@ import com.example.eyes.camera.FrameThrottle
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
+/**
+ * Hosts the full-screen camera preview and overlays for bounding boxes, status panel,
+ * optional depth preview, and camera mode selection, including a long-press action to
+ * describe the scene.
+ *
+ * The composable exposes accessibility semantics for the active mode and the long-press
+ * describe action, and delegates camera frame processing and UI events to the provided
+ * view model.
+ *
+ * @param viewModel View model that provides UI state, handles frame processing, mode
+ * selection, status panel visibility, and the scene description action.
+ */
 @Composable
 fun CameraScreen(
     viewModel: CameraViewModel = koinViewModel()
@@ -159,6 +171,15 @@ fun CameraScreen(
     }
 }
 
+/**
+ * Displays a dismissible camera status panel showing the title, status message, and last announcement.
+ *
+ * The panel exposes accessibility descriptions and a polite live region so assistive technologies can read updates.
+ *
+ * @param uiState Provides the panel text: `title`, `statusMessage`, and `lastAnnouncement`.
+ * @param onDismiss Callback invoked when the user requests to hide the status panel.
+ * @param modifier Optional modifier applied to the panel's root surface.
+ */
 @Composable
 private fun CameraStatusPanel(
     uiState: CameraUiState,
@@ -233,6 +254,16 @@ private fun CameraStatusPanel(
     }
 }
 
+/**
+ * Displays a labeled preview of a MiDaS depth map with accessible description.
+ *
+ * Renders the provided depth bitmap constrained to the given aspect ratio and exposes an accessibility
+ * description that explains bright regions are near and dark regions are far.
+ *
+ * @param depthBitmap The depth map image produced by MiDaS to display.
+ * @param aspectRatio The width-to-height ratio used to size the preview image.
+ * @param modifier Optional composable modifier applied to the root surface.
+ */
 @Composable
 private fun DepthPreviewPanel(
     depthBitmap: ImageBitmap,
@@ -274,6 +305,17 @@ private fun DepthPreviewPanel(
     }
 }
 
+/**
+ * Renders a horizontal segmented control for choosing the camera mode and exposes the selection.
+ *
+ * Displays one segmented button per CameraMode, highlights the currently active mode, and invokes
+ * `onModeSelected` with the chosen mode when the user selects a button. The control includes
+ * accessibility semantics describing each item's label and selection state.
+ *
+ * @param activeMode The currently selected camera mode.
+ * @param onModeSelected Callback invoked with the mode selected by the user.
+ * @param modifier Optional [Modifier] for layout or styling overrides.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun CameraModeSelector(

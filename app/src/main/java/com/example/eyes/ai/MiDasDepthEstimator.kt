@@ -34,6 +34,14 @@ class MiDasDepthEstimator(context: Context) {
     private val outputBuffer = Array(1) { Array(outputHeight) { Array(outputWidth) { FloatArray(1) } } }
     private val flattenedOutput = FloatArray(outputWidth * outputHeight)
 
+    /**
+     * Estimates a depth map for the provided bitmap using the internal MiDaS model.
+     *
+     * Scales the image to the model input size, runs inference, normalizes the raw depth outputs to the range [0, 1], and returns them at the model's output resolution.
+     *
+     * @param bitmap Source image to estimate depth from.
+     * @return DepthMap containing normalized depth values in row-major order and the model output width and height.
+     */
     @Synchronized
     fun estimateDepth(bitmap: Bitmap): DepthMap {
         val scaled = bitmap.scale(inputWidth, inputHeight)
@@ -57,6 +65,17 @@ class MiDasDepthEstimator(context: Context) {
         }
     }
 
+    /**
+     * Computes the average depth inside a normalized bounding box on the provided depth map.
+     *
+     * The bounding box coordinates are expected in normalized image space (0.0–1.0) and are
+     * clamped to the depth map bounds before sampling. The depth map's `values` are read
+     * as a row-major flattened array of size `width * height`.
+     *
+     * @param depthMap The depth map containing flattened row-major depth values and its dimensions.
+     * @param bbox A bounding box in normalized coordinates (left, top, right, bottom) relative to the depth map.
+     * @return The average depth value within the clamped bounding box, or `0f` if the box is invalid or contains no pixels.
+     */
     fun depthAt(depthMap: DepthMap, bbox: BBox): Float {
         val x1 = (bbox.left * depthMap.width).toInt().coerceIn(0, depthMap.width - 1)
         val y1 = (bbox.top * depthMap.height).toInt().coerceIn(0, depthMap.height - 1)
@@ -77,6 +96,13 @@ class MiDasDepthEstimator(context: Context) {
         return if (count > 0) sum / count else 0f
     }
 
+    /**
+     * Normalize a set of depth samples to the range 0..1.
+     *
+     * @param values Depth values to normalize (preserved order).
+     * @return A new FloatArray where each element is scaled to [0,1]. If the input values have
+     *     effectively zero range (difference <= 0.0001), returns a new array of zeros of the same size.
+     */
     private fun normalizeDepth(values: FloatArray): FloatArray {
         var minValue = Float.MAX_VALUE
         var maxValue = -Float.MAX_VALUE
@@ -95,6 +121,14 @@ class MiDasDepthEstimator(context: Context) {
         }
     }
 
+    /**
+     * Converts the given Bitmap into the estimator's input ByteBuffer containing normalized RGB float values.
+     *
+     * The buffer contains 3 floats per pixel in row-major order (R, G, B), each normalized to the range [0, 1],
+     * and is rewound so it can be read from its start.
+     *
+     * @return A ByteBuffer with the normalized RGB float pixel data ready for inference.
+     */
     private fun bitmapToFloatBuffer(bitmap: Bitmap): ByteBuffer {
         bitmap.getPixels(inputPixels, 0, inputWidth, 0, 0, inputWidth, inputHeight)
 
