@@ -27,6 +27,7 @@ class TtsService(context: Context) : SpeechOutput {
     private val inFlightUtteranceIds = mutableSetOf<String>()
     private var nextSequence = 0L
     private var initState: InitState = InitState.PENDING
+    private var currentLocale: Locale? = null
 
     private val tts: TextToSpeech
     private var speechRate: Float = DEFAULT_SPEECH_RATE
@@ -49,6 +50,7 @@ class TtsService(context: Context) : SpeechOutput {
                 if (localeResult == TextToSpeech.LANG_MISSING_DATA || localeResult == TextToSpeech.LANG_NOT_SUPPORTED) {
                     Log.w(TAG, "vi-VN locale unavailable on this device; using engine default locale")
                 }
+                currentLocale = VIETNAMESE_LOCALE
                 tts.setSpeechRate(speechRate)
 
                 setupProgressListener()
@@ -179,6 +181,19 @@ class TtsService(context: Context) : SpeechOutput {
         pendingUtterances.clear()
     }
 
+    fun warmupLocale(locale: Locale) {
+        synchronized(lock) {
+            if (initState != InitState.READY) return
+            if (currentLocale == locale) return
+            val result = tts.setLanguage(locale)
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                Log.w(TAG, "TTS locale warmup unsupported: $locale")
+                return
+            }
+            currentLocale = locale
+        }
+    }
+
     private fun speakInternalLocked(text: String, priority: Priority, locale: Locale?) {
         val queueMode = when (priority) {
             Priority.URGENT -> {
@@ -190,7 +205,19 @@ class TtsService(context: Context) : SpeechOutput {
         }
 
         requestAudioFocusLocked()
-        tts.setLanguage(locale ?: VIETNAMESE_LOCALE)
+        val targetLocale = locale ?: VIETNAMESE_LOCALE
+        if (currentLocale != targetLocale) {
+            val localeResult = tts.setLanguage(targetLocale)
+            if (localeResult == TextToSpeech.LANG_MISSING_DATA || localeResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                Log.w(TAG, "Requested locale unavailable: $targetLocale, fallback to vi-VN")
+                val fallbackResult = tts.setLanguage(VIETNAMESE_LOCALE)
+                if (fallbackResult != TextToSpeech.LANG_MISSING_DATA && fallbackResult != TextToSpeech.LANG_NOT_SUPPORTED) {
+                    currentLocale = VIETNAMESE_LOCALE
+                }
+            } else {
+                currentLocale = targetLocale
+            }
+        }
 
         val utteranceId = UUID.randomUUID().toString()
         val result = tts.speak(text, queueMode, null, utteranceId)

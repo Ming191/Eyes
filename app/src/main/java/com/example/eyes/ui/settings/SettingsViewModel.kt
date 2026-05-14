@@ -13,7 +13,8 @@ import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val ttsSpeed: Float = 1.0f,
-    val alertSensitivity: Float = 0.5f
+    val alertSensitivity: Float = 0.5f,
+    val autoTranslateEnglishOcrToVietnamese: Boolean = false
 )
 
 class SettingsViewModel(
@@ -24,11 +25,13 @@ class SettingsViewModel(
 
     val uiState: StateFlow<SettingsUiState> = combine(
         dataStoreManager.ttsSpeedFlow,
-        dataStoreManager.alertSensitivityFlow
-    ) { ttsSpeed, alertSensitivity ->
+        dataStoreManager.alertSensitivityFlow,
+        dataStoreManager.ocrTranslateToVietnameseFlow
+    ) { ttsSpeed, alertSensitivity, autoTranslate ->
         SettingsUiState(
             ttsSpeed = ttsSpeed,
-            alertSensitivity = alertSensitivity
+            alertSensitivity = alertSensitivity,
+            autoTranslateEnglishOcrToVietnamese = autoTranslate
         )
     }.stateIn(
         scope = viewModelScope,
@@ -46,6 +49,12 @@ class SettingsViewModel(
     fun setAlertSensitivity(value: Float) {
         viewModelScope.launch {
             dataStoreManager.setAlertSensitivity(value)
+        }
+    }
+
+    fun setAutoTranslateEnglishOcrToVietnamese(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStoreManager.setOcrTranslateToVietnamese(enabled)
         }
     }
 

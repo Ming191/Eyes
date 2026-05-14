@@ -69,6 +69,7 @@ val appModule = module {
             miDasDepthEstimator = get(),
             quickOcrEngine = get(named("quick-ocr")),
             accuracyOcrEngine = get(named("accuracy-ocr")),
+            translator = get(),
             ttsService = get(),
             hapticService = get(),
             dataStoreManager = get(),

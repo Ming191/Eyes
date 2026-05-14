@@ -6,11 +6,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -67,6 +70,26 @@ fun SettingsScreen(
             onValueChange = viewModel::setAlertSensitivity
         )
 
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = "Tự động dịch tiếng Anh sang tiếng Việt khi OCR" },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Tự động dịch EN -> VI khi OCR",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Switch(
+                checked = state.autoTranslateEnglishOcrToVietnamese,
+                onCheckedChange = viewModel::setAutoTranslateEnglishOcrToVietnamese,
+                modifier = Modifier.semantics {
+                    contentDescription = "Bật tắt tự động dịch tiếng Anh sang tiếng Việt khi OCR"
+                }
+            )
+        }
+
         Button(
             onClick = { viewModel.previewFeedback(state) },
             modifier = Modifier
@@ -95,7 +118,8 @@ private fun SettingsScreenPreview() {
 private fun SettingsScreenContentPreview() {
     val state = SettingsUiState(
         ttsSpeed = 1.1f,
-        alertSensitivity = 0.6f
+        alertSensitivity = 0.6f,
+        autoTranslateEnglishOcrToVietnamese = true
     )
 
     Column(
@@ -133,5 +157,19 @@ private fun SettingsScreenContentPreview() {
             valueRange = 0f..1f,
             onValueChange = {}
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Tự động dịch EN -> VI khi OCR",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Switch(
+                checked = state.autoTranslateEnglishOcrToVietnamese,
+                onCheckedChange = {}
+            )
+        }
     }
 }

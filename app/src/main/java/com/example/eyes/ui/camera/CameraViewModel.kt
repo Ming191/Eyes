@@ -28,10 +28,12 @@ import com.example.eyes.ocr.OcrEngine
 import com.example.eyes.ocr.OcrMode
 import com.example.eyes.ocr.OcrPostProcessor
 import com.example.eyes.ocr.OcrResult
+import com.example.eyes.ocr.OcrTranslator
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,6 +48,8 @@ import java.util.concurrent.atomic.AtomicReference
 data class CameraUiState(
     val activeMode: CameraMode = CameraMode.OBSTACLE,
     val ocrMode: OcrMode = OcrMode.QUICK,
+    val ocrTranslateToVietnamese: Boolean = false,
+    val canTranslateCurrentOcrDocument: Boolean = false,
     val isOcrScanning: Boolean = false,
     val ocrSentences: List<String> = emptyList(),
     val ocrCurrentIndex: Int = 0,
@@ -97,6 +101,7 @@ class CameraViewModel(
     private val miDasDepthEstimator: MiDasDepthEstimator,
     private val quickOcrEngine: OcrEngine,
     private val accuracyOcrEngine: OcrEngine,
+    private val translator: OcrTranslator,
     private val ttsService: TtsService,
     private val hapticService: HapticService,
     private val dataStoreManager: DataStoreManager,
@@ -128,6 +133,9 @@ class CameraViewModel(
     )
 
     private val alertSensitivity = MutableStateFlow(HazardAlertPipeline.DEFAULT_ALERT_SENSITIVITY)
+    private val lastRawOcrResult = AtomicReference<OcrResult?>(null)
+    private val lastOcrUsedFallback = AtomicBoolean(false)
+    private var reprocessOcrJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -137,6 +145,11 @@ class CameraViewModel(
             dataStoreManager.ocrModeFlow.collect { mode ->
                 currentOcrMode.value = mode
                 _uiState.update { it.copy(ocrMode = mode) }
+            }
+        }
+        viewModelScope.launch {
+            dataStoreManager.ocrTranslateToVietnameseFlow.collect { enabled ->
+                _uiState.update { it.copy(ocrTranslateToVietnamese = enabled) }
             }
         }
     }
@@ -183,6 +196,7 @@ class CameraViewModel(
                     isOcrScanning = true,
                     ocrSentences = emptyList(),
                     ocrCurrentIndex = 0,
+                    canTranslateCurrentOcrDocument = false,
                     ocrCapturedBitmap = bitmap,
                     statusMessage = "Đang xử lý ảnh OCR"
                 )
@@ -196,6 +210,10 @@ class CameraViewModel(
                 hapticService.error()
                 return@launch
             }
+            lastRawOcrResult.set(result)
+            lastOcrUsedFallback.set(outcome.usedFallbackFromAccuracy)
+            val canTranslateDocument = looksEnglish(result.fullText)
+            val translatedResult = maybeTranslateForSpeech(result)
             if (outcome.usedFallbackFromAccuracy) {
                 dataStoreManager.setOcrMode(OcrMode.QUICK)
                 val reason = outcome.fallbackReason ?: "lỗi không xác định"
@@ -204,7 +222,11 @@ class CameraViewModel(
                     TtsService.Priority.URGENT
                 )
             }
-            enterOcrDocumentMode(OcrPostProcessor.process(result.fullText), outcome.usedFallbackFromAccuracy)
+            enterOcrDocumentMode(
+                result = translatedResult,
+                usedFallback = outcome.usedFallbackFromAccuracy,
+                canTranslateCurrentDocument = canTranslateDocument
+            )
         }
     }
 
@@ -214,11 +236,14 @@ class CameraViewModel(
     }
 
     fun prepareForNextOcrCapture() {
+        lastRawOcrResult.set(null)
+        lastOcrUsedFallback.set(false)
         _uiState.update {
             it.copy(
                 isOcrScanning = false,
                 ocrSentences = emptyList(),
                 ocrCurrentIndex = 0,
+                canTranslateCurrentOcrDocument = false,
                 ocrCapturedBitmap = null,
                 statusMessage = "Sẵn sàng chụp OCR",
                 lastAnnouncement = "Đã sẵn sàng chụp ảnh mới"
@@ -267,6 +292,7 @@ class CameraViewModel(
                         isOcrScanning = false,
                         ocrSentences = emptyList(),
                         ocrCurrentIndex = 0,
+                        canTranslateCurrentOcrDocument = false,
                         ocrCapturedBitmap = null
                     )
                 }
@@ -276,6 +302,7 @@ class CameraViewModel(
                 if (!isHeadsetConnected()) {
                     ttsService.speak("Đã chuyển sang chế độ đọc chữ", TtsService.Priority.HIGH)
                 }
+                ttsService.warmupLocale(Locale.US)
                 latestDetections.set(emptyList())
                 latestDepthMap.set(null)
                 latestDepthHazardSnapshot.set(DepthHazardSnapshot(hazard = null, atMs = 0L))
@@ -290,6 +317,7 @@ class CameraViewModel(
                         isOcrScanning = false,
                         ocrSentences = emptyList(),
                         ocrCurrentIndex = 0,
+                        canTranslateCurrentOcrDocument = false,
                         ocrCapturedBitmap = null,
                         boundingBoxes = emptyList(),
                         depthPreviewBitmap = null,
@@ -309,6 +337,22 @@ class CameraViewModel(
                 if (mode == OcrMode.QUICK) "Đã chuyển OCR nhanh bằng ML Kit" else "Đã chuyển OCR chính xác bằng GPT-4o",
                 TtsService.Priority.NORMAL
             )
+        }
+    }
+
+    fun setOcrTranslateToVietnamese(enabled: Boolean) {
+        reprocessOcrJob?.cancel()
+        reprocessOcrJob = viewModelScope.launch {
+            dataStoreManager.setOcrTranslateToVietnamese(enabled)
+            ttsService.speak(
+                if (enabled) {
+                    "Đã bật dịch tiếng Anh sang tiếng Việt khi đọc."
+                } else {
+                    "Đã tắt dịch tiếng Anh sang tiếng Việt."
+                },
+                TtsService.Priority.NORMAL
+            )
+            reprocessCurrentOcrForTranslationToggle(enabled)
         }
     }
 
@@ -349,6 +393,8 @@ class CameraViewModel(
         if (_uiState.value.activeMode == CameraMode.OCR) {
             ttsService.stop()
         }
+        lastRawOcrResult.set(null)
+        lastOcrUsedFallback.set(false)
         updateUiStateAndRecycleReplacedOcrBitmap { it.copy(ocrCapturedBitmap = null) }
     }
 
@@ -422,7 +468,11 @@ class CameraViewModel(
         }
     }
 
-    private fun enterOcrDocumentMode(result: OcrResult, usedFallback: Boolean) {
+    private fun enterOcrDocumentMode(
+        result: OcrResult,
+        usedFallback: Boolean,
+        canTranslateCurrentDocument: Boolean
+    ) {
         val sentences = if (result.sentences.isNotEmpty()) result.sentences else OcrPostProcessor.splitToSentences(result.fullText)
         val finalSentences = sentences.ifEmpty { listOf(result.fullText.trim()).filter { it.isNotBlank() } }
 
@@ -437,6 +487,7 @@ class CameraViewModel(
                 isOcrScanning = false,
                 ocrSentences = finalSentences,
                 ocrCurrentIndex = 0,
+                canTranslateCurrentOcrDocument = canTranslateCurrentDocument,
                 statusMessage = if (usedFallback) {
                     "GPT-4o lỗi, đã fallback OCR nhanh. ${finalSentences.size} đoạn."
                 } else {
@@ -447,6 +498,50 @@ class CameraViewModel(
         }
         hapticService.confirm()
         speakCurrentOcrSentence()
+    }
+
+    private suspend fun maybeTranslateForSpeech(result: OcrResult): OcrResult {
+        val enabled = _uiState.value.ocrTranslateToVietnamese
+        if (!enabled) return OcrPostProcessor.process(result.fullText)
+        if (!looksEnglish(result.fullText)) return OcrPostProcessor.process(result.fullText)
+
+        return runCatching {
+            val translated = translator.translateToVietnamese(result.fullText)
+            OcrPostProcessor.process(translated)
+        }.getOrElse {
+            ttsService.speak(
+                "Không thể dịch sang tiếng Việt. Đang đọc bản gốc tiếng Anh.",
+                TtsService.Priority.HIGH
+            )
+            OcrPostProcessor.process(result.fullText)
+        }
+    }
+
+    private suspend fun reprocessCurrentOcrForTranslationToggle(enabled: Boolean) {
+        val state = _uiState.value
+        val rawResult = lastRawOcrResult.get() ?: return
+        if (state.activeMode != CameraMode.OCR || !state.isOcrDocumentMode) return
+
+        _uiState.update { it.copy(statusMessage = "Đang cập nhật bản đọc OCR") }
+        val processed = if (enabled && looksEnglish(rawResult.fullText)) {
+            runCatching {
+                val translated = translator.translateToVietnamese(rawResult.fullText)
+                OcrPostProcessor.process(translated)
+            }.getOrElse {
+                ttsService.speak(
+                    "Không thể dịch sang tiếng Việt. Đang đọc bản gốc tiếng Anh.",
+                    TtsService.Priority.HIGH
+                )
+                OcrPostProcessor.process(rawResult.fullText)
+            }
+        } else {
+            OcrPostProcessor.process(rawResult.fullText)
+        }
+        enterOcrDocumentMode(
+            result = processed,
+            usedFallback = lastOcrUsedFallback.get(),
+            canTranslateCurrentDocument = looksEnglish(rawResult.fullText)
+        )
     }
 
     private fun speakCurrentOcrSentence() {

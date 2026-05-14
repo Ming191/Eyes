@@ -5,27 +5,26 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Button
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -38,6 +37,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -46,11 +49,7 @@ import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.camera.CameraManager
@@ -58,18 +57,6 @@ import com.example.eyes.ocr.OcrMode
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
-/**
- * Hosts the full-screen camera preview and overlays for bounding boxes, status panel,
- * optional depth preview, and camera mode selection, including a long-press action to
- * describe the scene.
- *
- * The composable exposes accessibility semantics for the active mode and the long-press
- * describe action, and delegates camera frame processing and UI events to the provided
- * view model.
- *
- * @param viewModel View model that provides UI state, handles frame processing, mode
- * selection, status panel visibility, and the scene description action.
- */
 @Composable
 fun CameraScreen(
     requestedMode: CameraMode? = null,
@@ -88,16 +75,14 @@ fun CameraScreen(
     }
 
     DisposableEffect(viewModel) {
-        onDispose {
-            viewModel.onScreenDisposed()
-        }
+        onDispose { viewModel.onScreenDisposed() }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .pointerInput(uiState.activeMode, uiState.isOcrDocumentMode) {
+            .pointerInput(uiState.activeMode, uiState.isOcrDocumentMode, uiState.isOcrScanning) {
                 detectTapGestures(
                     onDoubleTap = {
                         if (
@@ -111,9 +96,7 @@ fun CameraScreen(
                             )
                         }
                     },
-                    onLongPress = {
-                        viewModel.describeScene()
-                    }
+                    onLongPress = { viewModel.describeScene() }
                 )
             }
             .pointerInput(uiState.activeMode, uiState.isOcrDocumentMode) {
@@ -133,6 +116,7 @@ fun CameraScreen(
                                 handledInThisGesture = true
                                 viewModel.prevOcrSentence()
                             }
+
                             accumulatedDrag < -120f -> {
                                 handledInThisGesture = true
                                 viewModel.nextOcrSentence()
@@ -196,11 +180,7 @@ fun CameraScreen(
                 aspectRatio = depthBitmap.width.toFloat() / depthBitmap.height.toFloat(),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(
-                        start = 16.dp,
-                        end = 16.dp,
-                        bottom = 144.dp
-                    )
+                    .padding(start = 16.dp, end = 16.dp, bottom = 144.dp)
             )
         }
 
@@ -282,14 +262,9 @@ fun CameraScreen(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(16.dp)
-                    .semantics {
-                        contentDescription = "Hiện bảng trạng thái camera"
-                    }
+                    .semantics { contentDescription = "Hiện bảng trạng thái camera" }
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Info,
-                    contentDescription = null
-                )
+                Icon(imageVector = Icons.Rounded.Info, contentDescription = null)
             }
         }
     }
@@ -306,9 +281,7 @@ private fun OcrEngineModeSelector(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .semantics(mergeDescendants = true) {
-                contentDescription = "Chọn chế độ OCR"
-            },
+            .semantics(mergeDescendants = true) { contentDescription = "Chọn chế độ OCR" },
         shape = MaterialTheme.shapes.large,
         tonalElevation = 4.dp,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
@@ -334,26 +307,13 @@ private fun OcrEngineModeSelector(
                             }
                             stateDescription = if (selected) "Đang chọn" else "Chưa chọn"
                         },
-                    label = {
-                        Text(
-                            if (item == OcrMode.QUICK) "Quick · ML Kit" else "Accuracy · GPT-4o"
-                        )
-                    }
+                    label = { Text(if (item == OcrMode.QUICK) "Quick · ML Kit" else "Accuracy · GPT-4o") }
                 )
             }
         }
     }
 }
 
-/**
- * Displays a dismissible camera status panel showing the title, status message, and last announcement.
- *
- * The panel exposes accessibility descriptions and a polite live region so assistive technologies can read updates.
- *
- * @param uiState Provides the panel text: `title`, `statusMessage`, and `lastAnnouncement`.
- * @param onDismiss Callback invoked when the user requests to hide the status panel.
- * @param modifier Optional modifier applied to the panel's root surface.
- */
 @Composable
 private fun CameraStatusPanel(
     uiState: CameraUiState,
@@ -379,7 +339,7 @@ private fun CameraStatusPanel(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
+            androidx.compose.foundation.layout.Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics { contentDescription = "Tiêu đề và nút ẩn bảng trạng thái" },
@@ -398,46 +358,27 @@ private fun CameraStatusPanel(
                 Spacer(modifier = Modifier.width(12.dp))
                 FilledTonalIconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.semantics {
-                        contentDescription = "Ẩn bảng trạng thái camera"
-                    }
+                    modifier = Modifier.semantics { contentDescription = "Ẩn bảng trạng thái camera" }
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = null
-                    )
+                    Icon(imageVector = Icons.Rounded.Close, contentDescription = null)
                 }
             }
             Text(
                 text = uiState.statusMessage,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.semantics {
-                    contentDescription = uiState.statusMessage
-                }
+                modifier = Modifier.semantics { contentDescription = uiState.statusMessage }
             )
             Text(
                 text = uiState.lastAnnouncement,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.semantics {
-                    contentDescription = uiState.lastAnnouncement
-                }
+                modifier = Modifier.semantics { contentDescription = uiState.lastAnnouncement }
             )
         }
     }
 }
 
-/**
- * Displays a labeled preview of a MiDaS depth map with accessible description.
- *
- * Renders the provided depth bitmap constrained to the given aspect ratio and exposes an accessibility
- * description that explains bright regions are near and dark regions are far.
- *
- * @param depthBitmap The depth map image produced by MiDaS to display.
- * @param aspectRatio The width-to-height ratio used to size the preview image.
- * @param modifier Optional composable modifier applied to the root surface.
- */
 @Composable
 private fun DepthPreviewPanel(
     depthBitmap: ImageBitmap,
@@ -447,9 +388,7 @@ private fun DepthPreviewPanel(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .semantics(mergeDescendants = true) {
-                contentDescription = "Khung xem bản đồ độ sâu MiDaS"
-            },
+            .semantics(mergeDescendants = true) { contentDescription = "Khung xem bản đồ độ sâu MiDaS" },
         shape = MaterialTheme.shapes.medium,
         tonalElevation = 4.dp,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
@@ -462,9 +401,7 @@ private fun DepthPreviewPanel(
                 text = "Depth map (MiDaS)",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.semantics {
-                    contentDescription = "Bản đồ độ sâu MiDaS"
-                }
+                modifier = Modifier.semantics { contentDescription = "Bản đồ độ sâu MiDaS" }
             )
             Image(
                 bitmap = depthBitmap,
@@ -479,17 +416,6 @@ private fun DepthPreviewPanel(
     }
 }
 
-/**
- * Renders a horizontal segmented control for choosing the camera mode and exposes the selection.
- *
- * Displays one segmented button per CameraMode, highlights the currently active mode, and invokes
- * `onModeSelected` with the chosen mode when the user selects a button. The control includes
- * accessibility semantics describing each item's label and selection state.
- *
- * @param activeMode The currently selected camera mode.
- * @param onModeSelected Callback invoked with the mode selected by the user.
- * @param modifier Optional [Modifier] for layout or styling overrides.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun CameraModeSelector(
@@ -501,9 +427,7 @@ internal fun CameraModeSelector(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .semantics(mergeDescendants = true) {
-                contentDescription = "Chọn chế độ camera"
-            },
+            .semantics(mergeDescendants = true) { contentDescription = "Chọn chế độ camera" },
         shape = MaterialTheme.shapes.large,
         tonalElevation = 4.dp,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
@@ -512,9 +436,7 @@ internal fun CameraModeSelector(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp)
-                .semantics {
-                    contentDescription = "Thanh chọn chế độ camera"
-                }
+                .semantics { contentDescription = "Thanh chọn chế độ camera" }
         ) {
             modes.forEachIndexed { index, mode ->
                 val selected = mode == activeMode
