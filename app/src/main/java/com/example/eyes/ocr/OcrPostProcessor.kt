@@ -19,10 +19,9 @@ object OcrPostProcessor {
         "mk" to "mình"
     )
 
-    fun process(rawText: String, language: OcrLanguage = OcrLanguage.AUTO): OcrResult {
+    fun process(rawText: String): OcrResult {
         val normalizedText = normalizeText(rawText)
-        val resolvedLanguage = resolveLanguage(normalizedText, language)
-        val correctedText = if (resolvedLanguage == OcrLanguage.VI) {
+        val correctedText = if (VI_DIACRITIC_REGEX.containsMatchIn(normalizedText)) {
             applyLightCorrections(normalizedText)
         } else {
             normalizedText
@@ -69,13 +68,6 @@ object OcrPostProcessor {
             corrected = corrected.replace(Regex("\\b${Regex.escape(from)}\\b", RegexOption.IGNORE_CASE), to)
         }
         return corrected.replace(Regex("\\s+"), " ").trim()
-    }
-
-    private fun resolveLanguage(text: String, language: OcrLanguage): OcrLanguage {
-        return when (language) {
-            OcrLanguage.AUTO -> if (VI_DIACRITIC_REGEX.containsMatchIn(text)) OcrLanguage.VI else OcrLanguage.EN
-            else -> language
-        }
     }
 
     private fun levenshtein(a: String, b: String): Int {

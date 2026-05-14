@@ -10,6 +10,7 @@ import com.example.eyes.data.DataStoreManager
 import com.example.eyes.ocr.Gpt4oOcrEngine
 import com.example.eyes.ocr.GptTranslationEngine
 import com.example.eyes.ocr.MlKitOcrEngine
+import com.example.eyes.ocr.MlKitOcrGuidanceAnalyzer
 import com.example.eyes.ocr.OcrEngine
 import com.example.eyes.ocr.OcrTranslator
 import com.example.eyes.data.remote.SceneApi
@@ -20,7 +21,6 @@ import com.example.eyes.system.TtsService
 import com.example.eyes.ui.camera.CameraViewModel
 import com.example.eyes.ui.home.HomeViewModel
 import com.example.eyes.ui.navigation.AppNavViewModel
-import com.example.eyes.ui.ocr.OcrViewModel
 import com.example.eyes.ui.settings.SettingsViewModel
 import org.koin.core.qualifier.named
 import okhttp3.OkHttpClient
@@ -42,6 +42,7 @@ val appModule = module {
     single { CameraManager(androidContext()) }
     factory<OcrEngine>(named("quick-ocr")) { MlKitOcrEngine() }
     factory<OcrEngine>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
+    factory { MlKitOcrGuidanceAnalyzer() }
     factory<OcrTranslator> { GptTranslationEngine() }
     factory { YoloDetector(androidContext()) }
     single { MiDasDepthEstimator(androidContext()) }
@@ -69,22 +70,13 @@ val appModule = module {
             miDasDepthEstimator = get(),
             quickOcrEngine = get(named("quick-ocr")),
             accuracyOcrEngine = get(named("accuracy-ocr")),
+            ocrGuidanceAnalyzer = get(),
             translator = get(),
             ttsService = get(),
             hapticService = get(),
             dataStoreManager = get(),
             sceneRepository = get(),
             audioManager = get()
-        )
-    }
-    viewModel {
-        OcrViewModel(
-            quickOcrEngine = get(named("quick-ocr")),
-            accuracyOcrEngine = get(named("accuracy-ocr")),
-            translator = get(),
-            dataStoreManager = get(),
-            tts = get(),
-            haptic = get()
         )
     }
     viewModel { SettingsViewModel(get(), get(), get()) }

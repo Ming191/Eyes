@@ -90,7 +90,8 @@ fun CameraScreen(
                             !uiState.isOcrScanning &&
                             !uiState.isOcrDocumentMode
                         ) {
-                            cameraManager.takePicture(
+                            viewModel.onOcrCaptureRequested()
+                            cameraManager.takePictureAfterCenterFocus(
                                 onCaptured = viewModel::processCapturedOcrImage,
                                 onError = { viewModel.onOcrCaptureError() }
                             )
@@ -148,12 +149,21 @@ fun CameraScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        CameraBoundingBoxOverlay(
-            boxes = uiState.boundingBoxes,
-            modifier = Modifier.fillMaxSize()
-        )
+        if (uiState.activeMode == CameraMode.OBSTACLE) {
+            CameraBoundingBoxOverlay(
+                boxes = uiState.boundingBoxes,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
         if (uiState.activeMode == CameraMode.OCR) {
+            if (uiState.ocrCapturedBitmap == null) {
+                OcrGuidanceOverlay(
+                    bounds = uiState.ocrGuidanceBounds,
+                    isReady = uiState.isOcrReadyToCapture,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
             uiState.ocrCapturedBitmap?.let { capturedBitmap ->
                 Image(
                     bitmap = capturedBitmap.asImageBitmap(),

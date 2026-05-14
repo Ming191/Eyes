@@ -23,9 +23,6 @@ data object MapRoute
 @Serializable
 data object SettingsRoute
 
-@Serializable
-data object OcrRoute
-
 enum class TopLevelDestination(
     val title: String,
     val label: String,

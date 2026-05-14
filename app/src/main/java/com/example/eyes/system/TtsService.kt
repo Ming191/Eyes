@@ -131,19 +131,6 @@ class TtsService(context: Context) : SpeechOutput {
         }
     }
 
-    fun shutdown() {
-        synchronized(lock) {
-            pendingUtterances.clear()
-            inFlightUtteranceIds.clear()
-            if (initState == InitState.READY) {
-                tts.stop()
-            }
-            tts.shutdown()
-            initState = InitState.FAILED
-            abandonAudioFocusLocked()
-        }
-    }
-
     private fun enqueuePendingLocked(text: String, priority: Priority, locale: Locale?) {
         val item = PendingUtterance(
             text = text,

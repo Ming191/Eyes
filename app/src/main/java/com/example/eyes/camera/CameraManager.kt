@@ -1,7 +1,9 @@
 package com.example.eyes.camera
 
 import android.content.Context
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -13,6 +15,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class CameraManager(
     private val context: Context
@@ -21,6 +24,8 @@ class CameraManager(
     private var imageCapture: ImageCapture? = null
     private var analysisUseCase: ImageAnalysis? = null
     private var previewUseCase: Preview? = null
+    private var boundCamera: Camera? = null
+    private var boundPreviewView: PreviewView? = null
 
     /**
      * Binds a camera preview and image-analysis use case to the given lifecycle owner.
@@ -70,6 +75,8 @@ class CameraManager(
         val providerFuture = ProcessCameraProvider.getInstance(context)
         providerFuture.addListener(
             {
+                boundCamera = null
+                boundPreviewView = null
                 providerFuture.get().unbindAll()
             },
             ContextCompat.getMainExecutor(context)
@@ -97,6 +104,7 @@ class CameraManager(
         cameraProviderFuture.addListener(
             {
                 val cameraProvider = cameraProviderFuture.get()
+                boundPreviewView = previewView
 
                 previewUseCase = previewView?.let { view ->
                     Preview.Builder().build().also { preview ->
@@ -124,7 +132,7 @@ class CameraManager(
                 val preview = previewUseCase
                 val analysis = analysisUseCase
                 if (preview != null && analysis != null) {
-                    cameraProvider.bindToLifecycle(
+                    boundCamera = cameraProvider.bindToLifecycle(
                         lifecycleOwner,
                         CameraSelector.DEFAULT_BACK_CAMERA,
                         preview,
@@ -132,21 +140,21 @@ class CameraManager(
                         analysis
                     )
                 } else if (preview != null) {
-                    cameraProvider.bindToLifecycle(
+                    boundCamera = cameraProvider.bindToLifecycle(
                         lifecycleOwner,
                         CameraSelector.DEFAULT_BACK_CAMERA,
                         preview,
                         imageCapture
                     )
                 } else if (analysis != null) {
-                    cameraProvider.bindToLifecycle(
+                    boundCamera = cameraProvider.bindToLifecycle(
                         lifecycleOwner,
                         CameraSelector.DEFAULT_BACK_CAMERA,
                         imageCapture,
                         analysis
                     )
                 } else {
-                    cameraProvider.bindToLifecycle(
+                    boundCamera = cameraProvider.bindToLifecycle(
                         lifecycleOwner,
                         CameraSelector.DEFAULT_BACK_CAMERA,
                         imageCapture
@@ -176,7 +184,32 @@ class CameraManager(
         )
     }
 
-    fun shutdown() {
-        analysisExecutor.shutdown()
+    fun takePictureAfterCenterFocus(
+        onCaptured: (ImageProxy) -> Unit,
+        onError: (ImageCaptureException) -> Unit = {}
+    ) {
+        val camera = boundCamera
+        val previewView = boundPreviewView
+        if (camera == null || previewView == null || previewView.width <= 0 || previewView.height <= 0) {
+            takePicture(onCaptured = onCaptured, onError = onError)
+            return
+        }
+
+        val point = previewView.meteringPointFactory.createPoint(
+            previewView.width / 2f,
+            previewView.height / 2f
+        )
+        val action = FocusMeteringAction.Builder(
+            point,
+            FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE or FocusMeteringAction.FLAG_AWB
+        )
+            .setAutoCancelDuration(3, TimeUnit.SECONDS)
+            .build()
+
+        val focusFuture = camera.cameraControl.startFocusAndMetering(action)
+        focusFuture.addListener(
+            { takePicture(onCaptured = onCaptured, onError = onError) },
+            ContextCompat.getMainExecutor(context)
+        )
     }
 }

@@ -55,7 +55,6 @@ koin-androidx-compose = { group = "io.insert-koin", name = "koin-androidx-compos
 koin-compose-viewmodel = { group = "io.insert-koin", name = "koin-compose-viewmodel" }
 koin-test = { module = "io.insert-koin:koin-test" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
-mockk = { module = "io.mockk:mockk", version = "1.13.13" }
 mlkit-text-recognition = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition", version.ref = "mlkitTextRecognition" }
 tflite-core = { module = "org.tensorflow:tensorflow-lite", version.ref = "tflite" }
 tflite-support = { module = "org.tensorflow:tensorflow-lite-support", version.ref = "tfliteSupport" }

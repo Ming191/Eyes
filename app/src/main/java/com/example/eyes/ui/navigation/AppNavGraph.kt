@@ -34,7 +34,6 @@ import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.home.HomeScreen
 import com.example.eyes.ui.map.MapScreen
 import com.example.eyes.ocr.OcrMode
-import com.example.eyes.ui.ocr.OcrScreen
 import com.example.eyes.ui.onboarding.OnboardingScreen
 import com.example.eyes.ui.settings.SettingsScreen
 import org.koin.androidx.compose.koinViewModel
@@ -171,9 +170,6 @@ private fun MainNavigationScaffold(
                         requestedMode = requestedCameraMode,
                         onRequestedModeConsumed = viewModel::clearRequestedCameraMode
                     )
-                }
-                composable<OcrRoute> {
-                    OcrScreen()
                 }
                 composable<MapRoute> {
                     MapScreen()

@@ -1,4 +1,4 @@
-package com.example.eyes.ui.camera
+﻿package com.example.eyes.ui.camera
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
@@ -24,10 +24,14 @@ import com.example.eyes.ai.Zone
 import com.example.eyes.camera.toBitmapWithRotation
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.data.remote.SceneRepository
+import com.example.eyes.ocr.MlKitOcrGuidanceAnalyzer
 import com.example.eyes.ocr.OcrEngine
+import com.example.eyes.ocr.OcrGuidanceEvaluator
+import com.example.eyes.ocr.OcrGuidanceStatus
 import com.example.eyes.ocr.OcrMode
 import com.example.eyes.ocr.OcrPostProcessor
 import com.example.eyes.ocr.OcrResult
+import com.example.eyes.ocr.OcrTextBounds
 import com.example.eyes.ocr.OcrTranslator
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
@@ -42,6 +46,7 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 @Immutable
@@ -54,6 +59,10 @@ data class CameraUiState(
     val ocrSentences: List<String> = emptyList(),
     val ocrCurrentIndex: Int = 0,
     val ocrCapturedBitmap: Bitmap? = null,
+    val ocrGuidanceStatus: OcrGuidanceStatus = OcrGuidanceStatus.SEARCHING,
+    val ocrGuidanceMessage: String = "Hãy hướng camera vào vùng văn bản.",
+    val isOcrReadyToCapture: Boolean = false,
+    val ocrGuidanceBounds: OcrTextBounds? = null,
     val title: String = "Chế độ phát hiện vật cản",
     val summary: String = "Ứng dụng đang theo dõi vật cản liên tục. Nhấn giữ màn hình để mô tả cảnh xung quanh.",
     val statusMessage: String = "Đang chờ khung hình tiếp theo",
@@ -101,6 +110,7 @@ class CameraViewModel(
     private val miDasDepthEstimator: MiDasDepthEstimator,
     private val quickOcrEngine: OcrEngine,
     private val accuracyOcrEngine: OcrEngine,
+    private val ocrGuidanceAnalyzer: MlKitOcrGuidanceAnalyzer,
     private val translator: OcrTranslator,
     private val ttsService: TtsService,
     private val hapticService: HapticService,
@@ -113,9 +123,12 @@ class CameraViewModel(
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
     private val isProcessingFrame = AtomicBoolean(false)
+    private val isProcessingOcrGuidance = AtomicBoolean(false)
     private val isDepthUpdating = AtomicBoolean(false)
     private val frameCounter = AtomicInteger(0)
     private val lastOcrSwipeAtMs = AtomicReference(0L)
+    private val lastOcrGuidanceAtMs = AtomicLong(0L)
+    private val lastOcrGuidanceSpeechAtMs = AtomicLong(0L)
 
     private val depthHazardDetector = DepthHazardDetector()
     private val currentOcrMode = MutableStateFlow(OcrMode.QUICK)
@@ -135,6 +148,9 @@ class CameraViewModel(
     private val alertSensitivity = MutableStateFlow(HazardAlertPipeline.DEFAULT_ALERT_SENSITIVITY)
     private val lastRawOcrResult = AtomicReference<OcrResult?>(null)
     private val lastOcrUsedFallback = AtomicBoolean(false)
+    private val lastOcrGuidanceBounds = AtomicReference<OcrTextBounds?>(null)
+    private val stableOcrGuidanceFrames = AtomicInteger(0)
+    private val lastAnnouncedOcrGuidanceStatus = AtomicReference<OcrGuidanceStatus?>(null)
     private var reprocessOcrJob: Job? = null
 
     init {
@@ -155,10 +171,13 @@ class CameraViewModel(
     }
 
     fun processFrame(imageProxy: ImageProxy) {
-        if (_uiState.value.activeMode != CameraMode.OBSTACLE) {
-            imageProxy.close()
-            return
+        when (_uiState.value.activeMode) {
+            CameraMode.OBSTACLE -> processObstacleImageProxy(imageProxy)
+            CameraMode.OCR -> processOcrGuidanceImageProxy(imageProxy)
         }
+    }
+
+    private fun processObstacleImageProxy(imageProxy: ImageProxy) {
         if (!isProcessingFrame.compareAndSet(false, true)) {
             imageProxy.close()
             return
@@ -179,8 +198,66 @@ class CameraViewModel(
         }
     }
 
+    private fun processOcrGuidanceImageProxy(imageProxy: ImageProxy) {
+        val state = _uiState.value
+        if (state.isOcrScanning || state.isOcrDocumentMode || state.ocrCapturedBitmap != null) {
+            imageProxy.close()
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        if (now - lastOcrGuidanceAtMs.get() < OCR_GUIDANCE_INTERVAL_MS) {
+            imageProxy.close()
+            return
+        }
+        if (!isProcessingOcrGuidance.compareAndSet(false, true)) {
+            imageProxy.close()
+            return
+        }
+        lastOcrGuidanceAtMs.set(now)
+
+        viewModelScope.launch(Dispatchers.Default) {
+            var bitmap: Bitmap? = null
+            try {
+                bitmap = imageProxy.toBitmapWithRotation()
+                val frame = ocrGuidanceAnalyzer.analyze(bitmap)
+                val stableCount = updateOcrGuidanceStability(frame.textBounds)
+                val evaluation = OcrGuidanceEvaluator.evaluate(frame, stableCount)
+                val currentState = _uiState.value
+                if (
+                    currentState.activeMode != CameraMode.OCR ||
+                    currentState.isOcrScanning ||
+                    currentState.isOcrDocumentMode ||
+                    currentState.ocrCapturedBitmap != null
+                ) {
+                    return@launch
+                }
+                _uiState.update {
+                    it.copy(
+                        ocrGuidanceStatus = evaluation.status,
+                        ocrGuidanceMessage = evaluation.message,
+                        isOcrReadyToCapture = evaluation.isReadyToCapture,
+                        ocrGuidanceBounds = evaluation.textBounds,
+                        statusMessage = evaluation.message,
+                        lastAnnouncement = evaluation.message
+                    )
+                }
+                maybeAnnounceOcrGuidance(evaluation.status, evaluation.message)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "OCR guidance failed", e)
+            } finally {
+                recycleBitmapIfNeeded(bitmap)
+                imageProxy.close()
+                isProcessingOcrGuidance.set(false)
+            }
+        }
+    }
+
     fun processCapturedOcrImage(imageProxy: ImageProxy) {
         viewModelScope.launch(Dispatchers.Default) {
+            resetOcrGuidanceTracking()
             val bitmap = try {
                 imageProxy.toBitmapWithRotation()
             } catch (_: Throwable) {
@@ -198,6 +275,10 @@ class CameraViewModel(
                     ocrCurrentIndex = 0,
                     canTranslateCurrentOcrDocument = false,
                     ocrCapturedBitmap = bitmap,
+                    ocrGuidanceStatus = OcrGuidanceStatus.SEARCHING,
+                    ocrGuidanceMessage = "Đang xử lý ảnh OCR",
+                    isOcrReadyToCapture = false,
+                    ocrGuidanceBounds = null,
                     statusMessage = "Đang xử lý ảnh OCR"
                 )
             }
@@ -235,9 +316,16 @@ class CameraViewModel(
         hapticService.error()
     }
 
+    fun onOcrCaptureRequested() {
+        if (!_uiState.value.isOcrReadyToCapture) {
+            ttsService.speak("Ảnh có thể chưa rõ, đang chụp.", TtsService.Priority.HIGH)
+        }
+    }
+
     fun prepareForNextOcrCapture() {
         lastRawOcrResult.set(null)
         lastOcrUsedFallback.set(false)
+        resetOcrGuidanceTracking()
         _uiState.update {
             it.copy(
                 isOcrScanning = false,
@@ -245,6 +333,10 @@ class CameraViewModel(
                 ocrCurrentIndex = 0,
                 canTranslateCurrentOcrDocument = false,
                 ocrCapturedBitmap = null,
+                ocrGuidanceStatus = OcrGuidanceStatus.SEARCHING,
+                ocrGuidanceMessage = "Hãy hướng camera vào vùng văn bản.",
+                isOcrReadyToCapture = false,
+                ocrGuidanceBounds = null,
                 statusMessage = "Sẵn sàng chụp OCR",
                 lastAnnouncement = "Đã sẵn sàng chụp ảnh mới"
             )
@@ -276,6 +368,7 @@ class CameraViewModel(
 
     fun selectMode(mode: CameraMode) {
         if (_uiState.value.activeMode == mode) return
+        resetOcrGuidanceTracking()
         when (mode) {
             CameraMode.OBSTACLE -> {
                 hapticService.confirm()
@@ -293,7 +386,11 @@ class CameraViewModel(
                         ocrSentences = emptyList(),
                         ocrCurrentIndex = 0,
                         canTranslateCurrentOcrDocument = false,
-                        ocrCapturedBitmap = null
+                        ocrCapturedBitmap = null,
+                        ocrGuidanceStatus = OcrGuidanceStatus.SEARCHING,
+                        ocrGuidanceMessage = "Hãy hướng camera vào vùng văn bản.",
+                        isOcrReadyToCapture = false,
+                        ocrGuidanceBounds = null
                     )
                 }
             }
@@ -320,6 +417,10 @@ class CameraViewModel(
                         ocrCurrentIndex = 0,
                         canTranslateCurrentOcrDocument = false,
                         ocrCapturedBitmap = null,
+                        ocrGuidanceStatus = OcrGuidanceStatus.SEARCHING,
+                        ocrGuidanceMessage = "Hãy hướng camera vào vùng văn bản.",
+                        isOcrReadyToCapture = false,
+                        ocrGuidanceBounds = null,
                         boundingBoxes = emptyList(),
                         depthPreviewBitmap = null,
                         debugMetrics = "OCR: đang chờ dữ liệu"
@@ -396,6 +497,7 @@ class CameraViewModel(
         }
         lastRawOcrResult.set(null)
         lastOcrUsedFallback.set(false)
+        resetOcrGuidanceTracking()
         updateUiStateAndRecycleReplacedOcrBitmap { it.copy(ocrCapturedBitmap = null) }
     }
 
@@ -403,11 +505,65 @@ class CameraViewModel(
         yoloDetector.close()
         quickOcrEngine.close()
         accuracyOcrEngine.close()
+        ocrGuidanceAnalyzer.close()
         recycleBitmapIfNeeded(_uiState.value.ocrCapturedBitmap)
         super.onCleared()
     }
 
+    private fun updateOcrGuidanceStability(bounds: OcrTextBounds?): Int {
+        if (bounds == null) {
+            lastOcrGuidanceBounds.set(null)
+            stableOcrGuidanceFrames.set(0)
+            return 0
+        }
+
+        val previous = lastOcrGuidanceBounds.get()
+        val stable = previous != null && bounds.isStableComparedTo(previous)
+        val nextCount = if (stable) stableOcrGuidanceFrames.incrementAndGet() else 1
+        stableOcrGuidanceFrames.set(nextCount)
+        lastOcrGuidanceBounds.set(bounds)
+        return nextCount
+    }
+
+    private fun maybeAnnounceOcrGuidance(status: OcrGuidanceStatus, message: String) {
+        val now = System.currentTimeMillis()
+        val previousStatus = lastAnnouncedOcrGuidanceStatus.get()
+        val elapsed = now - lastOcrGuidanceSpeechAtMs.get()
+        if (
+            status != OcrGuidanceStatus.READY &&
+            elapsed < OCR_GUIDANCE_SPEECH_INTERVAL_MS
+        ) {
+            return
+        }
+        if (previousStatus == status && elapsed < OCR_GUIDANCE_SPEECH_INTERVAL_MS) return
+
+        lastAnnouncedOcrGuidanceStatus.set(status)
+        lastOcrGuidanceSpeechAtMs.set(now)
+
+        if (status == OcrGuidanceStatus.READY && previousStatus != OcrGuidanceStatus.READY) {
+            hapticService.confirm()
+            ttsService.speak(message, TtsService.Priority.HIGH)
+        } else if (status != OcrGuidanceStatus.READY) {
+            ttsService.speak(message, TtsService.Priority.NORMAL)
+        }
+    }
+
+    private fun resetOcrGuidanceTracking() {
+        lastOcrGuidanceBounds.set(null)
+        stableOcrGuidanceFrames.set(0)
+        lastAnnouncedOcrGuidanceStatus.set(null)
+        lastOcrGuidanceSpeechAtMs.set(0L)
+        lastOcrGuidanceAtMs.set(0L)
+    }
+
+    private fun OcrTextBounds.isStableComparedTo(other: OcrTextBounds): Boolean {
+        val centerDelta = kotlin.math.abs(centerX - other.centerX) + kotlin.math.abs(centerY - other.centerY)
+        val areaDelta = kotlin.math.abs(area - other.area)
+        return centerDelta < OCR_GUIDANCE_STABLE_CENTER_DELTA && areaDelta < OCR_GUIDANCE_STABLE_AREA_DELTA
+    }
+
     private fun processObstacleFrame(bitmap: Bitmap) {
+        if (_uiState.value.activeMode != CameraMode.OBSTACLE) return
         maybeRefreshDepth(bitmap)
         val detections = yoloDetector.detect(bitmap)
         latestDetections.set(detections)
@@ -504,18 +660,8 @@ class CameraViewModel(
     private suspend fun maybeTranslateForSpeech(result: OcrResult): OcrResult {
         val enabled = _uiState.value.ocrTranslateToVietnamese
         if (!enabled) return OcrPostProcessor.process(result.fullText)
-        if (!looksEnglish(result.fullText)) return OcrPostProcessor.process(result.fullText)
-
-        return runCatching {
-            val translated = translator.translateToVietnamese(result.fullText)
-            OcrPostProcessor.process(translated)
-        }.getOrElse {
-            ttsService.speak(
-                "Không thể dịch sang tiếng Việt. Đang đọc bản gốc tiếng Anh.",
-                TtsService.Priority.HIGH
-            )
-            OcrPostProcessor.process(result.fullText)
-        }
+        if (!shouldAutoTranslateToVietnamese(result.fullText)) return OcrPostProcessor.process(result.fullText)
+        return translateToVietnameseOrFallback(result.fullText)
     }
 
     private suspend fun reprocessCurrentOcrForTranslationToggle(enabled: Boolean) {
@@ -524,24 +670,15 @@ class CameraViewModel(
         if (state.activeMode != CameraMode.OCR || !state.isOcrDocumentMode) return
 
         _uiState.update { it.copy(statusMessage = "Đang cập nhật bản đọc OCR") }
-        val processed = if (enabled && looksEnglish(rawResult.fullText)) {
-            runCatching {
-                val translated = translator.translateToVietnamese(rawResult.fullText)
-                OcrPostProcessor.process(translated)
-            }.getOrElse {
-                ttsService.speak(
-                    "Không thể dịch sang tiếng Việt. Đang đọc bản gốc tiếng Anh.",
-                    TtsService.Priority.HIGH
-                )
-                OcrPostProcessor.process(rawResult.fullText)
-            }
+        val processed = if (enabled && shouldAutoTranslateToVietnamese(rawResult.fullText)) {
+            translateToVietnameseOrFallback(rawResult.fullText)
         } else {
             OcrPostProcessor.process(rawResult.fullText)
         }
         enterOcrDocumentMode(
             result = processed,
             usedFallback = lastOcrUsedFallback.get(),
-            canTranslateCurrentDocument = looksEnglish(rawResult.fullText)
+            canTranslateCurrentDocument = shouldAutoTranslateToVietnamese(rawResult.fullText)
         )
     }
 
@@ -562,7 +699,7 @@ class CameraViewModel(
         if (normalized.isBlank()) return true
         val refusalMarkers = listOf(
             "i'm sorry, i can't assist with that",
-            "i can’t assist with that",
+            "i can't assist with that",
             "i cannot assist with that",
             "i'm sorry",
             "i cannot help with that request"
@@ -586,6 +723,42 @@ class CameraViewModel(
         if (text.isBlank()) return false
         if (VI_DIACRITIC_REGEX.containsMatchIn(text)) return false
         return EN_LETTER_REGEX.containsMatchIn(text)
+    }
+
+    private fun shouldAutoTranslateToVietnamese(text: String): Boolean {
+        if (text.isBlank()) return false
+        val latinCount = EN_LETTER_REGEX.findAll(text).count()
+        if (latinCount < 6) return false
+        val viCount = VI_DIACRITIC_REGEX.findAll(text).count()
+        return viCount == 0 || latinCount >= viCount * 3
+    }
+
+    private suspend fun translateToVietnameseOrFallback(sourceText: String): OcrResult {
+        return runCatching {
+            val translated = translator.translateToVietnamese(sourceText)
+            if (looksUntranslated(sourceText, translated)) {
+                throw IllegalStateException("Bản dịch không thay đổi nội dung")
+            }
+            OcrPostProcessor.process(translated)
+        }.getOrElse {
+            ttsService.speak(
+                "Không thể dịch sang tiếng Việt. Đang đọc bản gốc tiếng Anh.",
+                TtsService.Priority.HIGH
+            )
+            OcrPostProcessor.process(sourceText)
+        }
+    }
+
+    private fun looksUntranslated(source: String, translated: String): Boolean {
+        val sourceNorm = OcrPostProcessor.normalizeText(source).lowercase()
+        val translatedNorm = OcrPostProcessor.normalizeText(translated).lowercase()
+        if (sourceNorm.isBlank() || translatedNorm.isBlank()) return true
+
+        val sourceWordCount = sourceNorm.split(Regex("\\s+")).count { it.isNotBlank() }
+        if (sourceWordCount < 3) return false
+
+        val similarity = OcrPostProcessor.similarityRatio(sourceNorm, translatedNorm)
+        return similarity >= 0.92f && !VI_DIACRITIC_REGEX.containsMatchIn(translatedNorm)
     }
 
     private fun canHandleOcrSwipe(): Boolean {
@@ -708,6 +881,10 @@ class CameraViewModel(
         private const val DEPTH_FRAME_INTERVAL = 1
         private const val MAX_OVERLAY_BOXES = 8
         private const val OCR_SWIPE_DEBOUNCE_MS = 320L
+        private const val OCR_GUIDANCE_INTERVAL_MS = 700L
+        private const val OCR_GUIDANCE_SPEECH_INTERVAL_MS = 4_000L
+        private const val OCR_GUIDANCE_STABLE_CENTER_DELTA = 0.12f
+        private const val OCR_GUIDANCE_STABLE_AREA_DELTA = 0.15f
         private val VIETNAMESE_LOCALE: Locale = Locale.Builder().setLanguage("vi").setRegion("VN").build()
         private val VI_DIACRITIC_REGEX = Regex(
             "[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
