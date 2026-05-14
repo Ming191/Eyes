@@ -33,6 +33,7 @@ import com.example.eyes.ui.camera.CameraScreen
 import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.home.HomeScreen
 import com.example.eyes.ui.map.MapScreen
+import com.example.eyes.ocr.OcrMode
 import com.example.eyes.ui.ocr.OcrScreen
 import com.example.eyes.ui.onboarding.OnboardingScreen
 import com.example.eyes.ui.settings.SettingsScreen
@@ -149,8 +150,12 @@ private fun MainNavigationScaffold(
                             viewModel.requestOpenCamera(CameraMode.OBSTACLE)
                             navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
                         },
-                        onOpenOcr = {
-                            viewModel.requestOpenCamera(CameraMode.OCR)
+                        onOpenOcrQuick = {
+                            viewModel.requestOpenCameraOcr(OcrMode.QUICK)
+                            navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
+                        },
+                        onOpenOcrAccuracy = {
+                            viewModel.requestOpenCameraOcr(OcrMode.ACCURACY)
                             navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
                         },
                         onOpenMap = {

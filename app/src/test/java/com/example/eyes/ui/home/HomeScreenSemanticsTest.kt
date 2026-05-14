@@ -42,7 +42,8 @@ class HomeScreenSemanticsTest {
         composeTestRule.setContent {
             HomeScreen(
                 onOpenCamera = {},
-                onOpenOcr = {},
+                onOpenOcrQuick = {},
+                onOpenOcrAccuracy = {},
                 onOpenMap = {},
                 onOpenSettings = {},
                 viewModel = viewModel

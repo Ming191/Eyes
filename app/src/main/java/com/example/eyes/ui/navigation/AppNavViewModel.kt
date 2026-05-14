@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.data.DataStoreManager
+import com.example.eyes.ocr.OcrMode
 import com.example.eyes.ui.camera.CameraMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -46,6 +47,13 @@ class AppNavViewModel(
 
     fun requestOpenCamera(mode: CameraMode) {
         _requestedCameraMode.value = mode
+    }
+
+    fun requestOpenCameraOcr(ocrMode: OcrMode) {
+        _requestedCameraMode.value = CameraMode.OCR
+        viewModelScope.launch {
+            dataStoreManager.setOcrMode(ocrMode)
+        }
     }
 
     fun clearRequestedCameraMode() {

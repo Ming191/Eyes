@@ -25,12 +25,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Button
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -85,6 +87,12 @@ fun CameraScreen(
         }
     }
 
+    DisposableEffect(viewModel) {
+        onDispose {
+            viewModel.onScreenDisposed()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -92,7 +100,11 @@ fun CameraScreen(
             .pointerInput(uiState.activeMode, uiState.isOcrDocumentMode) {
                 detectTapGestures(
                     onDoubleTap = {
-                        if (uiState.activeMode == CameraMode.OCR && !uiState.isOcrDocumentMode) {
+                        if (
+                            uiState.activeMode == CameraMode.OCR &&
+                            !uiState.isOcrScanning &&
+                            !uiState.isOcrDocumentMode
+                        ) {
                             cameraManager.takePicture(
                                 onCaptured = viewModel::processCapturedOcrImage,
                                 onError = { viewModel.onOcrCaptureError() }
@@ -156,6 +168,17 @@ fun CameraScreen(
             boxes = uiState.boundingBoxes,
             modifier = Modifier.fillMaxSize()
         )
+
+        if (uiState.activeMode == CameraMode.OCR) {
+            uiState.ocrCapturedBitmap?.let { capturedBitmap ->
+                Image(
+                    bitmap = capturedBitmap.asImageBitmap(),
+                    contentDescription = "Ảnh OCR đã chụp",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
 
         if (uiState.isStatusCardVisible) {
             CameraStatusPanel(
@@ -238,6 +261,18 @@ fun CameraScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+        }
+
+        if (uiState.activeMode == CameraMode.OCR && uiState.isOcrDocumentMode && !uiState.isOcrScanning) {
+            Button(
+                onClick = { viewModel.prepareForNextOcrCapture() },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 164.dp)
+                    .semantics { contentDescription = "Chụp ảnh OCR khác" }
+            ) {
+                Text("Chụp ảnh khác")
             }
         }
 

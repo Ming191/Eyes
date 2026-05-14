@@ -9,7 +9,8 @@ import kotlinx.coroutines.flow.asStateFlow
 
 enum class HomeActionType {
     ScanAround,
-    ReadText,
+    ReadTextQuick,
+    ReadTextAccuracy,
     Navigate,
     Settings
 }
@@ -39,11 +40,18 @@ private fun defaultHomeActions(): List<HomeAction> = listOf(
         accessibilityLabel = "Xem xung quanh. Mở camera để nhận biết vật cản, lối đi và tín hiệu phía trước."
     ),
     HomeAction(
-        type = HomeActionType.ReadText,
-        title = "Đọc văn bản",
-        description = "Dùng camera để đọc tài liệu.",
+        type = HomeActionType.ReadTextQuick,
+        title = "Đọc văn bản nhanh",
+        description = "Dùng camera để đọc nhanh bằng ML Kit.",
         supportingLabel = "Chế độ OCR nhanh",
-        accessibilityLabel = "Đọc văn bản. Dùng camera để đọc nhãn, biển báo hoặc tài liệu ngắn."
+        accessibilityLabel = "Đọc văn bản nhanh. Dùng camera để đọc nhãn, biển báo hoặc tài liệu ngắn bằng OCR nhanh."
+    ),
+    HomeAction(
+        type = HomeActionType.ReadTextAccuracy,
+        title = "Đọc văn bản chính xác",
+        description = "Dùng camera để đọc chính xác hơn bằng GPT-4o.",
+        supportingLabel = "Chế độ OCR chính xác",
+        accessibilityLabel = "Đọc văn bản chính xác. Dùng camera để đọc tài liệu với độ chính xác cao hơn bằng GPT-4o."
     ),
     HomeAction(
         type = HomeActionType.Navigate,

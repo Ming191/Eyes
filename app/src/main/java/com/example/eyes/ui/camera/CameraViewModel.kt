@@ -49,6 +49,7 @@ data class CameraUiState(
     val isOcrScanning: Boolean = false,
     val ocrSentences: List<String> = emptyList(),
     val ocrCurrentIndex: Int = 0,
+    val ocrCapturedBitmap: Bitmap? = null,
     val title: String = "Chế độ phát hiện vật cản",
     val summary: String = "Ứng dụng đang theo dõi vật cản liên tục. Nhấn giữ màn hình để mô tả cảnh xung quanh.",
     val statusMessage: String = "Đang chờ khung hình tiếp theo",
@@ -87,7 +88,8 @@ enum class CameraMode(
 
 private data class OcrRecognitionOutcome(
     val result: Result<OcrResult>,
-    val usedFallbackFromAccuracy: Boolean
+    val usedFallbackFromAccuracy: Boolean,
+    val fallbackReason: String? = null
 )
 
 class CameraViewModel(
@@ -140,6 +142,10 @@ class CameraViewModel(
     }
 
     fun processFrame(imageProxy: ImageProxy) {
+        if (_uiState.value.activeMode != CameraMode.OBSTACLE) {
+            imageProxy.close()
+            return
+        }
         if (!isProcessingFrame.compareAndSet(false, true)) {
             imageProxy.close()
             return
@@ -148,9 +154,7 @@ class CameraViewModel(
             try {
                 val bitmap = imageProxy.toBitmapWithRotation()
                 latestFrame.set(bitmap)
-                if (_uiState.value.activeMode == CameraMode.OBSTACLE) {
-                    processObstacleFrame(bitmap)
-                }
+                processObstacleFrame(bitmap)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -163,7 +167,6 @@ class CameraViewModel(
     }
 
     fun processCapturedOcrImage(imageProxy: ImageProxy) {
-        _uiState.update { it.copy(isOcrScanning = true, statusMessage = "Đang xử lý ảnh OCR") }
         viewModelScope.launch(Dispatchers.Default) {
             val bitmap = try {
                 imageProxy.toBitmapWithRotation()
@@ -175,6 +178,16 @@ class CameraViewModel(
                 imageProxy.close()
             }
 
+            updateUiStateAndRecycleReplacedOcrBitmap {
+                it.copy(
+                    isOcrScanning = true,
+                    ocrSentences = emptyList(),
+                    ocrCurrentIndex = 0,
+                    ocrCapturedBitmap = bitmap,
+                    statusMessage = "Đang xử lý ảnh OCR"
+                )
+            }
+
             val outcome = recognizeByMode(bitmap = bitmap, mode = currentOcrMode.value)
             val result = outcome.result.getOrElse { error ->
                 _uiState.update {
@@ -183,6 +196,14 @@ class CameraViewModel(
                 hapticService.error()
                 return@launch
             }
+            if (outcome.usedFallbackFromAccuracy) {
+                dataStoreManager.setOcrMode(OcrMode.QUICK)
+                val reason = outcome.fallbackReason ?: "lỗi không xác định"
+                ttsService.speak(
+                    "OCR chính xác gặp lỗi: $reason. Đã chuyển sang OCR nhanh.",
+                    TtsService.Priority.URGENT
+                )
+            }
             enterOcrDocumentMode(OcrPostProcessor.process(result.fullText), outcome.usedFallbackFromAccuracy)
         }
     }
@@ -190,6 +211,20 @@ class CameraViewModel(
     fun onOcrCaptureError() {
         _uiState.update { it.copy(isOcrScanning = false, statusMessage = "Không thể chụp ảnh OCR. Hãy thử lại.") }
         hapticService.error()
+    }
+
+    fun prepareForNextOcrCapture() {
+        _uiState.update {
+            it.copy(
+                isOcrScanning = false,
+                ocrSentences = emptyList(),
+                ocrCurrentIndex = 0,
+                ocrCapturedBitmap = null,
+                statusMessage = "Sẵn sàng chụp OCR",
+                lastAnnouncement = "Đã sẵn sàng chụp ảnh mới"
+            )
+        }
+        ttsService.stop()
     }
 
     fun nextOcrSentence() {
@@ -231,7 +266,8 @@ class CameraViewModel(
                         lastAnnouncement = "Đã chuyển sang chế độ phát hiện vật cản",
                         isOcrScanning = false,
                         ocrSentences = emptyList(),
-                        ocrCurrentIndex = 0
+                        ocrCurrentIndex = 0,
+                        ocrCapturedBitmap = null
                     )
                 }
             }
@@ -254,6 +290,7 @@ class CameraViewModel(
                         isOcrScanning = false,
                         ocrSentences = emptyList(),
                         ocrCurrentIndex = 0,
+                        ocrCapturedBitmap = null,
                         boundingBoxes = emptyList(),
                         depthPreviewBitmap = null,
                         debugMetrics = "OCR: đang chờ dữ liệu"
@@ -308,10 +345,18 @@ class CameraViewModel(
         _uiState.update { it.copy(isStatusCardVisible = !it.isStatusCardVisible) }
     }
 
+    fun onScreenDisposed() {
+        if (_uiState.value.activeMode == CameraMode.OCR) {
+            ttsService.stop()
+        }
+        updateUiStateAndRecycleReplacedOcrBitmap { it.copy(ocrCapturedBitmap = null) }
+    }
+
     override fun onCleared() {
         yoloDetector.close()
         quickOcrEngine.close()
         accuracyOcrEngine.close()
+        recycleBitmapIfNeeded(_uiState.value.ocrCapturedBitmap)
         super.onCleared()
     }
 
@@ -348,15 +393,30 @@ class CameraViewModel(
 
     private suspend fun recognizeByMode(bitmap: Bitmap, mode: OcrMode): OcrRecognitionOutcome {
         return when (mode) {
-            OcrMode.QUICK -> OcrRecognitionOutcome(runCatching { quickOcrEngine.recognize(bitmap) }, false)
+            OcrMode.QUICK -> OcrRecognitionOutcome(
+                result = runCatching { quickOcrEngine.recognize(bitmap) },
+                usedFallbackFromAccuracy = false
+            )
             OcrMode.ACCURACY -> {
                 val accuracyResult = runCatching { accuracyOcrEngine.recognize(bitmap) }
                 val text = accuracyResult.getOrNull()?.fullText.orEmpty()
                 val refused = accuracyResult.isSuccess && looksLikeGptRefusal(text)
                 if (accuracyResult.isSuccess && !refused) {
-                    OcrRecognitionOutcome(accuracyResult, false)
+                    OcrRecognitionOutcome(
+                        result = accuracyResult,
+                        usedFallbackFromAccuracy = false
+                    )
                 } else {
-                    OcrRecognitionOutcome(runCatching { quickOcrEngine.recognize(bitmap) }, true)
+                    val reason = when {
+                        refused -> "GPT-4o trả về nội dung từ chối"
+                        accuracyResult.exceptionOrNull() != null -> buildFallbackReason(accuracyResult.exceptionOrNull()!!)
+                        else -> "không rõ nguyên nhân"
+                    }
+                    OcrRecognitionOutcome(
+                        result = runCatching { quickOcrEngine.recognize(bitmap) },
+                        usedFallbackFromAccuracy = true,
+                        fallbackReason = reason
+                    )
                 }
             }
         }
@@ -412,6 +472,18 @@ class CameraViewModel(
             "i cannot help with that request"
         )
         return refusalMarkers.any { normalized.startsWith(it) }
+    }
+
+    private fun buildFallbackReason(error: Throwable): String {
+        val message = error.message?.trim().orEmpty()
+        return when {
+            message.contains("401") -> "sai API key hoặc chưa cấp quyền"
+            message.contains("403") -> "không có quyền dùng model hoặc endpoint"
+            message.contains("429") -> "hết quota hoặc bị giới hạn tốc độ"
+            message.contains("timeout", ignoreCase = true) -> "hết thời gian chờ phản hồi"
+            message.isNotBlank() -> message
+            else -> error::class.simpleName ?: "lỗi không xác định"
+        }
     }
 
     private fun looksEnglish(text: String): Boolean {
@@ -480,6 +552,20 @@ class CameraViewModel(
             updatedState
         }
         if (previousPreview !== nextPreview) recycleBitmapIfNeeded(previousPreview)
+    }
+
+    private fun updateUiStateAndRecycleReplacedOcrBitmap(
+        transform: (CameraUiState) -> CameraUiState
+    ) {
+        var previousBitmap: Bitmap? = null
+        var nextBitmap: Bitmap? = null
+        _uiState.update { state ->
+            val updatedState = transform(state)
+            previousBitmap = state.ocrCapturedBitmap
+            nextBitmap = updatedState.ocrCapturedBitmap
+            updatedState
+        }
+        if (previousBitmap !== nextBitmap) recycleBitmapIfNeeded(previousBitmap)
     }
 
     private fun recycleBitmapIfNeeded(bitmap: Bitmap?) {
