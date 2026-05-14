@@ -174,7 +174,7 @@ fun CameraScreen(
             )
         }
 
-        uiState.depthPreviewBitmap?.let { depthBitmap ->
+        if (uiState.activeMode == CameraMode.OBSTACLE) uiState.depthPreviewBitmap?.let { depthBitmap ->
             DepthPreviewPanel(
                 depthBitmap = depthBitmap.asImageBitmap(),
                 aspectRatio = depthBitmap.width.toFloat() / depthBitmap.height.toFloat(),
@@ -301,13 +301,13 @@ private fun OcrEngineModeSelector(
                         .heightIn(min = 48.dp)
                         .semantics {
                             contentDescription = if (item == OcrMode.QUICK) {
-                                "Chọn OCR nhanh bằng ML Kit"
+                                "Chọn mode OCR Nhanh"
                             } else {
-                                "Chọn OCR chính xác bằng GPT-4o"
+                                "Chọn mode OCR Chính xác"
                             }
                             stateDescription = if (selected) "Đang chọn" else "Chưa chọn"
                         },
-                    label = { Text(if (item == OcrMode.QUICK) "Quick · ML Kit" else "Accuracy · GPT-4o") }
+                    label = { Text(if (item == OcrMode.QUICK) "Nhanh" else "Chính xác") }
                 )
             }
         }

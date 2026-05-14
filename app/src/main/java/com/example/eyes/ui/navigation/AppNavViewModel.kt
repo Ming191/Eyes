@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.ocr.OcrMode
+import com.example.eyes.system.SpeechOutput
 import com.example.eyes.ui.camera.CameraMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,7 +22,8 @@ data class AppNavUiState(
 )
 
 class AppNavViewModel(
-    private val dataStoreManager: DataStoreManager
+    private val dataStoreManager: DataStoreManager,
+    private val speechOutput: SpeechOutput
 ) : ViewModel() {
     private val _requestedCameraMode = MutableStateFlow<CameraMode?>(null)
     val requestedCameraMode: StateFlow<CameraMode?> = _requestedCameraMode.asStateFlow()
@@ -38,6 +40,14 @@ class AppNavViewModel(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = AppNavUiState()
         )
+
+    init {
+        viewModelScope.launch {
+            dataStoreManager.ttsSpeedFlow.collect { speed ->
+                speechOutput.setSpeechRate(speed)
+            }
+        }
+    }
 
     fun completeOnboarding() {
         viewModelScope.launch {

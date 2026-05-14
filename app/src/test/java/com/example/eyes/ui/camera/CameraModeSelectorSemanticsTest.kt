@@ -36,7 +36,6 @@ class CameraModeSelectorSemanticsTest {
 
     @Test
     fun modeSelector_hasAccessibleModeActions_andStateDescriptions() {
-        // GIVEN
         composeTestRule.setContent {
             MaterialTheme {
                 CameraModeSelector(
@@ -46,15 +45,13 @@ class CameraModeSelectorSemanticsTest {
             }
         }
 
-        // WHEN
         val obstacleNode = composeTestRule.onNodeWithContentDescription(
             "Chuyển sang chế độ phát hiện vật cản"
         )
         val ocrNode = composeTestRule.onNodeWithContentDescription(
-            "Chuyển sang chế độ đọc chữ OCR"
+            "Chuyển sang chế độ đọc văn bản OCR"
         )
 
-        // THEN
         obstacleNode
             .assertIsDisplayed()
             .assertHasClickAction()
@@ -78,7 +75,6 @@ class CameraModeSelectorSemanticsTest {
 
     @Test
     fun modeSelector_clickOcr_invokesSelectionCallback() {
-        // GIVEN
         var selectedMode: CameraMode? = null
         composeTestRule.setContent {
             MaterialTheme {
@@ -89,11 +85,9 @@ class CameraModeSelectorSemanticsTest {
             }
         }
 
-        // WHEN
-        composeTestRule.onNodeWithContentDescription("Chuyển sang chế độ đọc chữ OCR")
+        composeTestRule.onNodeWithContentDescription("Chuyển sang chế độ đọc văn bản OCR")
             .performClick()
 
-        // THEN
         assertEquals(CameraMode.OCR, selectedMode)
     }
 }

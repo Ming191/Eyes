@@ -61,7 +61,7 @@ val appModule = module {
             .create(SceneApi::class.java)
     }
     single { SceneRepository(androidContext(), get()) }
-    viewModel { AppNavViewModel(get()) }
+    viewModel { AppNavViewModel(get(), get()) }
     viewModel { HomeViewModel(get()) }
     viewModel {
         CameraViewModel(

@@ -205,6 +205,7 @@ class TtsService(context: Context) : SpeechOutput {
         }
 
         requestAudioFocusLocked()
+        tts.setSpeechRate(speechRate)
         val targetLocale = locale ?: VIETNAMESE_LOCALE
         if (currentLocale != targetLocale) {
             val localeResult = tts.setLanguage(targetLocale)

@@ -87,7 +87,7 @@ enum class CameraMode(
     val descriptionVi: String
 ) {
     OBSTACLE("Vật cản", "phát hiện vật cản"),
-    OCR("Đọc chữ", "đọc chữ OCR")
+    OCR("Đọc văn bản", "đọc văn bản OCR")
 }
 
 private data class OcrRecognitionOutcome(
@@ -300,7 +300,8 @@ class CameraViewModel(
             CameraMode.OCR -> {
                 hapticService.confirm()
                 if (!isHeadsetConnected()) {
-                    ttsService.speak("Đã chuyển sang chế độ đọc chữ", TtsService.Priority.HIGH)
+                    val modeLabel = if (currentOcrMode.value == OcrMode.QUICK) "Nhanh" else "Chính xác"
+                    ttsService.speak("Đã chuyển sang chế độ đọc văn bản, mode $modeLabel.", TtsService.Priority.HIGH)
                 }
                 ttsService.warmupLocale(Locale.US)
                 latestDetections.set(emptyList())
@@ -310,10 +311,10 @@ class CameraViewModel(
                 updateUiStateAndRecycleReplacedDepthPreview {
                     it.copy(
                         activeMode = CameraMode.OCR,
-                        title = "Chế độ đọc chữ",
+                        title = "Chế độ đọc văn bản",
                         summary = "Double tap để chụp ảnh văn bản. Vuốt trái/phải để đọc từng câu.",
                         statusMessage = "Sẵn sàng chụp OCR",
-                        lastAnnouncement = "Đã chuyển sang chế độ đọc chữ",
+                        lastAnnouncement = "Đã chuyển sang chế độ đọc văn bản",
                         isOcrScanning = false,
                         ocrSentences = emptyList(),
                         ocrCurrentIndex = 0,
@@ -334,7 +335,7 @@ class CameraViewModel(
             dataStoreManager.setOcrMode(mode)
             hapticService.confirm()
             ttsService.speak(
-                if (mode == OcrMode.QUICK) "Đã chuyển OCR nhanh bằng ML Kit" else "Đã chuyển OCR chính xác bằng GPT-4o",
+                if (mode == OcrMode.QUICK) "Đã chuyển sang mode Nhanh." else "Đã chuyển sang mode Chính xác.",
                 TtsService.Priority.NORMAL
             )
         }
