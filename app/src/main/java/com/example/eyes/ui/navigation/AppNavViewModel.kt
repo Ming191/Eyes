@@ -4,8 +4,11 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.data.DataStoreManager
+import com.example.eyes.ui.camera.CameraMode
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -19,6 +22,8 @@ data class AppNavUiState(
 class AppNavViewModel(
     private val dataStoreManager: DataStoreManager
 ) : ViewModel() {
+    private val _requestedCameraMode = MutableStateFlow<CameraMode?>(null)
+    val requestedCameraMode: StateFlow<CameraMode?> = _requestedCameraMode.asStateFlow()
 
     val uiState: StateFlow<AppNavUiState> = dataStoreManager.onboardingCompletedFlow
         .map { completed ->
@@ -37,5 +42,13 @@ class AppNavViewModel(
         viewModelScope.launch {
             dataStoreManager.setOnboardingCompleted(true)
         }
+    }
+
+    fun requestOpenCamera(mode: CameraMode) {
+        _requestedCameraMode.value = mode
+    }
+
+    fun clearRequestedCameraMode() {
+        _requestedCameraMode.value = null
     }
 }

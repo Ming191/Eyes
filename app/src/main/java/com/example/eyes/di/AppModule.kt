@@ -63,7 +63,19 @@ val appModule = module {
     single { SceneRepository(androidContext(), get()) }
     viewModel { AppNavViewModel(get()) }
     viewModel { HomeViewModel(get()) }
-    viewModel { CameraViewModel(get(), get(), get(), get(), get(), get(), get()) }
+    viewModel {
+        CameraViewModel(
+            yoloDetector = get(),
+            miDasDepthEstimator = get(),
+            quickOcrEngine = get(named("quick-ocr")),
+            accuracyOcrEngine = get(named("accuracy-ocr")),
+            ttsService = get(),
+            hapticService = get(),
+            dataStoreManager = get(),
+            sceneRepository = get(),
+            audioManager = get()
+        )
+    }
     viewModel {
         OcrViewModel(
             quickOcrEngine = get(named("quick-ocr")),

@@ -3,6 +3,7 @@ package com.example.eyes.ui.camera
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +31,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -50,6 +52,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.camera.CameraManager
+import com.example.eyes.ocr.OcrMode
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
@@ -67,22 +70,64 @@ import org.koin.compose.koinInject
  */
 @Composable
 fun CameraScreen(
+    requestedMode: CameraMode? = null,
+    onRequestedModeConsumed: () -> Unit = {},
     viewModel: CameraViewModel = koinViewModel()
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraManager: CameraManager = koinInject()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    LaunchedEffect(requestedMode) {
+        if (requestedMode != null) {
+            viewModel.selectMode(requestedMode)
+            onRequestedModeConsumed()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .pointerInput(viewModel) {
+            .pointerInput(uiState.activeMode, uiState.isOcrDocumentMode) {
                 detectTapGestures(
+                    onDoubleTap = {
+                        if (uiState.activeMode == CameraMode.OCR && !uiState.isOcrDocumentMode) {
+                            cameraManager.takePicture(
+                                onCaptured = viewModel::processCapturedOcrImage,
+                                onError = { viewModel.onOcrCaptureError() }
+                            )
+                        }
+                    },
                     onLongPress = {
                         viewModel.describeScene()
                     }
                 )
+            }
+            .pointerInput(uiState.activeMode, uiState.isOcrDocumentMode) {
+                if (uiState.activeMode == CameraMode.OCR && uiState.isOcrDocumentMode) {
+                    var accumulatedDrag = 0f
+                    var handledInThisGesture = false
+                    detectHorizontalDragGestures(
+                        onDragStart = {
+                            accumulatedDrag = 0f
+                            handledInThisGesture = false
+                        }
+                    ) { _, dragAmount ->
+                        if (handledInThisGesture) return@detectHorizontalDragGestures
+                        accumulatedDrag += dragAmount
+                        when {
+                            accumulatedDrag > 120f -> {
+                                handledInThisGesture = true
+                                viewModel.prevOcrSentence()
+                            }
+                            accumulatedDrag < -120f -> {
+                                handledInThisGesture = true
+                                viewModel.nextOcrSentence()
+                            }
+                        }
+                    }
+                }
             }
             .semantics {
                 contentDescription = "Màn hình camera ở chế độ ${uiState.activeMode.descriptionVi}. Nhấn giữ để mô tả cảnh xung quanh."
@@ -144,6 +189,58 @@ fun CameraScreen(
                 .padding(horizontal = 16.dp, vertical = 24.dp)
         )
 
+        if (uiState.activeMode == CameraMode.OCR) {
+            OcrEngineModeSelector(
+                mode = uiState.ocrMode,
+                onModeSelected = viewModel::selectOcrMode,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 16.dp, vertical = 124.dp)
+            )
+        }
+
+        if (uiState.activeMode == CameraMode.OCR && uiState.isOcrScanning) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(16.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Text(
+                    text = "Đang phân tích ảnh...",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                )
+            }
+        }
+
+        if (uiState.activeMode == CameraMode.OCR && uiState.isOcrDocumentMode) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 16.dp, vertical = 210.dp)
+                    .fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = "${uiState.ocrCurrentIndex + 1} / ${uiState.ocrSentences.size}",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    Text(
+                        text = uiState.currentOcrSentence,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = "Vuốt trái/phải để đổi câu",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
         if (!uiState.isStatusCardVisible) {
             FilledTonalIconButton(
                 onClick = viewModel::toggleStatusCardVisibility,
@@ -157,6 +254,56 @@ fun CameraScreen(
                 Icon(
                     imageVector = Icons.Rounded.Info,
                     contentDescription = null
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OcrEngineModeSelector(
+    mode: OcrMode,
+    onModeSelected: (OcrMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val modes = remember { OcrMode.entries }
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                contentDescription = "Chọn chế độ OCR"
+            },
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 4.dp,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+    ) {
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            modes.forEachIndexed { index, item ->
+                val selected = item == mode
+                SegmentedButton(
+                    selected = selected,
+                    onClick = { onModeSelected(item) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .semantics {
+                            contentDescription = if (item == OcrMode.QUICK) {
+                                "Chọn OCR nhanh bằng ML Kit"
+                            } else {
+                                "Chọn OCR chính xác bằng GPT-4o"
+                            }
+                            stateDescription = if (selected) "Đang chọn" else "Chưa chọn"
+                        },
+                    label = {
+                        Text(
+                            if (item == OcrMode.QUICK) "Quick · ML Kit" else "Accuracy · GPT-4o"
+                        )
+                    }
                 )
             }
         }

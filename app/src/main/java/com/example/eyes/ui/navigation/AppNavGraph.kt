@@ -30,6 +30,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.eyes.ui.camera.CameraScreen
+import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.home.HomeScreen
 import com.example.eyes.ui.map.MapScreen
 import com.example.eyes.ui.ocr.OcrScreen
@@ -45,7 +46,7 @@ fun AppNavGraph(
 
     when {
         uiState.isLoading -> LoadingScreen()
-        uiState.onboardingCompleted -> MainNavigationScaffold()
+        uiState.onboardingCompleted -> MainNavigationScaffold(viewModel = viewModel)
         else -> OnboardingNavHost(onFinish = viewModel::completeOnboarding)
     }
 }
@@ -85,9 +86,12 @@ private fun OnboardingNavHost(
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-private fun MainNavigationScaffold() {
+private fun MainNavigationScaffold(
+    viewModel: AppNavViewModel
+) {
     key("main") {
         val navController = rememberNavController()
+        val requestedCameraMode by viewModel.requestedCameraMode.collectAsStateWithLifecycle()
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentDestination = navBackStackEntry?.destination
         val currentTopLevelDestination = currentDestination.toTopLevelDestination()
@@ -142,12 +146,12 @@ private fun MainNavigationScaffold() {
                 composable<HomeRoute> {
                     HomeScreen(
                         onOpenCamera = {
+                            viewModel.requestOpenCamera(CameraMode.OBSTACLE)
                             navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
                         },
                         onOpenOcr = {
-                            navController.navigate(OcrRoute) {
-                                launchSingleTop = true
-                            }
+                            viewModel.requestOpenCamera(CameraMode.OCR)
+                            navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
                         },
                         onOpenMap = {
                             navController.navigateToTopLevelDestination(TopLevelDestination.MAP)
@@ -158,7 +162,10 @@ private fun MainNavigationScaffold() {
                     )
                 }
                 composable<CameraRoute> {
-                    CameraScreen()
+                    CameraScreen(
+                        requestedMode = requestedCameraMode,
+                        onRequestedModeConsumed = viewModel::clearRequestedCameraMode
+                    )
                 }
                 composable<OcrRoute> {
                     OcrScreen()

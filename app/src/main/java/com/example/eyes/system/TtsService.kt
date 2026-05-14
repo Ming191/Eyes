@@ -18,6 +18,7 @@ class TtsService(context: Context) : SpeechOutput {
     private data class PendingUtterance(
         val text: String,
         val priority: Priority,
+        val locale: Locale?,
         val sequence: Long
     )
 
@@ -101,14 +102,18 @@ class TtsService(context: Context) : SpeechOutput {
     }
 
     fun speak(text: String, priority: Priority = Priority.NORMAL) {
+        speak(text = text, priority = priority, locale = null)
+    }
+
+    fun speak(text: String, priority: Priority = Priority.NORMAL, locale: Locale? = null) {
         val normalizedText = preprocessText(text)
         if (normalizedText.isBlank()) return
 
         synchronized(lock) {
             when (initState) {
-                InitState.PENDING -> enqueuePendingLocked(normalizedText, priority)
+                InitState.PENDING -> enqueuePendingLocked(normalizedText, priority, locale)
                 InitState.FAILED -> Log.w(TAG, "TTS unavailable; dropping utterance")
-                InitState.READY -> speakInternalLocked(normalizedText, priority)
+                InitState.READY -> speakInternalLocked(normalizedText, priority, locale)
             }
         }
     }
@@ -137,10 +142,11 @@ class TtsService(context: Context) : SpeechOutput {
         }
     }
 
-    private fun enqueuePendingLocked(text: String, priority: Priority) {
+    private fun enqueuePendingLocked(text: String, priority: Priority, locale: Locale?) {
         val item = PendingUtterance(
             text = text,
             priority = priority,
+            locale = locale,
             sequence = nextSequence++
         )
 
@@ -168,12 +174,12 @@ class TtsService(context: Context) : SpeechOutput {
             )
 
         sortedPending.forEach { item ->
-            speakInternalLocked(item.text, item.priority)
+            speakInternalLocked(item.text, item.priority, item.locale)
         }
         pendingUtterances.clear()
     }
 
-    private fun speakInternalLocked(text: String, priority: Priority) {
+    private fun speakInternalLocked(text: String, priority: Priority, locale: Locale?) {
         val queueMode = when (priority) {
             Priority.URGENT -> {
                 pendingUtterances.clear()
@@ -184,6 +190,7 @@ class TtsService(context: Context) : SpeechOutput {
         }
 
         requestAudioFocusLocked()
+        tts.setLanguage(locale ?: VIETNAMESE_LOCALE)
 
         val utteranceId = UUID.randomUUID().toString()
         val result = tts.speak(text, queueMode, null, utteranceId)

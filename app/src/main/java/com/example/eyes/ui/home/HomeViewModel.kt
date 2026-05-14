@@ -41,7 +41,7 @@ private fun defaultHomeActions(): List<HomeAction> = listOf(
     HomeAction(
         type = HomeActionType.ReadText,
         title = "Đọc văn bản",
-        description = "Dùng camera để đọc nhãn, biển báo hoặc tài liệu ngắn bằng tiếng Việt.",
+        description = "Dùng camera để đọc tài liệu.",
         supportingLabel = "Chế độ OCR nhanh",
         accessibilityLabel = "Đọc văn bản. Dùng camera để đọc nhãn, biển báo hoặc tài liệu ngắn."
     ),
