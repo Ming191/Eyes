@@ -51,6 +51,24 @@ val openAiOcrModel = resolveConfigValue(
     dotEnv["OPENAI_OCR_MODEL"],
     fallback = "gpt-4o"
 ).escapeForBuildConfig()
+val googleMapsApiKey = resolveConfigValue(
+    providers.gradleProperty("GOOGLE_MAPS_API_KEY").orNull,
+    providers.environmentVariable("GOOGLE_MAPS_API_KEY").orNull,
+    dotEnv["GOOGLE_MAPS_API_KEY"],
+    providers.gradleProperty("MAPS_API_KEY").orNull,
+    providers.environmentVariable("MAPS_API_KEY").orNull,
+    dotEnv["MAPS_API_KEY"],
+    fallback = ""
+)
+val googleRoutesApiKey = resolveConfigValue(
+    providers.gradleProperty("GOOGLE_ROUTES_API_KEY").orNull,
+    providers.environmentVariable("GOOGLE_ROUTES_API_KEY").orNull,
+    dotEnv["GOOGLE_ROUTES_API_KEY"],
+    providers.gradleProperty("ROUTES_API_KEY").orNull,
+    providers.environmentVariable("ROUTES_API_KEY").orNull,
+    dotEnv["ROUTES_API_KEY"],
+    fallback = ""
+).escapeForBuildConfig()
 
 android {
     namespace = "com.example.eyes"
@@ -70,6 +88,8 @@ android {
         buildConfigField("String", "OPENAI_BASE_URL", "\"$openAiBaseUrl\"")
         buildConfigField("String", "OPENAI_OCR_MODEL", "\"$openAiOcrModel\"")
         buildConfigField("String", "BACKEND_URL", "\"$backendUrl\"")
+        buildConfigField("String", "GOOGLE_ROUTES_API_KEY", "\"$googleRoutesApiKey\"")
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKey
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
