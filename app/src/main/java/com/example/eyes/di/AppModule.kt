@@ -18,8 +18,8 @@ import com.example.eyes.data.remote.SceneApi
 import com.example.eyes.data.remote.SceneRepository
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.SpeechOutput
-import com.example.eyes.system.TtsService
 import com.example.eyes.system.SttService
+import com.example.eyes.system.TtsService
 import com.example.eyes.ui.camera.CameraViewModel
 import com.example.eyes.ui.home.HomeViewModel
 import com.example.eyes.ui.navigation.AppNavViewModel
