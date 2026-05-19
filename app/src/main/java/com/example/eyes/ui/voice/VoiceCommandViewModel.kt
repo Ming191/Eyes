@@ -12,6 +12,7 @@ import com.example.eyes.system.SttResult
 import com.example.eyes.system.SttService
 import com.example.eyes.system.SttState
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -72,11 +73,12 @@ class VoiceCommandViewModel(
     }
 
     /**
-     * Called when the screen is first composed. Greets the user and starts
-     * listening so blind users don't have to find a button before speaking.
+     * Called when the screen is first composed. Does NOT speak a greeting —
+     * doing so racing audio focus with the SpeechRecognizer and gets the
+     * greeting silently dropped on most devices. The on-screen status text
+     * and a haptic confirm convey "we're listening".
      */
     fun onScreenShown() {
-        speakAndRemember("Đang lắng nghe lệnh. Hãy nói.")
         startListening()
     }
 
@@ -113,12 +115,11 @@ class VoiceCommandViewModel(
             }
 
             is SttResult.Error -> {
+                // Silent on error: only update UI (Status text handles it via
+                // live region) and rumble. Speaking an error message here would
+                // race audio focus with the next StartListening call.
                 _uiState.update { it.copy(partialText = "") }
                 hapticService.error()
-                val message = errorMessageFor(result.reason)
-                speakAndRemember(message)
-                // After error, the user will likely want to try again.
-                // We don't auto-restart here — the screen exposes a Retry button.
             }
         }
     }
@@ -131,27 +132,27 @@ class VoiceCommandViewModel(
             when (command) {
                 VoiceCommand.ReadText -> {
                     speakAndRemember("Mở chế độ đọc văn bản.")
-                    _navigation.trySend(VoiceNavigationTarget.Camera)
+                    delayThenNavigate(VoiceNavigationTarget.Camera)
                 }
 
                 VoiceCommand.DescribeScene -> {
                     speakAndRemember("Mở chế độ mô tả khung cảnh.")
-                    _navigation.trySend(VoiceNavigationTarget.Camera)
+                    delayThenNavigate(VoiceNavigationTarget.Camera)
                 }
 
                 VoiceCommand.RecognizeCurrency -> {
                     speakAndRemember("Mở chế độ nhận diện tiền.")
-                    _navigation.trySend(VoiceNavigationTarget.Camera)
+                    delayThenNavigate(VoiceNavigationTarget.Camera)
                 }
 
                 VoiceCommand.DetectObstacle -> {
                     speakAndRemember("Mở chế độ phát hiện vật cản.")
-                    _navigation.trySend(VoiceNavigationTarget.Camera)
+                    delayThenNavigate(VoiceNavigationTarget.Camera)
                 }
 
                 is VoiceCommand.Navigate -> {
                     speakAndRemember("Chuẩn bị dẫn đường đến ${command.destination}.")
-                    _navigation.trySend(VoiceNavigationTarget.Map)
+                    delayThenNavigate(VoiceNavigationTarget.Map)
                 }
 
                 VoiceCommand.Repeat -> {
@@ -160,58 +161,56 @@ class VoiceCommandViewModel(
                     } else {
                         speechOutput.speak(lastSpokenText)
                     }
-                    // Stay on voice screen, listen again so the user can issue a new command.
-                    restartListeningSoon()
+                    delayThenRestartListening()
                 }
 
                 VoiceCommand.Stop -> {
                     speechOutput.stop()
                     speakAndRemember("Đã dừng.")
-                    _navigation.trySend(VoiceNavigationTarget.Home)
+                    delayThenNavigate(VoiceNavigationTarget.Home)
                 }
 
                 VoiceCommand.Help -> {
                     _uiState.update { it.copy(helpExpanded = true) }
                     speakAndRemember(HELP_TEXT)
-                    restartListeningSoon()
+                    delayThenRestartListening(longerDelay = true)
                 }
 
                 is VoiceCommand.Unknown -> {
                     speakAndRemember("Chưa nhận được lệnh. Hãy nói lại rõ hơn.")
-                    restartListeningSoon()
+                    delayThenRestartListening()
                 }
             }
         }
     }
 
     /**
+     * Wait for the TTS utterance to finish before navigating away.
+     *
+     * This is a simple delay — the proper fix is to surface
+     * UtteranceProgressListener.onDone() through SpeechOutput, but that
+     * requires expanding the interface. We pick a duration long enough to
+     * cover the short feedback strings we speak here.
+     *
+     * Marked as tech debt: revisit if/when SpeechOutput gains an
+     * "await done" API.
+     */
+    private suspend fun delayThenNavigate(target: VoiceNavigationTarget) {
+        delay(POST_TTS_DELAY_MS)
+        _navigation.trySend(target)
+    }
+
+    private suspend fun delayThenRestartListening(longerDelay: Boolean = false) {
+        delay(if (longerDelay) HELP_TTS_DELAY_MS else POST_TTS_DELAY_MS)
+        sttService.startListening()
+    }
+
+    /**
      * Speak [text] and remember it for the Repeat command.
-     * Uses the TTS engine's NORMAL priority — voice screen does not produce
-     * safety-critical announcements.
      */
     private fun speakAndRemember(text: String) {
         lastSpokenText = text
         speechOutput.speak(text)
-    }
-
-    /**
-     * After spoken feedback ends we want to start listening again so the user
-     * can keep talking without tapping. We don't have a TTS-done callback in
-     * the SpeechOutput abstraction, so we kick off recognition immediately —
-     * SpeechRecognizer queues internally and will start after audio focus
-     * returns from the TTS utterance.
-     */
-    private fun restartListeningSoon() {
-        sttService.startListening()
-    }
-
-    private fun errorMessageFor(reason: SttErrorReason): String = when (reason) {
-        SttErrorReason.Network -> "Lỗi mạng. Hãy kiểm tra kết nối rồi thử lại."
-        SttErrorReason.NoMatch -> "Không nghe thấy gì. Hãy bấm nút và thử lại."
-        SttErrorReason.Audio -> "Lỗi micro. Hãy thử lại."
-        SttErrorReason.PermissionDenied -> "Chưa cấp quyền micro. Hãy vào cài đặt để bật quyền."
-        SttErrorReason.NotAvailable -> "Thiết bị không hỗ trợ nhận diện giọng nói."
-        is SttErrorReason.Unknown -> "Đã xảy ra lỗi không xác định. Hãy thử lại."
     }
 
     override fun onCleared() {
@@ -220,6 +219,19 @@ class VoiceCommandViewModel(
     }
 
     private companion object {
+        /**
+         * How long to wait after speaking a short feedback string before
+         * navigating or restarting the recognizer. Tuned for the actual
+         * strings we speak here ("Mở chế độ X.", "Đã dừng.", etc.).
+         */
+        private const val POST_TTS_DELAY_MS = 2_000L
+
+        /**
+         * The HELP utterance is long (~10 seconds). Wait longer before
+         * restarting the recognizer so the user can hear the full list.
+         */
+        private const val HELP_TTS_DELAY_MS = 12_000L
+
         private const val HELP_TEXT =
             "Bạn có thể nói: đọc giúp tôi để đọc văn bản. " +
                     "Trước mặt có gì để mô tả khung cảnh. " +

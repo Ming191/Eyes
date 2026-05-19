@@ -23,6 +23,9 @@ data object MapRoute
 @Serializable
 data object SettingsRoute
 
+@Serializable
+data object VoiceRoute
+
 enum class TopLevelDestination(
     val title: String,
     val label: String,

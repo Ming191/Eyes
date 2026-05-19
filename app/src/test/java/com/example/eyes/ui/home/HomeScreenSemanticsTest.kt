@@ -46,6 +46,7 @@ class HomeScreenSemanticsTest {
                 onOpenOcrAccuracy = {},
                 onOpenMap = {},
                 onOpenSettings = {},
+                onOpenVoice = {},
                 viewModel = viewModel
             )
         }

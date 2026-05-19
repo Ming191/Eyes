@@ -12,6 +12,7 @@ enum class HomeActionType {
     ReadTextQuick,
     ReadTextAccuracy,
     Navigate,
+    Voice,
     Settings
 }
 
@@ -59,6 +60,13 @@ private fun defaultHomeActions(): List<HomeAction> = listOf(
         description = "Mở bản đồ để xem điểm đến và chuẩn bị cho dẫn đường ở các bước tiếp theo.",
         supportingLabel = "Lộ trình và mốc định hướng",
         accessibilityLabel = "Đi đến nơi. Mở bản đồ để xem điểm đến và chuẩn bị dẫn đường."
+    ),
+    HomeAction(
+        type = HomeActionType.Voice,
+        title = "Ra lệnh bằng giọng nói",
+        description = "Nói một câu lệnh để mở chế độ đọc, mô tả, nhận diện tiền hoặc dẫn đường.",
+        supportingLabel = "Hỗ trợ tiếng Việt",
+        accessibilityLabel = "Ra lệnh bằng giọng nói. Nói một câu lệnh để chọn chế độ phù hợp."
     ),
     HomeAction(
         type = HomeActionType.Settings,
