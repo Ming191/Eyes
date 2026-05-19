@@ -31,7 +31,8 @@ import androidx.core.content.ContextCompat
 private val REQUIRED_PERMISSIONS = listOf(
     Manifest.permission.CAMERA,
     Manifest.permission.RECORD_AUDIO,
-    Manifest.permission.ACCESS_FINE_LOCATION
+    Manifest.permission.ACCESS_FINE_LOCATION,
+    Manifest.permission.ACCESS_COARSE_LOCATION
 )
 
 private fun readPermissionStatuses(
@@ -92,8 +93,12 @@ fun PermissionScreen(
                     granted = statuses[Manifest.permission.RECORD_AUDIO] == true
                 )
                 PermissionLine(
-                    label = "Vị trí",
+                    label = "Vị trí chính xác",
                     granted = statuses[Manifest.permission.ACCESS_FINE_LOCATION] == true
+                )
+                PermissionLine(
+                    label = "Vị trí gần đúng",
+                    granted = statuses[Manifest.permission.ACCESS_COARSE_LOCATION] == true
                 )
             }
         }
@@ -104,7 +109,7 @@ fun PermissionScreen(
                 .fillMaxWidth()
                 .heightIn(min = 88.dp)
                 .semantics {
-                    contentDescription = "Nút yêu cầu cấp quyền camera, micro và vị trí"
+                    contentDescription = "Nút yêu cầu cấp quyền camera, micro, vị trí chính xác và vị trí gần đúng"
                 }
         ) {
             Text("Yêu cầu quyền")
