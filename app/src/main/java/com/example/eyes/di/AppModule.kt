@@ -83,5 +83,6 @@ val appModule = module {
             audioManager = get()
         )
     }
-    viewModel { SettingsViewModel(get(), get(), get()) }
+    viewModel { SettingsViewModel(get(), get(), get(), get(), get()) }
+    viewModel { com.example.eyes.ui.voice.VoiceCommandViewModel(get(), get(), get(), get(), get()) }
 }

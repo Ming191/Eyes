@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.ocr.OcrMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -21,6 +22,7 @@ class DataStoreManager(private val context: Context) {
         val OnboardingCompleted = booleanPreferencesKey("onboarding_completed")
         val OcrMode = stringPreferencesKey("ocr_mode")
         val OcrTranslateToVietnamese = booleanPreferencesKey("ocr_translate_to_vi")
+        val LastVoiceCommand = stringPreferencesKey("last_voice_command")
     }
 
     val ttsSpeedFlow: Flow<Float> = context.dataStore.data.map { preferences: Preferences ->
@@ -47,33 +49,50 @@ class DataStoreManager(private val context: Context) {
         preferences[PreferenceKeys.OcrTranslateToVietnamese] ?: false
     }
 
-    suspend fun setTtsSpeed(value: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferenceKeys.TtsSpeed] = value
+    val lastVoiceCommandFlow: Flow<String?> =
+        context.dataStore.data.map { preferences: Preferences ->
+            preferences[PreferenceKeys.LastVoiceCommand]
         }
+
+    suspend fun setTtsSpeed(value: Float) {
+        context.dataStore.edit { preferences -> preferences[PreferenceKeys.TtsSpeed] = value }
     }
 
     suspend fun setAlertSensitivity(value: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferenceKeys.AlertSensitivity] = value
-        }
+        context.dataStore.edit { preferences -> preferences[PreferenceKeys.AlertSensitivity] = value }
     }
 
     suspend fun setOnboardingCompleted(completed: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferenceKeys.OnboardingCompleted] = completed
-        }
+        context.dataStore.edit { preferences -> preferences[PreferenceKeys.OnboardingCompleted] = completed }
     }
 
     suspend fun setOcrMode(mode: OcrMode) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferenceKeys.OcrMode] = mode.name
-        }
+        context.dataStore.edit { preferences -> preferences[PreferenceKeys.OcrMode] = mode.name }
     }
 
     suspend fun setOcrTranslateToVietnamese(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferenceKeys.OcrTranslateToVietnamese] = enabled
+        context.dataStore.edit { preferences -> preferences[PreferenceKeys.OcrTranslateToVietnamese] = enabled }
+    }
+
+    suspend fun setLastVoiceCommand(command: VoiceCommand) {
+        context.dataStore.edit { preferences -> preferences[PreferenceKeys.LastVoiceCommand] = encodeVoiceCommand(command) }
+    }
+
+    suspend fun clearLastVoiceCommand() {
+        context.dataStore.edit { preferences -> preferences.remove(PreferenceKeys.LastVoiceCommand) }
+    }
+
+    private companion object {
+        fun encodeVoiceCommand(command: VoiceCommand): String = when (command) {
+            VoiceCommand.ReadText -> "READ_TEXT"
+            VoiceCommand.DescribeScene -> "DESCRIBE_SCENE"
+            VoiceCommand.RecognizeCurrency -> "RECOGNIZE_CURRENCY"
+            VoiceCommand.DetectObstacle -> "DETECT_OBSTACLE"
+            VoiceCommand.Repeat -> "REPEAT"
+            VoiceCommand.Stop -> "STOP"
+            VoiceCommand.Help -> "HELP"
+            is VoiceCommand.Navigate -> "NAVIGATE:${command.destination}"
+            is VoiceCommand.Unknown -> "UNKNOWN:${command.rawText}"
         }
     }
 }
