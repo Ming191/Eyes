@@ -2,6 +2,7 @@ package com.example.eyes.map
 
 sealed interface MapUiState {
     data object Idle : MapUiState
+    data object LocationPermissionRequired : MapUiState
     data object Locating : MapUiState
     data class Ready(val location: UserLocation) : MapUiState
     data class RouteLoading(val location: UserLocation, val destination: String) : MapUiState

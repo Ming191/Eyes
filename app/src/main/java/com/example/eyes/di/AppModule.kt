@@ -15,15 +15,16 @@ import com.example.eyes.ocr.OcrEngine
 import com.example.eyes.ocr.OcrTranslator
 import com.example.eyes.data.remote.SceneApi
 import com.example.eyes.data.remote.SceneRepository
+import com.example.eyes.map.FusedLocationProvider
 import com.example.eyes.map.LocationProvider
 import com.example.eyes.map.RouteRepository
-import com.example.eyes.map.UnavailableLocationProvider
 import com.example.eyes.map.UnavailableRouteRepository
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.SpeechOutput
 import com.example.eyes.system.TtsService
 import com.example.eyes.ui.camera.CameraViewModel
 import com.example.eyes.ui.home.HomeViewModel
+import com.example.eyes.ui.map.MapViewModel
 import com.example.eyes.ui.navigation.AppNavViewModel
 import com.example.eyes.ui.settings.SettingsViewModel
 import org.koin.core.qualifier.named
@@ -44,7 +45,7 @@ val appModule = module {
     single { HapticService(androidContext()) }
     single { DataStoreManager(androidContext()) }
     single { CameraManager(androidContext()) }
-    single<LocationProvider> { UnavailableLocationProvider() }
+    single<LocationProvider> { FusedLocationProvider(androidContext()) }
     single<RouteRepository> { UnavailableRouteRepository() }
     factory<OcrEngine>(named("quick-ocr")) { MlKitOcrEngine() }
     factory<OcrEngine>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
@@ -70,6 +71,7 @@ val appModule = module {
     single { SceneRepository(androidContext(), get()) }
     viewModel { AppNavViewModel(get(), get()) }
     viewModel { HomeViewModel(get()) }
+    viewModel { MapViewModel(get(), get()) }
     viewModel {
         CameraViewModel(
             yoloDetector = get(),

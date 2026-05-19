@@ -53,6 +53,7 @@ class KoinModulesTest : KoinTest {
         assertNotNull(get<RouteRepository>())
         assertNotNull(get<com.example.eyes.ui.navigation.AppNavViewModel>())
         assertNotNull(get<com.example.eyes.ui.home.HomeViewModel>())
+        assertNotNull(get<com.example.eyes.ui.map.MapViewModel>())
     }
 
     @Test
