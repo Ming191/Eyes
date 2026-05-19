@@ -2,6 +2,8 @@ package com.example.eyes.di
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.example.eyes.map.LocationProvider
+import com.example.eyes.map.RouteRepository
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
 import org.junit.After
@@ -47,6 +49,8 @@ class KoinModulesTest : KoinTest {
         assertNotNull(get<TtsService>())
         assertNotNull(get<HapticService>())
         assertNotNull(get<com.example.eyes.data.DataStoreManager>())
+        assertNotNull(get<LocationProvider>())
+        assertNotNull(get<RouteRepository>())
         assertNotNull(get<com.example.eyes.ui.navigation.AppNavViewModel>())
         assertNotNull(get<com.example.eyes.ui.home.HomeViewModel>())
     }

@@ -15,6 +15,10 @@ import com.example.eyes.ocr.OcrEngine
 import com.example.eyes.ocr.OcrTranslator
 import com.example.eyes.data.remote.SceneApi
 import com.example.eyes.data.remote.SceneRepository
+import com.example.eyes.map.LocationProvider
+import com.example.eyes.map.RouteRepository
+import com.example.eyes.map.UnavailableLocationProvider
+import com.example.eyes.map.UnavailableRouteRepository
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.SpeechOutput
 import com.example.eyes.system.TtsService
@@ -40,6 +44,8 @@ val appModule = module {
     single { HapticService(androidContext()) }
     single { DataStoreManager(androidContext()) }
     single { CameraManager(androidContext()) }
+    single<LocationProvider> { UnavailableLocationProvider() }
+    single<RouteRepository> { UnavailableRouteRepository() }
     factory<OcrEngine>(named("quick-ocr")) { MlKitOcrEngine() }
     factory<OcrEngine>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
     factory { MlKitOcrGuidanceAnalyzer() }
