@@ -11,6 +11,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.io.IOException
 
 class MapViewModelTest {
 
@@ -67,6 +68,55 @@ class MapViewModelTest {
         assertEquals(MapUiState.Ready(location), viewModel.uiState.value)
     }
 
+    @Test
+    fun previewRoute_withDestination_setsRouteReadyWhenRepositorySucceeds() = runBlocking {
+        // GIVEN
+        val location = UserLocation(latitude = 10.7769, longitude = 106.7009)
+        val route = RoutePreview(
+            distanceMeters = 1200,
+            durationSeconds = 900,
+            encodedPolyline = "abc123",
+            steps = emptyList()
+        )
+        val viewModel = MapViewModel(
+            locationProvider = FakeLocationProvider(CompletableDeferred(Result.success(location))),
+            routeRepository = FakeRouteRepository(Result.success(route)),
+            dispatcher = Dispatchers.Unconfined
+        )
+
+        // WHEN
+        viewModel.onMapOpened(hasLocationPermission = true)
+        viewModel.onDestinationChanged("Nhà thờ Đức Bà")
+        viewModel.previewRoute()
+        yield()
+
+        // THEN
+        assertEquals(
+            MapUiState.RouteReady(location, "Nhà thờ Đức Bà", route),
+            viewModel.uiState.value
+        )
+    }
+
+    @Test
+    fun previewRoute_withNetworkFailure_setsErrorState() = runBlocking {
+        // GIVEN
+        val location = UserLocation(latitude = 10.7769, longitude = 106.7009)
+        val viewModel = MapViewModel(
+            locationProvider = FakeLocationProvider(CompletableDeferred(Result.success(location))),
+            routeRepository = FakeRouteRepository(Result.failure(IOException("Mất kết nối mạng"))),
+            dispatcher = Dispatchers.Unconfined
+        )
+
+        // WHEN
+        viewModel.onMapOpened(hasLocationPermission = true)
+        viewModel.onDestinationChanged("Nhà thờ Đức Bà")
+        viewModel.previewRoute()
+        yield()
+
+        // THEN
+        assertEquals(MapUiState.Error("Mất kết nối mạng"), viewModel.uiState.value)
+    }
+
     private class FakeLocationProvider(
         private val result: CompletableDeferred<Result<UserLocation>> =
             CompletableDeferred(Result.failure(IllegalStateException("Không dùng trong test")))
@@ -76,12 +126,15 @@ class MapViewModelTest {
         }
     }
 
-    private class FakeRouteRepository : RouteRepository {
+    private class FakeRouteRepository(
+        private val result: Result<RoutePreview> =
+            Result.failure(IllegalStateException("Không dùng trong test"))
+    ) : RouteRepository {
         override suspend fun previewWalkingRoute(
             origin: UserLocation,
             destination: String
         ): Result<RoutePreview> {
-            return Result.failure(IllegalStateException("Không dùng trong test"))
+            return result
         }
     }
 }

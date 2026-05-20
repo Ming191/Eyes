@@ -12,7 +12,9 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import com.example.eyes.map.MapUiState
+import com.example.eyes.map.RoutePreview
 import com.example.eyes.map.UserLocation
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -48,7 +50,10 @@ class MapScreenSemanticsTest {
             MaterialTheme {
                 MapScreenContent(
                     uiState = MapUiState.LocationPermissionRequired,
+                    destinationText = "",
                     hasLocationPermission = false,
+                    onDestinationChanged = {},
+                    onPreviewRoute = {},
                     onRequestLocationPermission = {},
                     onRetryLocation = {},
                     mapContent = ::FakeMapContent
@@ -72,7 +77,10 @@ class MapScreenSemanticsTest {
             MaterialTheme {
                 MapScreenContent(
                     uiState = MapUiState.Locating,
+                    destinationText = "",
                     hasLocationPermission = true,
+                    onDestinationChanged = {},
+                    onPreviewRoute = {},
                     onRequestLocationPermission = {},
                     onRetryLocation = {},
                     mapContent = ::FakeMapContent
@@ -99,7 +107,10 @@ class MapScreenSemanticsTest {
             MaterialTheme {
                 MapScreenContent(
                     uiState = MapUiState.Ready(location),
+                    destinationText = "",
                     hasLocationPermission = true,
+                    onDestinationChanged = {},
+                    onPreviewRoute = {},
                     onRequestLocationPermission = {},
                     onRetryLocation = {},
                     mapContent = { currentLocation, _, modifier ->
@@ -114,6 +125,75 @@ class MapScreenSemanticsTest {
         composeTestRule.onNodeWithText("Bản đồ kiểm thử có vị trí")
             .assertIsDisplayed()
         assertEquals(location, renderedLocation)
+    }
+
+    @Test
+    fun readyState_withDestination_hasPreviewRouteAction() {
+        // GIVEN
+        val location = UserLocation(latitude = 10.7769, longitude = 106.7009)
+        var previewClicked = 0
+
+        // WHEN
+        composeTestRule.setContent {
+            MaterialTheme {
+                MapScreenContent(
+                    uiState = MapUiState.Ready(location),
+                    destinationText = "Nhà thờ Đức Bà",
+                    hasLocationPermission = true,
+                    onDestinationChanged = {},
+                    onPreviewRoute = { previewClicked += 1 },
+                    onRequestLocationPermission = {},
+                    onRetryLocation = {},
+                    mapContent = ::FakeMapContent
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Ô nhập địa chỉ điểm đến")
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Nút xem tuyến đi bộ đến điểm đã nhập")
+            .assertHasClickAction()
+            .performClick()
+
+        // THEN
+        assertEquals(1, previewClicked)
+    }
+
+    @Test
+    fun routeReadyState_announcesRouteSummary() {
+        // GIVEN
+        val location = UserLocation(latitude = 10.7769, longitude = 106.7009)
+        val route = RoutePreview(
+            distanceMeters = 1200,
+            durationSeconds = 900,
+            encodedPolyline = "abc123",
+            steps = emptyList()
+        )
+
+        // WHEN
+        composeTestRule.setContent {
+            MaterialTheme {
+                MapScreenContent(
+                    uiState = MapUiState.RouteReady(
+                        location = location,
+                        destination = "Nhà thờ Đức Bà",
+                        route = route
+                    ),
+                    destinationText = "Nhà thờ Đức Bà",
+                    hasLocationPermission = true,
+                    onDestinationChanged = {},
+                    onPreviewRoute = {},
+                    onRequestLocationPermission = {},
+                    onRetryLocation = {},
+                    mapContent = ::FakeMapContent
+                )
+            }
+        }
+
+        // THEN
+        composeTestRule.onNodeWithContentDescription(
+            "Trạng thái bản đồ: đã tải tuyến đi bộ 1200 mét, khoảng 15 phút."
+        ).assertIsDisplayed()
     }
 }
 
