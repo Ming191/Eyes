@@ -16,7 +16,7 @@ class HomeViewModelTest {
 
         assertEquals(1, fakeSpeechOutput.spokenTexts.size)
         assertEquals(
-            "Chào mừng. Chọn Xem, Đọc, Đi hoặc Cài đặt để bắt đầu.",
+            "Chào mừng. Chọn Xem, Đọc, Đi, Giọng nói hoặc Cài đặt để bắt đầu.",
             fakeSpeechOutput.spokenTexts.single()
         )
     }

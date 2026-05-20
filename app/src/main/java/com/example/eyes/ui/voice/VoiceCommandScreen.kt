@@ -237,7 +237,7 @@ private fun AvailableCommandsCard(expanded: Boolean) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .semantics(mergeDescendants = true) {
+            .semantics(mergeDescendants = false) {
                 contentDescription = "Danh sách các lệnh khả dụng."
             },
         shape = MaterialTheme.shapes.medium,
@@ -272,7 +272,10 @@ private fun CommandLine(command: String, action: String) {
     Text(
         text = "• \"$command\" — $action",
         style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSecondaryContainer
+        color = MaterialTheme.colorScheme.onSecondaryContainer,
+        modifier = Modifier.semantics {
+            contentDescription = "Lệnh: $command. Tác dụng: $action"
+        }
     )
 }
 

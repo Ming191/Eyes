@@ -39,6 +39,7 @@ class SttService(
 
     private val appContext: Context = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var isReleased = false
 
     private val _state = MutableStateFlow<SttState>(SttState.Idle)
     val state: StateFlow<SttState> = _state.asStateFlow()
@@ -65,6 +66,11 @@ class SttService(
      */
     fun startListening() {
         runOnMain {
+            if (isReleased) {
+                Log.w(TAG, "startListening called after release() — ignoring")
+                emitError(SttErrorReason.NotAvailable)
+                return@runOnMain
+            }
             if (_state.value is SttState.Listening || _state.value is SttState.Processing) {
                 Log.d(TAG, "startListening ignored — already in state ${_state.value}")
                 return@runOnMain
@@ -127,6 +133,7 @@ class SttService(
      */
     fun release() {
         runOnMain {
+            isReleased = true
             recognizer?.destroy()
             recognizer = null
             _state.value = SttState.Idle

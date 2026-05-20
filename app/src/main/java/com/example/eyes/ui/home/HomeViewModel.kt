@@ -89,6 +89,6 @@ class HomeViewModel(
     fun onScreenShown() {
         if (hasSpokenGreeting) return
         hasSpokenGreeting = true
-        tts.speak("Chào mừng. Chọn Xem, Đọc, Đi hoặc Cài đặt để bắt đầu.")
+        tts.speak("Chào mừng. Chọn Xem, Đọc, Đi, Giọng nói hoặc Cài đặt để bắt đầu.")
     }
 }

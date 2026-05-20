@@ -83,6 +83,21 @@ class DataStoreManager(private val context: Context) {
     }
 
     private companion object {
+        /**
+         * Stable string encoding for [VoiceCommand]. The format is intentionally
+         * simple (prefix or "prefix:payload") so it survives sealed-type changes
+         * and can be read by other modules without depending on this class.
+         *
+         *   READ_TEXT
+         *   DESCRIBE_SCENE
+         *   RECOGNIZE_CURRENCY
+         *   DETECT_OBSTACLE
+         *   REPEAT
+         *   STOP
+         *   HELP
+         *   NAVIGATE:<destination>
+         *   UNKNOWN
+         */
         fun encodeVoiceCommand(command: VoiceCommand): String = when (command) {
             VoiceCommand.ReadText -> "READ_TEXT"
             VoiceCommand.DescribeScene -> "DESCRIBE_SCENE"
@@ -92,7 +107,7 @@ class DataStoreManager(private val context: Context) {
             VoiceCommand.Stop -> "STOP"
             VoiceCommand.Help -> "HELP"
             is VoiceCommand.Navigate -> "NAVIGATE:${command.destination}"
-            is VoiceCommand.Unknown -> "UNKNOWN:${command.rawText}"
+            is VoiceCommand.Unknown -> "UNKNOWN"
         }
     }
 }
