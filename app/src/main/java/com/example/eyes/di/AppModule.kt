@@ -18,7 +18,8 @@ import com.example.eyes.data.remote.SceneRepository
 import com.example.eyes.map.FusedLocationProvider
 import com.example.eyes.map.LocationProvider
 import com.example.eyes.map.RouteRepository
-import com.example.eyes.map.UnavailableRouteRepository
+import com.example.eyes.map.data.GoogleRoutesRepository
+import com.example.eyes.map.data.RoutesApi
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.SpeechOutput
 import com.example.eyes.system.TtsService
@@ -46,7 +47,6 @@ val appModule = module {
     single { DataStoreManager(androidContext()) }
     single { CameraManager(androidContext()) }
     single<LocationProvider> { FusedLocationProvider(androidContext()) }
-    single<RouteRepository> { UnavailableRouteRepository() }
     factory<OcrEngine>(named("quick-ocr")) { MlKitOcrEngine() }
     factory<OcrEngine>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
     factory { MlKitOcrGuidanceAnalyzer() }
@@ -69,6 +69,20 @@ val appModule = module {
             .create(SceneApi::class.java)
     }
     single { SceneRepository(androidContext(), get()) }
+    single {
+        Retrofit.Builder()
+            .baseUrl("https://routes.googleapis.com/")
+            .client(get())
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(RoutesApi::class.java)
+    }
+    single<RouteRepository> {
+        GoogleRoutesRepository(
+            routesApi = get(),
+            apiKey = BuildConfig.GOOGLE_ROUTES_API_KEY
+        )
+    }
     viewModel { AppNavViewModel(get(), get()) }
     viewModel { HomeViewModel(get()) }
     viewModel { MapViewModel(get(), get()) }
