@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +33,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -64,6 +66,7 @@ fun MapScreen(
         mutableStateOf(context.hasLocationPermission())
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val destinationText by viewModel.destinationText.collectAsStateWithLifecycle()
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -78,7 +81,10 @@ fun MapScreen(
 
     MapScreenContent(
         uiState = uiState,
+        destinationText = destinationText,
         hasLocationPermission = hasLocationPermission,
+        onDestinationChanged = viewModel::onDestinationChanged,
+        onPreviewRoute = viewModel::previewRoute,
         onRequestLocationPermission = {
             permissionLauncher.launch(LOCATION_PERMISSIONS)
         },
@@ -91,7 +97,10 @@ fun MapScreen(
 @Composable
 fun MapScreenContent(
     uiState: MapUiState,
+    destinationText: String,
     hasLocationPermission: Boolean,
+    onDestinationChanged: (String) -> Unit,
+    onPreviewRoute: () -> Unit,
     onRequestLocationPermission: () -> Unit,
     onRetryLocation: () -> Unit,
     modifier: Modifier = Modifier,
@@ -128,6 +137,18 @@ fun MapScreenContent(
             onRequestLocationPermission = onRequestLocationPermission,
             onRetryLocation = onRetryLocation
         )
+
+        if (hasLocationPermission && uiState != MapUiState.LocationPermissionRequired) {
+            DestinationInputPanel(
+                destinationText = destinationText,
+                routePreviewEnabled = location != null &&
+                    destinationText.isNotBlank() &&
+                    uiState !is MapUiState.RouteLoading,
+                routeLoading = uiState is MapUiState.RouteLoading,
+                onDestinationChanged = onDestinationChanged,
+                onPreviewRoute = onPreviewRoute
+            )
+        }
 
         if (uiState == MapUiState.LocationPermissionRequired || !hasLocationPermission) {
             PermissionRequiredPanel(
@@ -166,7 +187,7 @@ private fun MapStatusPanel(
         uiState is MapUiState.RouteLoading ->
             "Đang chuẩn bị tuyến đi bộ."
         uiState is MapUiState.RouteReady ->
-            "Đã sẵn sàng xem tuyến đi bộ."
+            "Đã tải tuyến đi bộ ${uiState.route.distanceMeters} mét, khoảng ${uiState.route.durationSeconds.toDisplayMinutes()} phút."
         uiState is MapUiState.Error ->
             uiState.message
         else ->
@@ -220,6 +241,61 @@ private fun MapStatusPanel(
                         Text("Thử lại")
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DestinationInputPanel(
+    destinationText: String,
+    routePreviewEnabled: Boolean,
+    routeLoading: Boolean,
+    onDestinationChanged: (String) -> Unit,
+    onPreviewRoute: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = "Khu vực nhập điểm đến" },
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedTextField(
+                value = destinationText,
+                onValueChange = onDestinationChanged,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        contentDescription = "Ô nhập địa chỉ điểm đến"
+                    },
+                label = { Text("Điểm đến") },
+                placeholder = { Text("Nhập địa chỉ cần đi tới") },
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    imeAction = ImeAction.Search
+                )
+            )
+
+            Button(
+                onClick = onPreviewRoute,
+                enabled = routePreviewEnabled,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 88.dp)
+                    .semantics {
+                        contentDescription = if (routeLoading) {
+                            "Đang lấy tuyến đi bộ"
+                        } else {
+                            "Nút xem tuyến đi bộ đến điểm đã nhập"
+                        }
+                    }
+            ) {
+                Text(if (routeLoading) "Đang lấy tuyến" else "Xem tuyến")
             }
         }
     }
@@ -324,4 +400,8 @@ private fun MapUiState.currentLocationOrNull(): UserLocation? {
         is MapUiState.RouteReady -> location
         else -> null
     }
+}
+
+private fun Int.toDisplayMinutes(): Int {
+    return ((this + 59) / 60).coerceAtLeast(1)
 }
