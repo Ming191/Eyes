@@ -2,89 +2,260 @@ package com.example.eyes.camera
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Rect
 import androidx.camera.core.ImageProxy
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.support.common.FileUtil
-import org.tensorflow.lite.support.common.ops.NormalizeOp
-import org.tensorflow.lite.support.image.ImageProcessor
-import org.tensorflow.lite.support.image.TensorImage
-import org.tensorflow.lite.support.image.ops.ResizeOp
-import org.tensorflow.lite.support.image.ops.ResizeWithCropOrPadOp
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.util.LinkedList
 
+/**
+ * Nhận diện mệnh giá tiền Việt Nam - 2 stage pipeline:
+ *   Stage 1: YOLOv8 (best.tflite) → phát hiện vùng tờ tiền
+ *   Stage 2: EfficientNet-B0 (EfficientNet_float32.tflite) → phân loại mệnh giá
+ *
+ * Files cần có trong assets/:
+ *   best.tflite
+ *   EfficientNet_float32.tflite
+ *   currency_labels.txt
+ */
 class CurrencyAnalyzer(
     context: Context,
-    private val onResult: (String) -> Unit
+    private val onResult: (label: String, confidence: Float) -> Unit
 ) {
-    private var interpreter: Interpreter? = null
+    // ── Interpreters ──────────────────────────────────────────────
+    private val yoloInterp: Interpreter
+    private val clsInterp: Interpreter
+    private val labels: List<String>
 
-    private val labels = listOf(
-        "000000", "000200", "000500", "001000", "002000", "005000",
-        "010000", "020000", "050000", "100000", "200000", "500000"
-    )
+    // ── Bitmap reuse ──────────────────────────────────────────────
+    private val yoloBmp = Bitmap.createBitmap(640, 640, Bitmap.Config.ARGB_8888)
+    private val clsBmp  = Bitmap.createBitmap(224, 224, Bitmap.Config.ARGB_8888)
+    private val yoloCvs = Canvas(yoloBmp)
+    private val clsCvs  = Canvas(clsBmp)
 
-    private val outputBuffer = Array(1) { FloatArray(12) }
-    private var cachedProcessor: ImageProcessor? = null
-    private var lastInputSize: Pair<Int, Int>? = null
+    // ── ByteBuffer reuse ──────────────────────────────────────────
+    private val yoloBuf = ByteBuffer
+        .allocateDirect(640 * 640 * 3 * 4)
+        .order(ByteOrder.nativeOrder())
+    private val clsBuf = ByteBuffer
+        .allocateDirect(224 * 224 * 3 * 4)
+        .order(ByteOrder.nativeOrder())
 
-    init {
-        try {
-            val model = FileUtil.loadMappedFile(context, "currency_model.tflite")
-            val options = Interpreter.Options().apply {
-                setNumThreads(1)
-                setUseXNNPACK(false)
-            }
-            interpreter = Interpreter(model, options)
-        } catch (e: Exception) {
-            throw RuntimeException("Mô hình không tương thích: ${e.localizedMessage}")
-        }
+    // ── Frame averaging ───────────────────────────────────────────
+    private val frameWindow   = LinkedList<Map<String, Float>>()
+    private val WINDOW_SIZE   = 5
+    private val STABLE_FRAMES = 3
+
+
+    // ── Label maps ────────────────────────────────────────────────
+    companion object {
+        val LABEL_VI = mapOf(
+            "1000"   to "một nghìn đồng",
+            "2000"   to "hai nghìn đồng",
+            "5000"   to "năm nghìn đồng",
+            "10000"  to "mười nghìn đồng",
+            "20000"  to "hai mươi nghìn đồng",
+            "50000"  to "năm mươi nghìn đồng",
+            "100000" to "một trăm nghìn đồng",
+            "200000" to "hai trăm nghìn đồng",
+            "500000" to "năm trăm nghìn đồng",
+        )
+        val LABEL_DISPLAY = mapOf(
+            "1000"   to "1.000 ₫",
+            "2000"   to "2.000 ₫",
+            "5000"   to "5.000 ₫",
+            "10000"  to "10.000 ₫",
+            "20000"  to "20.000 ₫",
+            "50000"  to "50.000 ₫",
+            "100000" to "100.000 ₫",
+            "200000" to "200.000 ₫",
+            "500000" to "500.000 ₫",
+        )
+        const val EMPTY_LABEL = ""
+        private const val YOLO_CONF_THRESHOLD     = 0.40f
+        private const val CLASSIFY_CONF_THRESHOLD = 0.70f
     }
+    init {
+        val opts = Interpreter.Options().apply { numThreads = 4 }
+        yoloInterp = Interpreter(FileUtil.loadMappedFile(context, "best.tflite"), opts)
+        clsInterp  = Interpreter(FileUtil.loadMappedFile(context, "EfficientNet_float32.tflite"), opts)
+        labels     = FileUtil.loadLabels(context, "currency_labels.txt")
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // PUBLIC — gọi từ CameraViewModel
+    // ═════════════════════════════════════════════════════════════
 
     fun analyze(imageProxy: ImageProxy) {
         var bitmap: Bitmap? = null
         try {
-            val currentInterpreter = interpreter ?: return
-            bitmap = imageProxy.toBitmapWithRotation() ?: return
-
-            if (lastInputSize?.first != bitmap.width || lastInputSize?.second != bitmap.height) {
-                val size = minOf(bitmap.width, bitmap.height)
-                cachedProcessor = ImageProcessor.Builder()
-                    .add(ResizeWithCropOrPadOp(size, size))
-                    .add(ResizeOp(144, 144, ResizeOp.ResizeMethod.BILINEAR))
-                    .add(NormalizeOp(0f, 1f / 255f))
-                    .build()
-                lastInputSize = Pair(bitmap.width, bitmap.height)
-            }
-
-            // ✅ Tạo mới TensorImage mỗi frame
-            val tensorImage = TensorImage(org.tensorflow.lite.DataType.FLOAT32)
-            tensorImage.load(bitmap)
-            val processedImage = cachedProcessor!!.process(tensorImage)
-
-            // ✅ Reset buffer trước khi run
-            outputBuffer[0].fill(0f)
-            currentInterpreter.run(processedImage.buffer, outputBuffer)
-
-            val scores = outputBuffer[0]
-            val maxIdx = scores.indices.maxByOrNull { scores[it] } ?: 0
-            val maxScore = scores[maxIdx]
-
-            if (maxIdx != 0 && maxScore > 0.70f) {
-                onResult(labels[maxIdx])
-            } else {
-                onResult("000000")
-            }
-
+            bitmap = imageProxy.toBitmapWithRotation()
+            processFrame(bitmap)
         } catch (e: Exception) {
             e.printStackTrace()
-            onResult("000000")
+            onResult(EMPTY_LABEL, 0f)
         } finally {
             imageProxy.close()
             bitmap?.recycle()
         }
     }
 
+    fun resetBuffer() = frameWindow.clear()
+
     fun close() {
-        interpreter?.close()
-        interpreter = null
+        yoloInterp.close()
+        clsInterp.close()
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // PRIVATE PIPELINE
+    // ═════════════════════════════════════════════════════════════
+
+    private fun processFrame(bitmap: Bitmap) {
+        // Stage 1: YOLO detect
+        val box = detectWithYolo(bitmap)
+        if (box == null) {
+            pushWindow(null)
+            // Không thấy tiền — reset nếu cần
+            val hadResult = frameWindow.any { it.isNotEmpty() }
+            if (!hadResult) onResult(EMPTY_LABEL, 0f)
+            computeStable()
+            return
+        }
+
+        // Stage 2: crop → EfficientNet
+        val crop = cropBitmap(bitmap, box)
+        if (crop == null) {
+            pushWindow(null)
+            onResult(EMPTY_LABEL, 0f)
+            return
+        }
+
+        val (label, conf) = classifyWithEfficientNet(crop)
+        crop.recycle()
+
+        if (conf >= CLASSIFY_CONF_THRESHOLD) {
+            pushWindow(mapOf(label to conf))
+        } else {
+            pushWindow(null)
+        }
+
+        // Tính kết quả ổn định và callback
+        val (stableLabel, stableConf) = computeStable()
+        if (stableLabel != null) {
+            onResult(stableLabel, stableConf)
+        } else {
+            onResult(EMPTY_LABEL, 0f)
+        }
+    }
+
+    // ── Stage 1: YOLO ─────────────────────────────────────────────
+
+    private data class BBox(val x1: Float, val y1: Float, val x2: Float, val y2: Float)
+
+    private fun detectWithYolo(bitmap: Bitmap): BBox? {
+        yoloCvs.drawBitmap(bitmap, null, Rect(0, 0, 640, 640), null)
+
+        val pixels = IntArray(640 * 640)
+        yoloBmp.getPixels(pixels, 0, 640, 0, 0, 640, 640)
+        yoloBuf.rewind()
+        for (px in pixels) {
+            yoloBuf.putFloat(((px shr 16) and 0xFF) / 255f)
+            yoloBuf.putFloat(((px shr 8)  and 0xFF) / 255f)
+            yoloBuf.putFloat((px          and 0xFF) / 255f)
+        }
+        yoloBuf.rewind()
+
+        val numDet = yoloInterp.getOutputTensor(0).shape()[1]
+        val output = Array(1) { Array(numDet) { FloatArray(6) } }
+        yoloInterp.run(yoloBuf, output)
+
+        var bestConf = YOLO_CONF_THRESHOLD
+        var bestBox: BBox? = null
+        for (i in 0 until numDet) {
+            val d = output[0][i]
+            if (d[4] > bestConf) {
+                bestConf = d[4]
+                bestBox = BBox(
+                    x1 = d[0].coerceIn(0f, 1f),
+                    y1 = d[1].coerceIn(0f, 1f),
+                    x2 = d[2].coerceIn(0f, 1f),
+                    y2 = d[3].coerceIn(0f, 1f),
+                )
+            }
+        }
+        return bestBox
+    }
+
+    // ── Stage 2: EfficientNet ─────────────────────────────────────
+
+    private fun classifyWithEfficientNet(crop: Bitmap): Pair<String, Float> {
+        clsCvs.drawBitmap(crop, null, Rect(0, 0, 224, 224), null)
+
+        val pixels = IntArray(224 * 224)
+        clsBmp.getPixels(pixels, 0, 224, 0, 0, 224, 224)
+        clsBuf.rewind()
+        for (px in pixels) {
+            clsBuf.putFloat((((px shr 16) and 0xFF) / 255f - 0.485f) / 0.229f)
+            clsBuf.putFloat((((px shr 8)  and 0xFF) / 255f - 0.456f) / 0.224f)
+            clsBuf.putFloat(((px          and 0xFF) / 255f - 0.406f) / 0.225f)
+        }
+        clsBuf.rewind()
+
+        val output = Array(1) { FloatArray(labels.size) }
+        clsInterp.run(clsBuf, output)
+
+        val scores = output[0]
+        val maxIdx = scores.indices.maxByOrNull { scores[it] } ?: 0
+        return Pair(labels[maxIdx], scores[maxIdx])
+    }
+
+    // ── Crop ──────────────────────────────────────────────────────
+
+    private fun cropBitmap(src: Bitmap, box: BBox): Bitmap? {
+        val x1 = (box.x1 * src.width ).toInt().coerceIn(0, src.width)
+        val y1 = (box.y1 * src.height).toInt().coerceIn(0, src.height)
+        val x2 = (box.x2 * src.width ).toInt().coerceIn(0, src.width)
+        val y2 = (box.y2 * src.height).toInt().coerceIn(0, src.height)
+        if (x2 - x1 <= 0 || y2 - y1 <= 0) return null
+        return Bitmap.createBitmap(src, x1, y1, x2 - x1, y2 - y1)
+    }
+
+    // ── Frame averaging ───────────────────────────────────────────
+
+    private fun pushWindow(scores: Map<String, Float>?) {
+        frameWindow.addLast(scores ?: emptyMap())
+        if (frameWindow.size > WINDOW_SIZE) frameWindow.removeFirst()
+    }
+
+    private fun computeStable(): Pair<String?, Float> {
+        if (frameWindow.size < STABLE_FRAMES) return Pair(null, 0f)
+
+        val n     = frameWindow.size.toFloat()
+        val total = mutableMapOf<String, Float>()
+        val count = mutableMapOf<String, Int>()
+
+        for (frame in frameWindow) {
+            for ((lbl, score) in frame) {
+                total[lbl] = total.getOrDefault(lbl, 0f) + score
+                count[lbl] = count.getOrDefault(lbl, 0) + 1
+            }
+        }
+
+        // score = avg_conf × appearance_ratio
+        val finalScores = total.mapValues { (lbl, score) ->
+            (score / n) * (count[lbl]!! / n)
+        }
+
+        val best = finalScores.maxByOrNull { it.value } ?: return Pair(null, 0f)
+        if (best.value < CLASSIFY_CONF_THRESHOLD * 0.5f) return Pair(null, 0f)
+        if ((count[best.key] ?: 0) < STABLE_FRAMES) return Pair(null, 0f)
+
+        val label = best.key
+        val conf  = total[label]!! / count[label]!!.toFloat()
+        return Pair(label, conf)
     }
 }
