@@ -269,6 +269,7 @@ class TtsService(context: Context) : SpeechOutput {
                 completionWaiters.values.forEach { it.complete(Unit) }
                 completionWaiters.clear()
                 inFlightUtteranceIds.clear()
+                tts.stop()
                 TextToSpeech.QUEUE_FLUSH
             }
             SpeechOutput.Priority.HIGH, SpeechOutput.Priority.NORMAL -> TextToSpeech.QUEUE_ADD
