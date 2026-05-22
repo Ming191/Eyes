@@ -23,6 +23,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
+import com.example.eyes.R
 import com.example.eyes.ui.theme.EyesTheme
 import org.koin.androidx.compose.koinViewModel
 
@@ -63,11 +65,16 @@ fun HomeContent(
     onActionSelected: (HomeActionType) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val screenDescription = stringResource(R.string.home_screen_description)
+    val shortcutsTitle = stringResource(R.string.home_shortcuts_title)
+    val safetyTipTitle = stringResource(R.string.home_safety_tip_title)
+    val safetyTipBody = stringResource(R.string.home_safety_tip_body)
+    val safetyTipDescription = stringResource(R.string.home_safety_tip_description)
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .semantics { contentDescription = "Màn hình trang chủ hỗ trợ nhanh" },
+            .semantics { contentDescription = screenDescription },
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -79,7 +86,7 @@ fun HomeContent(
         }
         item {
             Text(
-                text = "Lối tắt chính",
+                text = shortcutsTitle,
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.semantics { heading() }
             )
@@ -95,7 +102,7 @@ fun HomeContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics(mergeDescendants = true) {
-                        contentDescription = "Mẹo sử dụng. Đeo tai nghe một bên để nghe hướng dẫn và vẫn giữ nhận biết âm thanh xung quanh."
+                        contentDescription = safetyTipDescription
                     },
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.secondaryContainer
@@ -105,12 +112,12 @@ fun HomeContent(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "Mẹo an toàn",
+                        text = safetyTipTitle,
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Text(
-                        text = "Đeo tai nghe một bên để nghe hướng dẫn và vẫn giữ nhận biết âm thanh xung quanh.",
+                        text = safetyTipBody,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
@@ -126,11 +133,13 @@ private fun HomeHeroCard(
     summary: String,
     modifier: Modifier = Modifier
 ) {
+    val label = stringResource(R.string.home_hero_label)
+    val description = stringResource(R.string.home_hero_description, title, summary)
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .semantics(mergeDescendants = true) {
-                contentDescription = "Tóm tắt trang chủ. $title. $summary"
+                contentDescription = description
             },
         shape = MaterialTheme.shapes.large,
         tonalElevation = 4.dp,
@@ -150,7 +159,7 @@ private fun HomeHeroCard(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "Sẵn sàng hỗ trợ",
+                text = label,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )

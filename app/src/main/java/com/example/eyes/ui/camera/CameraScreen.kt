@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -52,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.eyes.R
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.ocr.OcrMode
 import org.koin.androidx.compose.koinViewModel
@@ -66,6 +68,17 @@ fun CameraScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraManager: CameraManager = koinInject()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val screenDescription = stringResource(
+        R.string.camera_screen_description,
+        uiState.activeMode.localizedDescription()
+    )
+    val describeSceneDescription = stringResource(R.string.camera_describe_scene_description)
+    val capturedOcrDescription = stringResource(R.string.camera_captured_ocr_description)
+    val analyzingImageText = stringResource(R.string.camera_analyzing_image)
+    val ocrSwipeHint = stringResource(R.string.camera_ocr_swipe_hint)
+    val captureAnotherDescription = stringResource(R.string.camera_capture_another_description)
+    val captureAnotherText = stringResource(R.string.camera_capture_another_text)
+    val showStatusDescription = stringResource(R.string.camera_show_status_description)
 
     LaunchedEffect(requestedMode) {
         if (requestedMode != null) {
@@ -127,8 +140,8 @@ fun CameraScreen(
                 }
             }
             .semantics {
-                contentDescription = "Màn hình camera ở chế độ ${uiState.activeMode.descriptionVi}. Nhấn giữ để mô tả cảnh xung quanh."
-                onLongClick(label = "Mô tả cảnh xung quanh") {
+                contentDescription = screenDescription
+                onLongClick(label = describeSceneDescription) {
                     viewModel.describeScene()
                     true
                 }
@@ -167,7 +180,7 @@ fun CameraScreen(
             uiState.ocrCapturedBitmap?.let { capturedBitmap ->
                 Image(
                     bitmap = capturedBitmap.asImageBitmap(),
-                    contentDescription = "Ảnh OCR đã chụp",
+                    contentDescription = capturedOcrDescription,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -221,7 +234,7 @@ fun CameraScreen(
                 shape = MaterialTheme.shapes.medium
             ) {
                 Text(
-                    text = "Đang phân tích ảnh...",
+                    text = analyzingImageText,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                 )
             }
@@ -246,7 +259,7 @@ fun CameraScreen(
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text(
-                        text = "Vuốt trái/phải để đổi câu",
+                        text = ocrSwipeHint,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -260,9 +273,9 @@ fun CameraScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 164.dp)
-                    .semantics { contentDescription = "Chụp ảnh OCR khác" }
+                    .semantics { contentDescription = captureAnotherDescription }
             ) {
-                Text("Chụp ảnh khác")
+                Text(captureAnotherText)
             }
         }
 
@@ -272,7 +285,7 @@ fun CameraScreen(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(16.dp)
-                    .semantics { contentDescription = "Hiện bảng trạng thái camera" }
+                    .semantics { contentDescription = showStatusDescription }
             ) {
                 Icon(imageVector = Icons.Rounded.Info, contentDescription = null)
             }
@@ -288,10 +301,17 @@ private fun OcrEngineModeSelector(
     modifier: Modifier = Modifier
 ) {
     val modes = remember { OcrMode.entries }
+    val selectorDescription = stringResource(R.string.camera_ocr_mode_selector_description)
+    val quickDescription = stringResource(R.string.camera_ocr_mode_quick_description)
+    val accurateDescription = stringResource(R.string.camera_ocr_mode_accurate_description)
+    val selectedDescription = stringResource(R.string.camera_selected_description)
+    val unselectedDescription = stringResource(R.string.camera_unselected_description)
+    val quickLabel = stringResource(R.string.camera_ocr_mode_quick_label)
+    val accurateLabel = stringResource(R.string.camera_ocr_mode_accurate_label)
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .semantics(mergeDescendants = true) { contentDescription = "Chọn chế độ OCR" },
+            .semantics(mergeDescendants = true) { contentDescription = selectorDescription },
         shape = MaterialTheme.shapes.large,
         tonalElevation = 4.dp,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
@@ -310,14 +330,10 @@ private fun OcrEngineModeSelector(
                     modifier = Modifier
                         .heightIn(min = 48.dp)
                         .semantics {
-                            contentDescription = if (item == OcrMode.QUICK) {
-                                "Chọn mode OCR Nhanh"
-                            } else {
-                                "Chọn mode OCR Chính xác"
-                            }
-                            stateDescription = if (selected) "Đang chọn" else "Chưa chọn"
+                            contentDescription = if (item == OcrMode.QUICK) quickDescription else accurateDescription
+                            stateDescription = if (selected) selectedDescription else unselectedDescription
                         },
-                    label = { Text(if (item == OcrMode.QUICK) "Nhanh" else "Chính xác") }
+                    label = { Text(if (item == OcrMode.QUICK) quickLabel else accurateLabel) }
                 )
             }
         }
@@ -330,12 +346,15 @@ private fun CameraStatusPanel(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val panelDescription = stringResource(R.string.camera_status_panel_description)
+    val titleRowDescription = stringResource(R.string.camera_status_title_row_description)
+    val hideStatusDescription = stringResource(R.string.camera_hide_status_description)
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(max = 132.dp)
             .semantics {
-                contentDescription = "Bảng trạng thái camera"
+                contentDescription = panelDescription
                 stateDescription = "${uiState.title}. ${uiState.statusMessage}. ${uiState.lastAnnouncement}."
                 liveRegion = LiveRegionMode.Polite
             },
@@ -352,7 +371,7 @@ private fun CameraStatusPanel(
             androidx.compose.foundation.layout.Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .semantics { contentDescription = "Tiêu đề và nút ẩn bảng trạng thái" },
+                    .semantics { contentDescription = titleRowDescription },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -368,7 +387,7 @@ private fun CameraStatusPanel(
                 Spacer(modifier = Modifier.width(12.dp))
                 FilledTonalIconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.semantics { contentDescription = "Ẩn bảng trạng thái camera" }
+                    modifier = Modifier.semantics { contentDescription = hideStatusDescription }
                 ) {
                     Icon(imageVector = Icons.Rounded.Close, contentDescription = null)
                 }
@@ -395,10 +414,14 @@ private fun DepthPreviewPanel(
     aspectRatio: Float,
     modifier: Modifier = Modifier
 ) {
+    val panelDescription = stringResource(R.string.camera_depth_panel_description)
+    val titleDescription = stringResource(R.string.camera_depth_title_description)
+    val titleText = stringResource(R.string.camera_depth_title)
+    val imageDescription = stringResource(R.string.camera_depth_image_description)
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .semantics(mergeDescendants = true) { contentDescription = "Khung xem bản đồ độ sâu MiDaS" },
+            .semantics(mergeDescendants = true) { contentDescription = panelDescription },
         shape = MaterialTheme.shapes.medium,
         tonalElevation = 4.dp,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
@@ -408,14 +431,14 @@ private fun DepthPreviewPanel(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Depth map (MiDaS)",
+                text = titleText,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.semantics { contentDescription = "Bản đồ độ sâu MiDaS" }
+                modifier = Modifier.semantics { contentDescription = titleDescription }
             )
             Image(
                 bitmap = depthBitmap,
-                contentDescription = "Bản đồ độ sâu MiDaS, vùng sáng là gần và vùng tối là xa",
+                contentDescription = imageDescription,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -434,10 +457,14 @@ internal fun CameraModeSelector(
     modifier: Modifier = Modifier
 ) {
     val modes = remember { CameraMode.entries }
+    val selectorDescription = stringResource(R.string.camera_mode_selector_description)
+    val rowDescription = stringResource(R.string.camera_mode_row_description)
+    val selectedDescription = stringResource(R.string.camera_selected_description)
+    val unselectedDescription = stringResource(R.string.camera_unselected_description)
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .semantics(mergeDescendants = true) { contentDescription = "Chọn chế độ camera" },
+            .semantics(mergeDescendants = true) { contentDescription = selectorDescription },
         shape = MaterialTheme.shapes.large,
         tonalElevation = 4.dp,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
@@ -446,10 +473,15 @@ internal fun CameraModeSelector(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp)
-                .semantics { contentDescription = "Thanh chọn chế độ camera" }
+                .semantics { contentDescription = rowDescription }
         ) {
             modes.forEachIndexed { index, mode ->
                 val selected = mode == activeMode
+                val modeLabel = mode.localizedLabel()
+                val modeDescription = stringResource(
+                    R.string.camera_switch_mode_description,
+                    mode.localizedDescription()
+                )
                 SegmentedButton(
                     selected = selected,
                     onClick = { onModeSelected(mode) },
@@ -457,12 +489,24 @@ internal fun CameraModeSelector(
                     modifier = Modifier
                         .heightIn(min = 88.dp)
                         .semantics {
-                            contentDescription = "Chuyển sang chế độ ${mode.descriptionVi}"
-                            stateDescription = if (selected) "Đang chọn" else "Chưa chọn"
+                            contentDescription = modeDescription
+                            stateDescription = if (selected) selectedDescription else unselectedDescription
                         },
-                    label = { Text(text = mode.labelVi) }
+                    label = { Text(text = modeLabel) }
                 )
             }
         }
     }
+}
+
+@Composable
+private fun CameraMode.localizedLabel(): String = when (this) {
+    CameraMode.OBSTACLE -> stringResource(R.string.camera_mode_obstacle_label)
+    CameraMode.OCR -> stringResource(R.string.camera_mode_ocr_label)
+}
+
+@Composable
+private fun CameraMode.localizedDescription(): String = when (this) {
+    CameraMode.OBSTACLE -> stringResource(R.string.camera_mode_obstacle_description)
+    CameraMode.OCR -> stringResource(R.string.camera_mode_ocr_description)
 }

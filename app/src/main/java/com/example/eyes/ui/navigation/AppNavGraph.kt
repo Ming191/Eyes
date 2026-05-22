@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -29,6 +30,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.eyes.R
 import com.example.eyes.ui.camera.CameraScreen
 import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.home.HomeScreen
@@ -54,10 +56,11 @@ fun AppNavGraph(
 
 @Composable
 private fun LoadingScreen() {
+    val description = stringResource(R.string.nav_loading_description)
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .semantics { contentDescription = "Đang tải trạng thái ứng dụng" },
+            .semantics { contentDescription = description },
         contentAlignment = Alignment.Center
     ) {
         CircularProgressIndicator()
@@ -70,13 +73,14 @@ private fun OnboardingNavHost(
 ) {
     key("onboarding") {
         val navController = rememberNavController()
+        val description = stringResource(R.string.nav_onboarding_description)
 
         NavHost(
             navController = navController,
             startDestination = OnboardingRoute,
             modifier = Modifier
                 .fillMaxSize()
-                .semantics { contentDescription = "Điều hướng khởi động" }
+                .semantics { contentDescription = description }
         ) {
             composable<OnboardingRoute> {
                 OnboardingScreen(onFinish = onFinish)
@@ -96,26 +100,32 @@ private fun MainNavigationScaffold(
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentDestination = navBackStackEntry?.destination
         val currentTopLevelDestination = currentDestination.toTopLevelDestination()
+        val currentTitle = stringResource(currentTopLevelDestination.titleRes)
+        val scaffoldDescription = stringResource(R.string.nav_scaffold_description)
+        val topBarDescription = stringResource(R.string.nav_top_bar_description, currentTitle)
+        val bottomBarDescription = stringResource(R.string.nav_bottom_bar_description)
+        val selectedDescription = stringResource(R.string.nav_selected_description)
+        val unselectedDescription = stringResource(R.string.nav_unselected_description)
 
         Scaffold(
-            modifier = Modifier.semantics { contentDescription = "Khung điều hướng chính" },
+            modifier = Modifier.semantics { contentDescription = scaffoldDescription },
             topBar = {
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
-                            text = currentTopLevelDestination.title,
+                            text = currentTitle,
                             modifier = Modifier.semantics { heading() }
                         )
                     },
                     modifier = Modifier.semantics {
-                        contentDescription = "Thanh tiêu đề ${currentTopLevelDestination.title}"
+                        contentDescription = topBarDescription
                     }
                 )
             },
             bottomBar = {
                 NavigationBar(
                     modifier = Modifier.semantics {
-                        contentDescription = "Thanh điều hướng chính"
+                        contentDescription = bottomBarDescription
                     }
                 ) {
                     TopLevelDestination.entries.forEach { destination ->
@@ -130,9 +140,9 @@ private fun MainNavigationScaffold(
                                     contentDescription = null
                                 )
                             },
-                            label = { Text(text = destination.label) },
+                            label = { Text(text = stringResource(destination.labelRes)) },
                             modifier = Modifier.semantics {
-                                stateDescription = if (isSelected) "Đang được chọn" else "Chưa chọn"
+                                stateDescription = if (isSelected) selectedDescription else unselectedDescription
                             }
                         )
                     }

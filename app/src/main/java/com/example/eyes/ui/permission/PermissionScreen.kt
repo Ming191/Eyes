@@ -21,12 +21,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.example.eyes.R
 
 private val REQUIRED_PERMISSIONS = listOf(
     Manifest.permission.CAMERA,
@@ -60,16 +62,24 @@ fun PermissionScreen(
     }
 
     val grantedCount = statuses.values.count { it }
+    val screenDescription = stringResource(R.string.permission_screen_description)
+    val summaryDescription = stringResource(R.string.permission_summary_description, grantedCount, REQUIRED_PERMISSIONS.size)
+    val summaryText = stringResource(R.string.permission_summary_text, grantedCount, REQUIRED_PERMISSIONS.size)
+    val cameraLabel = stringResource(R.string.permission_camera_label)
+    val microphoneLabel = stringResource(R.string.permission_microphone_label)
+    val locationLabel = stringResource(R.string.permission_location_label)
+    val requestDescription = stringResource(R.string.permission_request_description)
+    val requestText = stringResource(R.string.permission_request_text)
 
     Column(
-        modifier = modifier.semantics { contentDescription = "Khu vực cấp quyền" },
+        modifier = modifier.semantics { contentDescription = screenDescription },
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .semantics(mergeDescendants = true) {
-                    contentDescription = "Tổng quan quyền truy cập. Đã cấp $grantedCount trên ${REQUIRED_PERMISSIONS.size} quyền."
+                    contentDescription = summaryDescription
                     liveRegion = LiveRegionMode.Polite
                 },
             shape = MaterialTheme.shapes.medium,
@@ -80,19 +90,19 @@ fun PermissionScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Đã cấp $grantedCount/${REQUIRED_PERMISSIONS.size} quyền",
+                    text = summaryText,
                     style = MaterialTheme.typography.titleMedium
                 )
                 PermissionLine(
-                    label = "Camera",
+                    label = cameraLabel,
                     granted = statuses[Manifest.permission.CAMERA] == true
                 )
                 PermissionLine(
-                    label = "Micro",
+                    label = microphoneLabel,
                     granted = statuses[Manifest.permission.RECORD_AUDIO] == true
                 )
                 PermissionLine(
-                    label = "Vị trí",
+                    label = locationLabel,
                     granted = statuses[Manifest.permission.ACCESS_FINE_LOCATION] == true
                 )
             }
@@ -104,10 +114,10 @@ fun PermissionScreen(
                 .fillMaxWidth()
                 .heightIn(min = 88.dp)
                 .semantics {
-                    contentDescription = "Nút yêu cầu cấp quyền camera, micro và vị trí"
+                    contentDescription = requestDescription
                 }
         ) {
-            Text("Yêu cầu quyền")
+            Text(requestText)
         }
     }
 }
@@ -117,8 +127,13 @@ private fun PermissionLine(
     label: String,
     granted: Boolean
 ) {
+    val grantedText = stringResource(R.string.permission_granted_text)
+    val deniedText = stringResource(R.string.permission_denied_text)
+    val lineText = stringResource(R.string.permission_line_text, label, if (granted) grantedText else deniedText)
+    val grantedDescription = stringResource(R.string.permission_granted_description, label)
+    val deniedDescription = stringResource(R.string.permission_denied_description, label)
     Text(
-        text = "$label: ${if (granted) "Đã cấp" else "Chưa cấp"}",
+        text = lineText,
         style = MaterialTheme.typography.bodyMedium,
         color = if (granted) {
             MaterialTheme.colorScheme.onSurfaceVariant
@@ -126,7 +141,7 @@ private fun PermissionLine(
             MaterialTheme.colorScheme.onSurface
         },
         modifier = Modifier.semantics {
-            contentDescription = "$label ${if (granted) "đã cấp quyền" else "chưa cấp quyền"}"
+            contentDescription = if (granted) grantedDescription else deniedDescription
         }
     )
 }

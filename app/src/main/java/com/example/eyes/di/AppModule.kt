@@ -67,7 +67,7 @@ val appModule = module {
     }
     single { SceneRepository(androidContext(), get()) }
     viewModel { AppNavViewModel(get(), get()) }
-    viewModel { HomeViewModel(get()) }
+    viewModel { HomeViewModel(get(), get()) }
     viewModel {
         CameraViewModel(
             yoloDetector = get(),

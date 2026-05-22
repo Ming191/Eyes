@@ -3,6 +3,7 @@ package com.example.eyes.ui.camera
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -12,6 +13,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.example.eyes.R
 import com.example.eyes.ocr.OcrTextBounds
 
 @Composable
@@ -20,15 +22,15 @@ fun OcrGuidanceOverlay(
     isReady: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val readyDescription = stringResource(R.string.camera_ocr_guidance_ready_description)
+    val frameDescription = stringResource(R.string.camera_ocr_guidance_frame_description)
+    val overlayDescription = if (isReady) readyDescription else frameDescription
+
     Canvas(
         modifier = modifier
             .fillMaxSize()
             .semantics {
-                contentDescription = if (isReady) {
-                    "Vùng văn bản đã sẵn sàng để chụp"
-                } else {
-                    "Khung gợi ý vùng văn bản OCR"
-                }
+                contentDescription = overlayDescription
             }
     ) {
         val frameStroke = 2.dp.toPx()

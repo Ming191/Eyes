@@ -25,6 +25,7 @@ import com.example.eyes.camera.toBitmapWithRotation
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.data.remote.SceneRepository
 import com.example.eyes.domain.voice.VoiceCommand
+import com.example.eyes.i18n.AppLanguage
 import com.example.eyes.ocr.MlKitOcrGuidanceAnalyzer
 import com.example.eyes.ocr.OcrEngine
 import com.example.eyes.ocr.OcrGuidanceEvaluator
@@ -121,7 +122,7 @@ class CameraViewModel(
     private val audioManager: AudioManager
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(CameraUiState())
+    private val _uiState = MutableStateFlow(CameraText.forLanguage(AppLanguage.VI).initialUiState())
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
     private val isProcessingFrame = AtomicBoolean(false)
@@ -148,14 +149,19 @@ class CameraViewModel(
     )
 
     private val alertSensitivity = MutableStateFlow(HazardAlertPipeline.DEFAULT_ALERT_SENSITIVITY)
+    private val appLanguage = AtomicReference(AppLanguage.VI)
     private val lastRawOcrResult = AtomicReference<OcrResult?>(null)
     private val lastOcrUsedFallback = AtomicBoolean(false)
     private val lastOcrGuidanceBounds = AtomicReference<OcrTextBounds?>(null)
     private val stableOcrGuidanceFrames = AtomicInteger(0)
     private val lastAnnouncedOcrGuidanceStatus = AtomicReference<OcrGuidanceStatus?>(null)
     private var reprocessOcrJob: Job? = null
+    private val cameraText: CameraText get() = CameraText.forLanguage(appLanguage.get())
 
     init {
+        viewModelScope.launch {
+            dataStoreManager.appLanguageFlow.collect { language -> appLanguage.set(language) }
+        }
         viewModelScope.launch {
             dataStoreManager.alertSensitivityFlow.collect { alertSensitivity.value = it }
         }
@@ -175,26 +181,26 @@ class CameraViewModel(
                 when (command) {
                     VoiceCommand.ReadText -> applyVoiceCameraCommand(
                         mode = CameraMode.OCR,
-                        statusMessage = "Đang chờ khung hình văn bản rõ nét"
+                        statusMessage = cameraText.waitingForClearTextFrame
                     )
 
                     VoiceCommand.DescribeScene -> applyVoiceCameraCommand(
                         mode = CameraMode.OBSTACLE,
-                        title = "Chế độ mô tả khung cảnh",
-                        summary = "Lia camera chậm để ứng dụng chuẩn bị mô tả không gian phía trước.",
-                        statusMessage = "Đang chờ khung hình khung cảnh"
+                        title = cameraText.sceneDescriptionTitle,
+                        summary = cameraText.sceneDescriptionSummary,
+                        statusMessage = cameraText.waitingForSceneFrame
                     )
 
                     VoiceCommand.RecognizeCurrency -> applyVoiceCameraCommand(
                         mode = CameraMode.OCR,
-                        title = "Chế độ nhận diện tiền",
-                        summary = "Đưa tờ tiền vào giữa khung hình để ứng dụng chuẩn bị nhận diện mệnh giá.",
-                        statusMessage = "Đang chờ hình ảnh tờ tiền rõ nét"
+                        title = cameraText.currencyTitle,
+                        summary = cameraText.currencySummary,
+                        statusMessage = cameraText.waitingForClearMoneyImage
                     )
 
                     VoiceCommand.DetectObstacle -> applyVoiceCameraCommand(
                         mode = CameraMode.OBSTACLE,
-                        statusMessage = "Đang theo dõi vật cản phía trước"
+                        statusMessage = cameraText.trackingObstaclesAhead
                     )
 
                     else -> return@collect
@@ -206,12 +212,8 @@ class CameraViewModel(
 
     private fun applyVoiceCameraCommand(
         mode: CameraMode,
-        title: String = if (mode == CameraMode.OCR) "Chế độ đọc văn bản" else "Chế độ phát hiện vật cản",
-        summary: String = if (mode == CameraMode.OCR) {
-            "Double tap để chụp ảnh văn bản. Vuốt trái/phải để đọc từng câu."
-        } else {
-            "Ứng dụng đang theo dõi vật cản liên tục. Nhấn giữ màn hình để mô tả cảnh xung quanh."
-        },
+        title: String = if (mode == CameraMode.OCR) cameraText.ocrTitle else cameraText.obstacleTitle,
+        summary: String = if (mode == CameraMode.OCR) cameraText.ocrSummary else cameraText.obstacleSummary,
         statusMessage: String
     ) {
         _uiState.update {
@@ -227,7 +229,7 @@ class CameraViewModel(
                 canTranslateCurrentOcrDocument = false,
                 ocrCapturedBitmap = null,
                 ocrGuidanceStatus = OcrGuidanceStatus.SEARCHING,
-                ocrGuidanceMessage = "Hãy hướng camera vào vùng văn bản.",
+                ocrGuidanceMessage = cameraText.ocrGuidanceSearch,
                 isOcrReadyToCapture = false,
                 ocrGuidanceBounds = null,
                 boundingBoxes = if (mode == CameraMode.OCR) emptyList() else it.boundingBoxes,
@@ -256,7 +258,7 @@ class CameraViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                _uiState.update { it.copy(statusMessage = "Khung hình chưa rõ, đang thử lại") }
+                _uiState.update { it.copy(statusMessage = cameraText.frameUnclearRetrying) }
             } finally {
                 imageProxy.close()
                 isProcessingFrame.set(false)
@@ -288,7 +290,7 @@ class CameraViewModel(
                 bitmap = imageProxy.toBitmapWithRotation()
                 val frame = ocrGuidanceAnalyzer.analyze(bitmap)
                 val stableCount = updateOcrGuidanceStability(frame.textBounds)
-                val evaluation = OcrGuidanceEvaluator.evaluate(frame, stableCount)
+                val evaluation = OcrGuidanceEvaluator.evaluate(frame, stableCount, appLanguage.get())
                 val currentState = _uiState.value
                 if (
                     currentState.activeMode != CameraMode.OCR ||
@@ -327,7 +329,7 @@ class CameraViewModel(
             val bitmap = try {
                 imageProxy.toBitmapWithRotation()
             } catch (_: Throwable) {
-                _uiState.update { it.copy(isOcrScanning = false, statusMessage = "Không thể xử lý ảnh đã chụp") }
+                _uiState.update { it.copy(isOcrScanning = false, statusMessage = cameraText.cannotProcessCapturedImage) }
                 hapticService.error()
                 return@launch
             } finally {
@@ -342,17 +344,17 @@ class CameraViewModel(
                     canTranslateCurrentOcrDocument = false,
                     ocrCapturedBitmap = bitmap,
                     ocrGuidanceStatus = OcrGuidanceStatus.SEARCHING,
-                    ocrGuidanceMessage = "Đang xử lý ảnh OCR",
+                    ocrGuidanceMessage = cameraText.processingOcrImage,
                     isOcrReadyToCapture = false,
                     ocrGuidanceBounds = null,
-                    statusMessage = "Đang xử lý ảnh OCR"
+                    statusMessage = cameraText.processingOcrImage
                 )
             }
 
             val outcome = recognizeByMode(bitmap = bitmap, mode = currentOcrMode.value)
             val result = outcome.result.getOrElse { error ->
                 _uiState.update {
-                    it.copy(isOcrScanning = false, statusMessage = "OCR thất bại: ${error.message ?: "không rõ nguyên nhân"}")
+                    it.copy(isOcrScanning = false, statusMessage = cameraText.ocrFailed(error.message ?: cameraText.unknownReason))
                 }
                 hapticService.error()
                 return@launch
@@ -363,9 +365,9 @@ class CameraViewModel(
             val translatedResult = maybeTranslateForSpeech(result)
             if (outcome.usedFallbackFromAccuracy) {
                 dataStoreManager.setOcrMode(OcrMode.QUICK)
-                val reason = outcome.fallbackReason ?: "lỗi không xác định"
+                val reason = outcome.fallbackReason ?: cameraText.unknownError
                 ttsService.speak(
-                    "OCR chính xác gặp lỗi: $reason. Đã chuyển sang OCR nhanh.",
+                    cameraText.accuracyOcrFallback(reason),
                     TtsService.Priority.URGENT
                 )
             }
@@ -378,13 +380,13 @@ class CameraViewModel(
     }
 
     fun onOcrCaptureError() {
-        _uiState.update { it.copy(isOcrScanning = false, statusMessage = "Không thể chụp ảnh OCR. Hãy thử lại.") }
+        _uiState.update { it.copy(isOcrScanning = false, statusMessage = cameraText.cannotCaptureOcrTryAgain) }
         hapticService.error()
     }
 
     fun onOcrCaptureRequested() {
         if (!_uiState.value.isOcrReadyToCapture) {
-            ttsService.speak("Ảnh có thể chưa rõ, đang chụp.", TtsService.Priority.HIGH)
+            ttsService.speak(cameraText.imageMayBeUnclearCapturing, TtsService.Priority.HIGH)
         }
     }
 
@@ -400,11 +402,11 @@ class CameraViewModel(
                 canTranslateCurrentOcrDocument = false,
                 ocrCapturedBitmap = null,
                 ocrGuidanceStatus = OcrGuidanceStatus.SEARCHING,
-                ocrGuidanceMessage = "Hãy hướng camera vào vùng văn bản.",
+                ocrGuidanceMessage = cameraText.ocrGuidanceSearch,
                 isOcrReadyToCapture = false,
                 ocrGuidanceBounds = null,
-                statusMessage = "Sẵn sàng chụp OCR",
-                lastAnnouncement = "Đã sẵn sàng chụp ảnh mới"
+                statusMessage = cameraText.readyToCaptureOcr,
+                lastAnnouncement = cameraText.readyForNewCapture
             )
         }
         ttsService.stop()
@@ -414,7 +416,7 @@ class CameraViewModel(
         if (!canHandleOcrSwipe()) return
         val state = _uiState.value
         if (!state.hasNextOcrSentence) {
-            ttsService.speak("Đã đến cuối văn bản.", TtsService.Priority.URGENT)
+            ttsService.speak(cameraText.endOfText, TtsService.Priority.URGENT)
             return
         }
         _uiState.update { it.copy(ocrCurrentIndex = it.ocrCurrentIndex + 1) }
@@ -425,7 +427,7 @@ class CameraViewModel(
         if (!canHandleOcrSwipe()) return
         val state = _uiState.value
         if (!state.hasPrevOcrSentence) {
-            ttsService.speak("Đây là đầu văn bản.", TtsService.Priority.URGENT)
+            ttsService.speak(cameraText.startOfText, TtsService.Priority.URGENT)
             return
         }
         _uiState.update { it.copy(ocrCurrentIndex = it.ocrCurrentIndex - 1) }
@@ -439,22 +441,22 @@ class CameraViewModel(
             CameraMode.OBSTACLE -> {
                 hapticService.confirm()
                 if (!isHeadsetConnected()) {
-                    ttsService.speak("Đã chuyển sang chế độ phát hiện vật cản", TtsService.Priority.HIGH)
+                    ttsService.speak(cameraText.switchedToObstacleMode, TtsService.Priority.HIGH)
                 }
                 _uiState.update {
                     it.copy(
                         activeMode = CameraMode.OBSTACLE,
-                        title = "Chế độ phát hiện vật cản",
-                        summary = "Ứng dụng đang theo dõi vật cản liên tục. Nhấn giữ màn hình để mô tả cảnh xung quanh.",
-                        statusMessage = "Đang quét vật cản",
-                        lastAnnouncement = "Đã chuyển sang chế độ phát hiện vật cản",
+                        title = cameraText.obstacleTitle,
+                        summary = cameraText.obstacleSummary,
+                        statusMessage = cameraText.scanningObstacles,
+                        lastAnnouncement = cameraText.switchedToObstacleMode,
                         isOcrScanning = false,
                         ocrSentences = emptyList(),
                         ocrCurrentIndex = 0,
                         canTranslateCurrentOcrDocument = false,
                         ocrCapturedBitmap = null,
                         ocrGuidanceStatus = OcrGuidanceStatus.SEARCHING,
-                        ocrGuidanceMessage = "Hãy hướng camera vào vùng văn bản.",
+                        ocrGuidanceMessage = cameraText.ocrGuidanceSearch,
                         isOcrReadyToCapture = false,
                         ocrGuidanceBounds = null
                     )
@@ -463,8 +465,8 @@ class CameraViewModel(
             CameraMode.OCR -> {
                 hapticService.confirm()
                 if (!isHeadsetConnected()) {
-                    val modeLabel = if (currentOcrMode.value == OcrMode.QUICK) "Nhanh" else "Chính xác"
-                    ttsService.speak("Đã chuyển sang chế độ đọc văn bản, mode $modeLabel.", TtsService.Priority.HIGH)
+                    val modeLabel = cameraText.ocrModeLabel(currentOcrMode.value)
+                    ttsService.speak(cameraText.switchedToOcrMode(modeLabel), TtsService.Priority.HIGH)
                 }
                 ttsService.warmupLocale(Locale.US)
                 latestDetections.set(emptyList())
@@ -474,22 +476,22 @@ class CameraViewModel(
                 updateUiStateAndRecycleReplacedDepthPreview {
                     it.copy(
                         activeMode = CameraMode.OCR,
-                        title = "Chế độ đọc văn bản",
-                        summary = "Double tap để chụp ảnh văn bản. Vuốt trái/phải để đọc từng câu.",
-                        statusMessage = "Sẵn sàng chụp OCR",
-                        lastAnnouncement = "Đã chuyển sang chế độ đọc văn bản",
+                        title = cameraText.ocrTitle,
+                        summary = cameraText.ocrSummary,
+                        statusMessage = cameraText.readyToCaptureOcr,
+                        lastAnnouncement = cameraText.switchedToReadTextMode,
                         isOcrScanning = false,
                         ocrSentences = emptyList(),
                         ocrCurrentIndex = 0,
                         canTranslateCurrentOcrDocument = false,
                         ocrCapturedBitmap = null,
                         ocrGuidanceStatus = OcrGuidanceStatus.SEARCHING,
-                        ocrGuidanceMessage = "Hãy hướng camera vào vùng văn bản.",
+                        ocrGuidanceMessage = cameraText.ocrGuidanceSearch,
                         isOcrReadyToCapture = false,
                         ocrGuidanceBounds = null,
                         boundingBoxes = emptyList(),
                         depthPreviewBitmap = null,
-                        debugMetrics = "OCR: đang chờ dữ liệu"
+                        debugMetrics = cameraText.ocrDebugWaiting
                     )
                 }
             }
@@ -502,7 +504,7 @@ class CameraViewModel(
             dataStoreManager.setOcrMode(mode)
             hapticService.confirm()
             ttsService.speak(
-                if (mode == OcrMode.QUICK) "Đã chuyển sang mode Nhanh." else "Đã chuyển sang mode Chính xác.",
+                cameraText.switchedOcrMode(mode),
                 TtsService.Priority.NORMAL
             )
         }
@@ -514,9 +516,9 @@ class CameraViewModel(
             dataStoreManager.setOcrTranslateToVietnamese(enabled)
             ttsService.speak(
                 if (enabled) {
-                    "Đã bật dịch tiếng Anh sang tiếng Việt khi đọc."
+                    cameraText.enabledEnglishToVietnameseTranslation
                 } else {
-                    "Đã tắt dịch tiếng Anh sang tiếng Việt."
+                    cameraText.disabledEnglishToVietnameseTranslation
                 },
                 TtsService.Priority.NORMAL
             )
@@ -526,12 +528,12 @@ class CameraViewModel(
 
     fun describeScene() {
         val currentFrame = latestFrame.get() ?: run {
-            _uiState.update { it.copy(statusMessage = "Chưa có khung hình để mô tả. Hãy giữ camera ổn định vài giây.") }
+            _uiState.update { it.copy(statusMessage = cameraText.noFrameToDescribe) }
             hapticService.error()
             return
         }
         if (_uiState.value.isDescribingScene) return
-        _uiState.update { it.copy(isDescribingScene = true, statusMessage = "Đang mô tả cảnh, vui lòng chờ") }
+        _uiState.update { it.copy(isDescribingScene = true, statusMessage = cameraText.describingScenePleaseWait) }
         hapticService.loading()
         viewModelScope.launch(Dispatchers.Default) {
             try {
@@ -540,12 +542,12 @@ class CameraViewModel(
                     ttsService.speak(description, TtsService.Priority.HIGH)
                 }
                 hapticService.confirm()
-                _uiState.update { it.copy(statusMessage = "Đã mô tả cảnh xong", lastAnnouncement = description) }
+                _uiState.update { it.copy(statusMessage = cameraText.sceneDescriptionDone, lastAnnouncement = description) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Describe scene failed", e)
-                _uiState.update { it.copy(statusMessage = "Mô tả cảnh thất bại, vui lòng thử lại") }
+                _uiState.update { it.copy(statusMessage = cameraText.sceneDescriptionFailed) }
                 hapticService.error()
             } finally {
                 _uiState.update { it.copy(isDescribingScene = false) }
@@ -677,9 +679,9 @@ class CameraViewModel(
                     )
                 } else {
                     val reason = when {
-                        refused -> "GPT-4o trả về nội dung từ chối"
+                        refused -> cameraText.gptRefusedReason
                         accuracyResult.exceptionOrNull() != null -> buildFallbackReason(accuracyResult.exceptionOrNull()!!)
-                        else -> "không rõ nguyên nhân"
+                        else -> cameraText.unknownReason
                     }
                     OcrRecognitionOutcome(
                         result = runCatching { quickOcrEngine.recognize(bitmap) },
@@ -700,7 +702,7 @@ class CameraViewModel(
         val finalSentences = sentences.ifEmpty { listOf(result.fullText.trim()).filter { it.isNotBlank() } }
 
         if (finalSentences.isEmpty()) {
-            _uiState.update { it.copy(isOcrScanning = false, statusMessage = "Không phát hiện văn bản. Hãy chụp lại rõ hơn.") }
+            _uiState.update { it.copy(isOcrScanning = false, statusMessage = cameraText.noTextDetectedTryAgain) }
             hapticService.error()
             return
         }
@@ -712,9 +714,9 @@ class CameraViewModel(
                 ocrCurrentIndex = 0,
                 canTranslateCurrentOcrDocument = canTranslateCurrentDocument,
                 statusMessage = if (usedFallback) {
-                    "GPT-4o lỗi, đã fallback OCR nhanh. ${finalSentences.size} đoạn."
+                    cameraText.gptFallbackStatus(finalSentences.size)
                 } else {
-                    "Đã chụp. ${finalSentences.size} đoạn văn."
+                    cameraText.capturedParagraphs(finalSentences.size)
                 },
                 lastAnnouncement = finalSentences.first()
             )
@@ -735,7 +737,7 @@ class CameraViewModel(
         val rawResult = lastRawOcrResult.get() ?: return
         if (state.activeMode != CameraMode.OCR || !state.isOcrDocumentMode) return
 
-        _uiState.update { it.copy(statusMessage = "Đang cập nhật bản đọc OCR") }
+        _uiState.update { it.copy(statusMessage = cameraText.updatingOcrReading) }
         val processed = if (enabled && shouldAutoTranslateToVietnamese(rawResult.fullText)) {
             translateToVietnameseOrFallback(rawResult.fullText)
         } else {
@@ -754,7 +756,7 @@ class CameraViewModel(
         val sentence = state.currentOcrSentence
         val locale = if (looksEnglish(sentence)) Locale.US else VIETNAMESE_LOCALE
         ttsService.speak(
-            "${state.ocrCurrentIndex + 1} trên ${state.ocrSentences.size}. $sentence",
+            cameraText.ocrSentencePosition(state.ocrCurrentIndex + 1, state.ocrSentences.size, sentence),
             TtsService.Priority.URGENT,
             locale
         )
@@ -776,12 +778,12 @@ class CameraViewModel(
     private fun buildFallbackReason(error: Throwable): String {
         val message = error.message?.trim().orEmpty()
         return when {
-            message.contains("401") -> "sai API key hoặc chưa cấp quyền"
-            message.contains("403") -> "không có quyền dùng model hoặc endpoint"
-            message.contains("429") -> "hết quota hoặc bị giới hạn tốc độ"
-            message.contains("timeout", ignoreCase = true) -> "hết thời gian chờ phản hồi"
+            message.contains("401") -> cameraText.apiKeyReason
+            message.contains("403") -> cameraText.modelPermissionReason
+            message.contains("429") -> cameraText.quotaReason
+            message.contains("timeout", ignoreCase = true) -> cameraText.timeoutReason
             message.isNotBlank() -> message
-            else -> error::class.simpleName ?: "lỗi không xác định"
+            else -> error::class.simpleName ?: cameraText.unknownError
         }
     }
 
@@ -803,12 +805,12 @@ class CameraViewModel(
         return runCatching {
             val translated = translator.translateToVietnamese(sourceText)
             if (looksUntranslated(sourceText, translated)) {
-                throw IllegalStateException("Bản dịch không thay đổi nội dung")
+                throw IllegalStateException(cameraText.translationUnchangedReason)
             }
             OcrPostProcessor.process(translated)
         }.getOrElse {
             ttsService.speak(
-                "Không thể dịch sang tiếng Việt. Đang đọc bản gốc tiếng Anh.",
+                cameraText.cannotTranslateReadingOriginal,
                 TtsService.Priority.HIGH
             )
             OcrPostProcessor.process(sourceText)
@@ -908,7 +910,11 @@ class CameraViewModel(
     }
 
     private fun handleObstacleAlert(detections: List<Detection>) {
-        val result = hazardAlertPipeline.process(detections = detections, alertSensitivity = alertSensitivity.value)
+        val result = hazardAlertPipeline.process(
+            detections = detections,
+            alertSensitivity = alertSensitivity.value,
+            language = appLanguage.get()
+        )
         _uiState.update {
             it.copy(
                 statusMessage = result.statusMessage ?: it.statusMessage,
@@ -939,6 +945,216 @@ class CameraViewModel(
         } else {
             @Suppress("DEPRECATION")
             audioManager.isWiredHeadsetOn || audioManager.isBluetoothA2dpOn
+        }
+    }
+
+    private data class CameraText(
+        val ocrGuidanceSearch: String,
+        val obstacleTitle: String,
+        val obstacleSummary: String,
+        val initialStatus: String,
+        val initialAnnouncement: String,
+        val initialDebug: String,
+        val ocrTitle: String,
+        val ocrSummary: String,
+        val sceneDescriptionTitle: String,
+        val sceneDescriptionSummary: String,
+        val currencyTitle: String,
+        val currencySummary: String,
+        val waitingForClearTextFrame: String,
+        val waitingForSceneFrame: String,
+        val waitingForClearMoneyImage: String,
+        val trackingObstaclesAhead: String,
+        val frameUnclearRetrying: String,
+        val cannotProcessCapturedImage: String,
+        val processingOcrImage: String,
+        val unknownReason: String,
+        val unknownError: String,
+        val cannotCaptureOcrTryAgain: String,
+        val imageMayBeUnclearCapturing: String,
+        val readyToCaptureOcr: String,
+        val readyForNewCapture: String,
+        val endOfText: String,
+        val startOfText: String,
+        val switchedToObstacleMode: String,
+        val scanningObstacles: String,
+        val switchedToReadTextMode: String,
+        val ocrDebugWaiting: String,
+        val enabledEnglishToVietnameseTranslation: String,
+        val disabledEnglishToVietnameseTranslation: String,
+        val noFrameToDescribe: String,
+        val describingScenePleaseWait: String,
+        val sceneDescriptionDone: String,
+        val sceneDescriptionFailed: String,
+        val gptRefusedReason: String,
+        val noTextDetectedTryAgain: String,
+        val updatingOcrReading: String,
+        val apiKeyReason: String,
+        val modelPermissionReason: String,
+        val quotaReason: String,
+        val timeoutReason: String,
+        val translationUnchangedReason: String,
+        val cannotTranslateReadingOriginal: String
+    ) {
+        fun initialUiState(): CameraUiState = CameraUiState(
+            ocrGuidanceMessage = ocrGuidanceSearch,
+            title = obstacleTitle,
+            summary = obstacleSummary,
+            statusMessage = initialStatus,
+            lastAnnouncement = initialAnnouncement,
+            debugMetrics = initialDebug
+        )
+
+        fun ocrFailed(reason: String): String = when (this) {
+            VI -> "OCR thất bại: $reason"
+            EN -> "OCR failed: $reason"
+            else -> "OCR failed: $reason"
+        }
+
+        fun accuracyOcrFallback(reason: String): String = when (this) {
+            VI -> "OCR chính xác gặp lỗi: $reason. Đã chuyển sang OCR nhanh."
+            EN -> "Accurate OCR failed: $reason. Switched to quick OCR."
+            else -> "Accurate OCR failed: $reason. Switched to quick OCR."
+        }
+
+        fun ocrModeLabel(mode: OcrMode): String = when (mode) {
+            OcrMode.QUICK -> if (this == VI) "Nhanh" else "Quick"
+            OcrMode.ACCURACY -> if (this == VI) "Chính xác" else "Accurate"
+        }
+
+        fun switchedToOcrMode(modeLabel: String): String = when (this) {
+            VI -> "Đã chuyển sang chế độ đọc văn bản, mode $modeLabel."
+            EN -> "Switched to read text mode, $modeLabel mode."
+            else -> "Switched to read text mode, $modeLabel mode."
+        }
+
+        fun switchedOcrMode(mode: OcrMode): String = when (this) {
+            VI -> if (mode == OcrMode.QUICK) "Đã chuyển sang mode Nhanh." else "Đã chuyển sang mode Chính xác."
+            EN -> if (mode == OcrMode.QUICK) "Switched to quick mode." else "Switched to accurate mode."
+            else -> if (mode == OcrMode.QUICK) "Switched to quick mode." else "Switched to accurate mode."
+        }
+
+        fun gptFallbackStatus(count: Int): String = when (this) {
+            VI -> "GPT-4o lỗi, đã fallback OCR nhanh. $count đoạn."
+            EN -> "GPT-4o failed, fell back to quick OCR. $count sections."
+            else -> "GPT-4o failed, fell back to quick OCR. $count sections."
+        }
+
+        fun capturedParagraphs(count: Int): String = when (this) {
+            VI -> "Đã chụp. $count đoạn văn."
+            EN -> "Captured. $count paragraphs."
+            else -> "Captured. $count paragraphs."
+        }
+
+        fun ocrSentencePosition(index: Int, total: Int, sentence: String): String = when (this) {
+            VI -> "$index trên $total. $sentence"
+            EN -> "$index of $total. $sentence"
+            else -> "$index of $total. $sentence"
+        }
+
+        companion object {
+            private val VI = CameraText(
+                ocrGuidanceSearch = "Hãy hướng camera vào vùng văn bản.",
+                obstacleTitle = "Chế độ phát hiện vật cản",
+                obstacleSummary = "Ứng dụng đang theo dõi vật cản liên tục. Nhấn giữ màn hình để mô tả cảnh xung quanh.",
+                initialStatus = "Đang chờ khung hình tiếp theo",
+                initialAnnouncement = "Chưa có cảnh báo mới",
+                initialDebug = "Debug: đang chờ dữ liệu",
+                ocrTitle = "Chế độ đọc văn bản",
+                ocrSummary = "Double tap để chụp ảnh văn bản. Vuốt trái/phải để đọc từng câu.",
+                sceneDescriptionTitle = "Chế độ mô tả khung cảnh",
+                sceneDescriptionSummary = "Lia camera chậm để ứng dụng chuẩn bị mô tả không gian phía trước.",
+                currencyTitle = "Chế độ nhận diện tiền",
+                currencySummary = "Đưa tờ tiền vào giữa khung hình để ứng dụng chuẩn bị nhận diện mệnh giá.",
+                waitingForClearTextFrame = "Đang chờ khung hình văn bản rõ nét",
+                waitingForSceneFrame = "Đang chờ khung hình khung cảnh",
+                waitingForClearMoneyImage = "Đang chờ hình ảnh tờ tiền rõ nét",
+                trackingObstaclesAhead = "Đang theo dõi vật cản phía trước",
+                frameUnclearRetrying = "Khung hình chưa rõ, đang thử lại",
+                cannotProcessCapturedImage = "Không thể xử lý ảnh đã chụp",
+                processingOcrImage = "Đang xử lý ảnh OCR",
+                unknownReason = "không rõ nguyên nhân",
+                unknownError = "lỗi không xác định",
+                cannotCaptureOcrTryAgain = "Không thể chụp ảnh OCR. Hãy thử lại.",
+                imageMayBeUnclearCapturing = "Ảnh có thể chưa rõ, đang chụp.",
+                readyToCaptureOcr = "Sẵn sàng chụp OCR",
+                readyForNewCapture = "Đã sẵn sàng chụp ảnh mới",
+                endOfText = "Đã đến cuối văn bản.",
+                startOfText = "Đây là đầu văn bản.",
+                switchedToObstacleMode = "Đã chuyển sang chế độ phát hiện vật cản",
+                scanningObstacles = "Đang quét vật cản",
+                switchedToReadTextMode = "Đã chuyển sang chế độ đọc văn bản",
+                ocrDebugWaiting = "OCR: đang chờ dữ liệu",
+                enabledEnglishToVietnameseTranslation = "Đã bật dịch tiếng Anh sang tiếng Việt khi đọc.",
+                disabledEnglishToVietnameseTranslation = "Đã tắt dịch tiếng Anh sang tiếng Việt.",
+                noFrameToDescribe = "Chưa có khung hình để mô tả. Hãy giữ camera ổn định vài giây.",
+                describingScenePleaseWait = "Đang mô tả cảnh, vui lòng chờ",
+                sceneDescriptionDone = "Đã mô tả cảnh xong",
+                sceneDescriptionFailed = "Mô tả cảnh thất bại, vui lòng thử lại",
+                gptRefusedReason = "GPT-4o trả về nội dung từ chối",
+                noTextDetectedTryAgain = "Không phát hiện văn bản. Hãy chụp lại rõ hơn.",
+                updatingOcrReading = "Đang cập nhật bản đọc OCR",
+                apiKeyReason = "sai API key hoặc chưa cấp quyền",
+                modelPermissionReason = "không có quyền dùng model hoặc endpoint",
+                quotaReason = "hết quota hoặc bị giới hạn tốc độ",
+                timeoutReason = "hết thời gian chờ phản hồi",
+                translationUnchangedReason = "Bản dịch không thay đổi nội dung",
+                cannotTranslateReadingOriginal = "Không thể dịch sang tiếng Việt. Đang đọc bản gốc tiếng Anh."
+            )
+
+            private val EN = CameraText(
+                ocrGuidanceSearch = "Point camera at text area.",
+                obstacleTitle = "Obstacle detection mode",
+                obstacleSummary = "App is continuously watching for obstacles. Long press screen to describe surroundings.",
+                initialStatus = "Waiting for next frame",
+                initialAnnouncement = "No new alerts",
+                initialDebug = "Debug: waiting for data",
+                ocrTitle = "Read text mode",
+                ocrSummary = "Double tap to capture text. Swipe left or right to read each sentence.",
+                sceneDescriptionTitle = "Scene description mode",
+                sceneDescriptionSummary = "Move camera slowly so app can prepare description of space ahead.",
+                currencyTitle = "Currency recognition mode",
+                currencySummary = "Place bill in center of frame so app can prepare denomination recognition.",
+                waitingForClearTextFrame = "Waiting for clear text frame",
+                waitingForSceneFrame = "Waiting for scene frame",
+                waitingForClearMoneyImage = "Waiting for clear bill image",
+                trackingObstaclesAhead = "Tracking obstacles ahead",
+                frameUnclearRetrying = "Frame unclear, trying again",
+                cannotProcessCapturedImage = "Cannot process captured image",
+                processingOcrImage = "Processing OCR image",
+                unknownReason = "unknown reason",
+                unknownError = "unknown error",
+                cannotCaptureOcrTryAgain = "Cannot capture OCR image. Try again.",
+                imageMayBeUnclearCapturing = "Image may be unclear, capturing.",
+                readyToCaptureOcr = "Ready to capture OCR",
+                readyForNewCapture = "Ready to capture new image",
+                endOfText = "End of text.",
+                startOfText = "Start of text.",
+                switchedToObstacleMode = "Switched to obstacle detection mode",
+                scanningObstacles = "Scanning obstacles",
+                switchedToReadTextMode = "Switched to read text mode",
+                ocrDebugWaiting = "OCR: waiting for data",
+                enabledEnglishToVietnameseTranslation = "Enabled English to Vietnamese translation while reading.",
+                disabledEnglishToVietnameseTranslation = "Disabled English to Vietnamese translation.",
+                noFrameToDescribe = "No frame to describe. Hold camera steady for a few seconds.",
+                describingScenePleaseWait = "Describing scene, please wait",
+                sceneDescriptionDone = "Scene description done",
+                sceneDescriptionFailed = "Scene description failed, please try again",
+                gptRefusedReason = "GPT-4o returned refusal content",
+                noTextDetectedTryAgain = "No text detected. Capture again more clearly.",
+                updatingOcrReading = "Updating OCR reading",
+                apiKeyReason = "invalid API key or missing permission",
+                modelPermissionReason = "no permission for model or endpoint",
+                quotaReason = "quota exhausted or rate limited",
+                timeoutReason = "response timed out",
+                translationUnchangedReason = "Translation did not change content",
+                cannotTranslateReadingOriginal = "Cannot translate to Vietnamese. Reading original English."
+            )
+
+            fun forLanguage(language: AppLanguage): CameraText = when (language) {
+                AppLanguage.VI -> VI
+                AppLanguage.EN -> EN
+            }
         }
     }
 

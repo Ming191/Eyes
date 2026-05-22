@@ -20,7 +20,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.eyes.R
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.domain.voice.VoiceCommand
 import org.koin.compose.koinInject
@@ -31,10 +33,14 @@ fun MapScreen() {
     val command by dataStoreManager.lastVoiceCommandFlow.collectAsStateWithLifecycle(initialValue = null)
     var retainedDestination by rememberSaveable { mutableStateOf<String?>(null) }
     val destination = retainedDestination ?: (command as? VoiceCommand.Navigate)?.destination
-    val title = destination?.let { "Dẫn đường đến $it" } ?: "Chuẩn bị lộ trình"
+    val title = destination?.let { stringResource(R.string.map_title_destination, it) } ?: stringResource(R.string.map_title_default)
     val summary = destination
-        ?.let { "Màn hình đang giữ chỗ cho tìm điểm đến $it, xem mốc định hướng và hướng dẫn từng chặng." }
-        ?: "Trong giai đoạn này, màn hình đang giữ chỗ cho tìm điểm đến, xem mốc định hướng và hướng dẫn từng chặng."
+        ?.let { stringResource(R.string.map_summary_destination, it) }
+        ?: stringResource(R.string.map_summary_default)
+    val screenDescription = stringResource(R.string.map_screen_description)
+    val titleDescription = stringResource(R.string.map_title_description, title)
+    val placeholderDescription = stringResource(R.string.map_placeholder_description)
+    val placeholderTitle = stringResource(R.string.map_placeholder_title)
 
     LaunchedEffect(command) {
         val voiceDestination = (command as? VoiceCommand.Navigate)?.destination
@@ -49,7 +55,7 @@ fun MapScreen() {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
-            .semantics { contentDescription = "Màn hình bản đồ và dẫn đường" },
+            .semantics { contentDescription = screenDescription },
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
@@ -57,14 +63,14 @@ fun MapScreen() {
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.semantics {
                 heading()
-                contentDescription = "Tiêu đề: $title"
+                contentDescription = titleDescription
             }
         )
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .semantics(mergeDescendants = true) {
-                    contentDescription = "Khu vực giữ chỗ cho bản đồ. Tính năng dẫn đường đang được hoàn thiện."
+                    contentDescription = placeholderDescription
                 },
             shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.tertiaryContainer
@@ -74,11 +80,11 @@ fun MapScreen() {
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "Bản đồ sẽ hiển thị ở đây",
+                    text = placeholderTitle,
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                     modifier = Modifier.semantics {
-                        contentDescription = "Bản đồ sẽ hiển thị ở đây"
+                        contentDescription = placeholderTitle
                     }
                 )
                 Text(

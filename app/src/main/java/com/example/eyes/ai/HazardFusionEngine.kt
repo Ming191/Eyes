@@ -1,5 +1,7 @@
 package com.example.eyes.ai
 
+import com.example.eyes.i18n.AppLanguage
+
 enum class AlertSource {
     YOLO,
     DEPTH
@@ -30,7 +32,8 @@ class HazardFusionEngine {
      */
     fun fuse(
         yoloDetection: Detection?,
-        depthHazard: DepthHazard?
+        depthHazard: DepthHazard?,
+        language: AppLanguage = AppLanguage.VI
     ): FusedHazardAlert? {
         if (yoloDetection == null && depthHazard == null) return null
 
@@ -47,7 +50,10 @@ class HazardFusionEngine {
             return FusedHazardAlert(
                 primarySource = AlertSource.YOLO,
                 primaryZone = yoloDetection.zone,
-                speechText = "Phát hiện ${yoloDetection.labelVi} ở ${yoloDetection.zone.labelVi}",
+                speechText = when (language) {
+                    AppLanguage.VI -> "Phát hiện ${yoloDetection.labelVi} ở ${yoloDetection.zone.label(language)}"
+                    AppLanguage.EN -> "Detected ${yoloDetection.labelEn} at ${yoloDetection.zone.label(language)}"
+                },
                 secondaryHapticZone = secondary
             )
         }
@@ -57,7 +63,10 @@ class HazardFusionEngine {
         return FusedHazardAlert(
             primarySource = AlertSource.DEPTH,
             primaryZone = depthHazard.zone,
-            speechText = "Có vật cản gần ở ${depthHazard.zone.labelVi}",
+            speechText = when (language) {
+                AppLanguage.VI -> "Có vật cản gần ở ${depthHazard.zone.label(language)}"
+                AppLanguage.EN -> "Obstacle nearby at ${depthHazard.zone.label(language)}"
+            },
             secondaryHapticZone = null
         )
     }

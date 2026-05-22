@@ -1,5 +1,6 @@
 package com.example.eyes.ai
 
+import com.example.eyes.i18n.AppLanguage
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
@@ -26,13 +27,14 @@ class HazardAlertPipeline(
     fun process(
         detections: List<Detection>,
         alertSensitivity: Float,
+        language: AppLanguage = AppLanguage.VI,
         nowMs: Long = currentTimeMs()
     ): AlertResult {
         val yoloCandidate = selectYoloCandidate(detections, alertSensitivity)
         val yoloCompositeScore = yoloCandidate?.compositeScore()
         val depthCandidate = getFreshDepthCandidate(nowMs)
         val depthLabelCandidate = depthCandidate?.let { findReliableLabelForDepth(detections, it.zone) }
-        val fusedAlert = hazardFusionEngine.fuse(yoloCandidate, depthCandidate)
+        val fusedAlert = hazardFusionEngine.fuse(yoloCandidate, depthCandidate, language)
         val headsetConnected = isHeadsetConnected()
 
         if (fusedAlert == null) {
@@ -41,7 +43,7 @@ class HazardAlertPipeline(
             }
             return AlertResult(
                 statusMessage = if (safeStreak >= SAFE_STATUS_STREAK_FRAMES) {
-                    "Lối đi tạm ổn, tiếp tục quét môi trường"
+                    if (language == AppLanguage.EN) "Path looks clear. Keep scanning your surroundings" else "Lối đi tạm ổn, tiếp tục quét môi trường"
                 } else {
                     null
                 },
@@ -66,7 +68,7 @@ class HazardAlertPipeline(
             fusedAlert.secondaryHapticZone?.let(dispatchHaptic)
         }
 
-        val announcement = buildAnnouncement(fusedAlert, yoloCandidate, depthLabelCandidate)
+        val announcement = buildAnnouncement(fusedAlert, yoloCandidate, depthLabelCandidate, language)
         var speechSpoken = false
         if (!headsetConnected && speechRateLimiter.shouldSpeak(nowMs)) {
             speakUrgent(announcement)
@@ -75,7 +77,7 @@ class HazardAlertPipeline(
         }
 
         return AlertResult(
-            statusMessage = buildStatusMessage(fusedAlert, yoloCandidate, depthLabelCandidate),
+            statusMessage = buildStatusMessage(fusedAlert, yoloCandidate, depthLabelCandidate, language),
             lastAnnouncement = announcement,
             debugMetrics = buildDebugMetrics(
                 yoloCandidate = yoloCandidate,
@@ -136,32 +138,34 @@ class HazardAlertPipeline(
     private fun buildAnnouncement(
         fusedAlert: FusedHazardAlert,
         yoloCandidate: Detection?,
-        depthLabelCandidate: Detection?
+        depthLabelCandidate: Detection?,
+        language: AppLanguage
     ): String {
         return when {
             fusedAlert.primarySource == AlertSource.YOLO && yoloCandidate != null -> {
-                "Chú ý! ${yoloCandidate.labelVi} ở ${yoloCandidate.zone.labelVi}."
+                if (language == AppLanguage.EN) "Caution! ${yoloCandidate.labelEn} at ${yoloCandidate.zone.label(language)}." else "Chú ý! ${yoloCandidate.labelVi} ở ${yoloCandidate.zone.label(language)}."
             }
             fusedAlert.primarySource == AlertSource.DEPTH && depthLabelCandidate != null -> {
-                "Chú ý! ${depthLabelCandidate.labelVi} gần ${fusedAlert.primaryZone.labelVi}."
+                if (language == AppLanguage.EN) "Caution! ${depthLabelCandidate.labelEn} near ${fusedAlert.primaryZone.label(language)}." else "Chú ý! ${depthLabelCandidate.labelVi} gần ${fusedAlert.primaryZone.label(language)}."
             }
-            else -> fusedAlert.speechText ?: "Chú ý! Có vật cản gần ${fusedAlert.primaryZone.labelVi}."
+            else -> fusedAlert.speechText ?: if (language == AppLanguage.EN) "Caution! Obstacle nearby ${fusedAlert.primaryZone.label(language)}." else "Chú ý! Có vật cản gần ${fusedAlert.primaryZone.label(language)}."
         }
     }
 
     private fun buildStatusMessage(
         fusedAlert: FusedHazardAlert,
         yoloCandidate: Detection?,
-        depthLabelCandidate: Detection?
+        depthLabelCandidate: Detection?,
+        language: AppLanguage
     ): String {
         return when (fusedAlert.primarySource) {
             AlertSource.YOLO -> {
-                val label = yoloCandidate?.labelVi ?: "vật cản"
-                "Phát hiện $label ${fusedAlert.primaryZone.labelVi}"
+                val label = if (language == AppLanguage.EN) yoloCandidate?.labelEn ?: "obstacle" else yoloCandidate?.labelVi ?: "vật cản"
+                if (language == AppLanguage.EN) "Detected $label ${fusedAlert.primaryZone.label(language)}" else "Phát hiện $label ${fusedAlert.primaryZone.label(language)}"
             }
             AlertSource.DEPTH -> {
-                val label = depthLabelCandidate?.labelVi ?: "vật cản"
-                "Phát hiện $label gần ${fusedAlert.primaryZone.labelVi}"
+                val label = if (language == AppLanguage.EN) depthLabelCandidate?.labelEn ?: "obstacle" else depthLabelCandidate?.labelVi ?: "vật cản"
+                if (language == AppLanguage.EN) "Detected $label near ${fusedAlert.primaryZone.label(language)}" else "Phát hiện $label gần ${fusedAlert.primaryZone.label(language)}"
             }
         }
     }

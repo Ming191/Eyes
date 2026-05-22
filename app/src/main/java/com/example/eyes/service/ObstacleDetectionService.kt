@@ -27,6 +27,7 @@ import com.example.eyes.camera.CameraManager
 import com.example.eyes.camera.FrameThrottle
 import com.example.eyes.camera.toBitmapWithRotation
 import com.example.eyes.data.DataStoreManager
+import com.example.eyes.i18n.AppLanguage
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
 import kotlinx.coroutines.CoroutineScope
@@ -69,6 +70,9 @@ class ObstacleDetectionService : LifecycleService() {
     @Volatile
     private var alertSensitivity: Float = HazardAlertPipeline.DEFAULT_ALERT_SENSITIVITY
 
+    @Volatile
+    private var appLanguage: AppLanguage = AppLanguage.VI
+
     /**
      * Initializes the service when it is created.
      *
@@ -84,6 +88,11 @@ class ObstacleDetectionService : LifecycleService() {
         serviceScope.launch {
             dataStoreManager.alertSensitivityFlow.collect { value ->
                 alertSensitivity = value
+            }
+        }
+        serviceScope.launch {
+            dataStoreManager.appLanguageFlow.collect { language ->
+                appLanguage = language
             }
         }
     }
@@ -169,7 +178,8 @@ class ObstacleDetectionService : LifecycleService() {
 
                     hazardAlertPipeline.process(
                         detections = detections,
-                        alertSensitivity = alertSensitivity
+                        alertSensitivity = alertSensitivity,
+                        language = appLanguage
                     )
                 } catch (e: CancellationException) {
                     throw e
@@ -256,8 +266,8 @@ class ObstacleDetectionService : LifecycleService() {
      */
     private fun buildNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Eyes đang hoạt động")
-            .setContentText("Chế độ phát hiện vật cản đang bật")
+            .setContentTitle(getString(R.string.obstacle_service_notification_title))
+            .setContentText(getString(R.string.obstacle_service_notification_text))
             .setSmallIcon(R.mipmap.ic_launcher)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -275,10 +285,10 @@ class ObstacleDetectionService : LifecycleService() {
         val manager = getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Obstacle Detection",
+            getString(R.string.obstacle_service_channel_name),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Thông báo dịch vụ phát hiện vật cản"
+            description = getString(R.string.obstacle_service_channel_description)
         }
         manager.createNotificationChannel(channel)
     }

@@ -11,6 +11,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.example.eyes.i18n.AppLanguage
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -64,7 +65,7 @@ class SttService(
      * Errors (missing permission, unavailable engine, etc.) are emitted via
      * [state] and [results] rather than thrown.
      */
-    fun startListening() {
+    fun startListening(language: AppLanguage = AppLanguage.VI) {
         runOnMain {
             if (isReleased) {
                 Log.w(TAG, "startListening called after release() — ignoring")
@@ -88,7 +89,7 @@ class SttService(
 
             val r = recognizer ?: createRecognizer().also { recognizer = it }
             try {
-                r.startListening(buildIntent())
+                r.startListening(buildIntent(language))
                 _state.value = SttState.Listening
             } catch (e: SecurityException) {
                 Log.e(TAG, "SecurityException from SpeechRecognizer", e)
@@ -148,13 +149,13 @@ class SttService(
         return r
     }
 
-    private fun buildIntent() = android.content.Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+    private fun buildIntent(language: AppLanguage) = android.content.Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
         putExtra(
             RecognizerIntent.EXTRA_LANGUAGE_MODEL,
             RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
         )
-        putExtra(RecognizerIntent.EXTRA_LANGUAGE, VIETNAMESE_LOCALE_TAG)
-        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, VIETNAMESE_LOCALE_TAG)
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE, language.sttLanguageTag)
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, language.sttLanguageTag)
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, appContext.packageName)
     }
@@ -258,7 +259,6 @@ class SttService(
 
     private companion object {
         private const val TAG = "SttService"
-        private const val VIETNAMESE_LOCALE_TAG = "vi-VN"
         private const val RESULTS_BUFFER_CAPACITY = 64
     }
 }

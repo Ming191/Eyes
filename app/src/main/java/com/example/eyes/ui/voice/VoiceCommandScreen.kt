@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -43,6 +44,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.eyes.R
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.system.SttErrorReason
 import com.example.eyes.system.SttState
@@ -106,6 +108,11 @@ private fun VoiceCommandContent(
     onStopTap: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val screenDescription = stringResource(R.string.voice_screen_description)
+    val title = stringResource(R.string.voice_title)
+    val titleDescription = stringResource(R.string.voice_title_description)
+    val instruction = stringResource(R.string.voice_instruction)
+    val instructionDescription = stringResource(R.string.voice_instruction_description)
 
     Column(
         modifier = Modifier
@@ -113,28 +120,28 @@ private fun VoiceCommandContent(
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(scrollState)
             .padding(20.dp)
-            .semantics { contentDescription = "Màn hình ra lệnh bằng giọng nói" },
+            .semantics { contentDescription = screenDescription },
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Ra lệnh bằng giọng nói",
+            text = title,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .fillMaxWidth()
                 .semantics {
                     heading()
-                    contentDescription = "Tiêu đề: Ra lệnh bằng giọng nói"
+                    contentDescription = titleDescription
                 }
         )
 
         Text(
-            text = "Hãy nói một câu lệnh tiếng Việt sau khi nghe tín hiệu.",
+            text = instruction,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.semantics {
-                contentDescription = "Hướng dẫn: Hãy nói một câu lệnh tiếng Việt sau khi nghe tín hiệu."
+                contentDescription = instructionDescription
             }
         )
 
@@ -157,12 +164,17 @@ private fun VoiceCommandContent(
 @Composable
 private fun StatusBlock(state: VoiceCommandUiState) {
     val statusText = statusLabelFor(state.sttState)
+    val statusDescription = stringResource(R.string.voice_status_description, statusText)
+    val currentStatusDescription = stringResource(R.string.voice_current_status_description, statusText)
+    val partialDescription = stringResource(R.string.voice_partial_description, state.partialText)
+    val finalText = stringResource(R.string.voice_final_text, state.finalText)
+    val finalDescription = stringResource(R.string.voice_final_description, state.finalText)
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .semantics {
-                contentDescription = "Trạng thái nhận diện: $statusText"
+                contentDescription = statusDescription
                 liveRegion = LiveRegionMode.Polite
             },
         shape = MaterialTheme.shapes.medium,
@@ -182,7 +194,7 @@ private fun StatusBlock(state: VoiceCommandUiState) {
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.semantics {
-                    contentDescription = "Trạng thái hiện tại: $statusText"
+                    contentDescription = currentStatusDescription
                 }
             )
 
@@ -192,28 +204,31 @@ private fun StatusBlock(state: VoiceCommandUiState) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.semantics {
-                        contentDescription = "Đang nghe: ${state.partialText}"
+                        contentDescription = partialDescription
                     }
                 )
             }
 
             if (state.finalText.isNotEmpty()) {
                 Text(
-                    text = "Đã nghe: ${state.finalText}",
+                    text = finalText,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.semantics {
-                        contentDescription = "Đã nghe: ${state.finalText}"
+                        contentDescription = finalDescription
                     }
                 )
             }
 
             state.lastCommand?.let { command ->
+                val commandLabel = commandLabelFor(command)
+                val commandText = stringResource(R.string.voice_command_text, commandLabel)
+                val commandDescription = stringResource(R.string.voice_command_description, commandLabel)
                 Text(
-                    text = "Lệnh: ${commandLabelFor(command)}",
+                    text = commandText,
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.semantics {
-                        contentDescription = "Lệnh đã nhận: ${commandLabelFor(command)}"
+                        contentDescription = commandDescription
                     }
                 )
             }
@@ -242,10 +257,10 @@ private fun MicButton(
     }
 
     val description = when (sttState) {
-        SttState.Idle -> "Nút bắt đầu nói lệnh. Bấm rồi nói."
-        SttState.Listening -> "Nút dừng nghe. Đang nghe lệnh."
-        SttState.Processing -> "App đang xử lý câu nói. Vui lòng đợi."
-        is SttState.Error -> "Nút thử lại sau khi gặp lỗi."
+        SttState.Idle -> stringResource(R.string.voice_mic_idle_description)
+        SttState.Listening -> stringResource(R.string.voice_mic_listening_description)
+        SttState.Processing -> stringResource(R.string.voice_mic_processing_description)
+        is SttState.Error -> stringResource(R.string.voice_mic_error_description)
     }
 
     Button(
@@ -276,11 +291,14 @@ private fun MicButton(
 
 @Composable
 private fun AvailableCommandsCard(expanded: Boolean) {
+    val description = stringResource(R.string.voice_commands_description)
+    val title = stringResource(R.string.voice_commands_title)
+    val titleDescription = stringResource(R.string.voice_commands_title_description)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .semantics(mergeDescendants = false) {
-                contentDescription = "Danh sách các lệnh khả dụng."
+                contentDescription = description
             },
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.secondaryContainer,
@@ -291,63 +309,67 @@ private fun AvailableCommandsCard(expanded: Boolean) {
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = "Các lệnh khả dụng",
+                text = title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.semantics {
                     heading()
-                    contentDescription = "Tiêu đề: Các lệnh khả dụng"
+                    contentDescription = titleDescription
                 }
             )
-            CommandLine("Đọc giúp tôi", "đọc văn bản trước camera")
-            CommandLine("Trước mặt có gì", "mô tả khung cảnh")
-            CommandLine("Tờ tiền này bao nhiêu", "nhận diện tiền")
-            CommandLine("Có vật cản không", "phát hiện vật cản")
-            CommandLine("Đi đến <địa điểm>", "dẫn đường")
-            CommandLine("Đọc lại", "nghe lại câu vừa rồi")
-            CommandLine("Dừng", "dừng và về trang chủ")
-            CommandLine("Trợ giúp", "nghe danh sách lệnh")
+            CommandLine(stringResource(R.string.voice_command_read_example), stringResource(R.string.voice_command_read_action))
+            CommandLine(stringResource(R.string.voice_command_scene_example), stringResource(R.string.voice_command_scene_action))
+            CommandLine(stringResource(R.string.voice_command_money_example), stringResource(R.string.voice_command_money_action))
+            CommandLine(stringResource(R.string.voice_command_obstacle_example), stringResource(R.string.voice_command_obstacle_action))
+            CommandLine(stringResource(R.string.voice_command_navigate_example), stringResource(R.string.voice_command_navigate_action))
+            CommandLine(stringResource(R.string.voice_command_repeat_example), stringResource(R.string.voice_command_repeat_action))
+            CommandLine(stringResource(R.string.voice_command_stop_example), stringResource(R.string.voice_command_stop_action))
+            CommandLine(stringResource(R.string.voice_command_help_example), stringResource(R.string.voice_command_help_action))
         }
     }
 }
 
 @Composable
 private fun CommandLine(command: String, action: String) {
+    val text = stringResource(R.string.voice_command_line_text, command, action)
+    val description = stringResource(R.string.voice_command_line_description, command, action)
     Text(
-        text = "• \"$command\" — $action",
+        text = text,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSecondaryContainer,
         modifier = Modifier.semantics {
-            contentDescription = "Lệnh: $command. Tác dụng: $action"
+            contentDescription = description
         }
     )
 }
 
+@Composable
 private fun statusLabelFor(state: SttState): String = when (state) {
-    SttState.Idle -> "Sẵn sàng"
-    SttState.Listening -> "Đang nghe..."
-    SttState.Processing -> "Đang xử lý..."
+    SttState.Idle -> stringResource(R.string.voice_status_idle)
+    SttState.Listening -> stringResource(R.string.voice_status_listening)
+    SttState.Processing -> stringResource(R.string.voice_status_processing)
     is SttState.Error -> when (state.reason) {
-        SttErrorReason.Network -> "Lỗi mạng"
-        SttErrorReason.NoMatch -> "Không nghe thấy"
-        SttErrorReason.Audio -> "Lỗi micro"
-        SttErrorReason.PermissionDenied -> "Thiếu quyền micro"
-        SttErrorReason.NotAvailable -> "Không hỗ trợ"
-        is SttErrorReason.Unknown -> "Lỗi không xác định"
+        SttErrorReason.Network -> stringResource(R.string.voice_status_error_network)
+        SttErrorReason.NoMatch -> stringResource(R.string.voice_status_error_no_match)
+        SttErrorReason.Audio -> stringResource(R.string.voice_status_error_audio)
+        SttErrorReason.PermissionDenied -> stringResource(R.string.voice_status_error_permission)
+        SttErrorReason.NotAvailable -> stringResource(R.string.voice_status_error_not_available)
+        is SttErrorReason.Unknown -> stringResource(R.string.voice_status_error_unknown)
     }
 }
 
+@Composable
 private fun commandLabelFor(command: VoiceCommand): String = when (command) {
-    VoiceCommand.ReadText -> "Đọc văn bản"
-    VoiceCommand.DescribeScene -> "Mô tả khung cảnh"
-    VoiceCommand.RecognizeCurrency -> "Nhận diện tiền"
-    VoiceCommand.DetectObstacle -> "Phát hiện vật cản"
-    is VoiceCommand.Navigate -> "Dẫn đường: ${command.destination}"
-    VoiceCommand.Repeat -> "Đọc lại"
-    VoiceCommand.Stop -> "Dừng"
-    VoiceCommand.Help -> "Trợ giúp"
-    is VoiceCommand.Unknown -> "Chưa rõ — \"${command.rawText}\""
+    VoiceCommand.ReadText -> stringResource(R.string.voice_label_read_text)
+    VoiceCommand.DescribeScene -> stringResource(R.string.voice_label_describe_scene)
+    VoiceCommand.RecognizeCurrency -> stringResource(R.string.voice_label_recognize_currency)
+    VoiceCommand.DetectObstacle -> stringResource(R.string.voice_label_detect_obstacle)
+    is VoiceCommand.Navigate -> stringResource(R.string.voice_label_navigate, command.destination)
+    VoiceCommand.Repeat -> stringResource(R.string.voice_label_repeat)
+    VoiceCommand.Stop -> stringResource(R.string.voice_label_stop)
+    VoiceCommand.Help -> stringResource(R.string.voice_label_help)
+    is VoiceCommand.Unknown -> stringResource(R.string.voice_label_unknown, command.rawText)
 }
 
 @Preview(showBackground = true)

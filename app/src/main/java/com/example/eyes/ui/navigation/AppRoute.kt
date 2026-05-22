@@ -5,7 +5,9 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Tune
+import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.example.eyes.R
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -27,28 +29,28 @@ data object SettingsRoute
 data object VoiceRoute
 
 enum class TopLevelDestination(
-    val title: String,
-    val label: String,
+    @StringRes val titleRes: Int,
+    @StringRes val labelRes: Int,
     val icon: ImageVector
 ) {
     HOME(
-        title = "SoundVision",
-        label = "Trang chủ",
+        titleRes = R.string.nav_title_home,
+        labelRes = R.string.nav_label_home,
         icon = Icons.Rounded.Home
     ),
     CAMERA(
-        title = "Camera trợ lý",
-        label = "Camera",
+        titleRes = R.string.nav_title_camera,
+        labelRes = R.string.nav_label_camera,
         icon = Icons.Rounded.PhotoCamera
     ),
     MAP(
-        title = "Dẫn đường",
-        label = "Bản đồ",
+        titleRes = R.string.nav_title_map,
+        labelRes = R.string.nav_label_map,
         icon = Icons.Rounded.Map
     ),
     SETTINGS(
-        title = "Cài đặt",
-        label = "Cài đặt",
+        titleRes = R.string.nav_title_settings,
+        labelRes = R.string.nav_label_settings,
         icon = Icons.Rounded.Tune
     )
 }

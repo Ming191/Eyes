@@ -1,5 +1,6 @@
 package com.example.eyes.domain.voice
 
+import com.example.eyes.i18n.AppLanguage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -260,5 +261,24 @@ class CommandParserTest {
         val result = parser.parse(input)
         // THEN — Help is higher priority than ReadText
         assertEquals(VoiceCommand.Help, result)
+    }
+
+    @Test
+    fun parse_englishReadText_returnsReadText() {
+        assertEquals(VoiceCommand.ReadText, parser.parse("read this", AppLanguage.EN))
+    }
+
+    @Test
+    fun parse_englishNavigate_extractsDestination() {
+        assertEquals(
+            VoiceCommand.Navigate("central park"),
+            parser.parse("navigate to Central Park", AppLanguage.EN)
+        )
+    }
+
+    @Test
+    fun parse_englishStopAndHelp_havePriority() {
+        assertEquals(VoiceCommand.Stop, parser.parse("stop and navigate to market", AppLanguage.EN))
+        assertEquals(VoiceCommand.Help, parser.parse("help read text", AppLanguage.EN))
     }
 }
