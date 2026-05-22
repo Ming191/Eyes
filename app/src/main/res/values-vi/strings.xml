@@ -216,7 +216,7 @@
     <string name="camera_vm_initial_announcement">Chưa có cảnh báo mới</string>
     <string name="camera_vm_initial_debug">Debug: đang chờ dữ liệu</string>
     <string name="camera_vm_ocr_title">Chế độ đọc văn bản</string>
-    <string name="camera_vm_ocr_summary">Double tap để chụp ảnh văn bản. Vuốt trái/phải để đọc từng câu.</string>
+    <string name="camera_vm_ocr_summary">Chạm đúp để chụp ảnh văn bản. Vuốt trái/phải để đọc từng câu.</string>
     <string name="camera_vm_scene_description_title">Chế độ mô tả khung cảnh</string>
     <string name="camera_vm_scene_description_summary">Lia camera chậm để ứng dụng chuẩn bị mô tả không gian phía trước.</string>
     <string name="camera_vm_currency_title">Chế độ nhận diện tiền</string>
