@@ -10,9 +10,9 @@ enum class Zone(val labelVi: String) {
     fun label(language: AppLanguage): String = when (language) {
         AppLanguage.VI -> labelVi
         AppLanguage.EN -> when (this) {
-            LEFT -> "bên trái"
-            CENTER -> "chính giữa"
-            RIGHT -> "bên phải"
+            LEFT -> "left"
+            CENTER -> "center"
+            RIGHT -> "right"
         }
     }
 }

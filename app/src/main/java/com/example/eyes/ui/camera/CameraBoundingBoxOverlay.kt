@@ -15,8 +15,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.eyes.R
 
 /**
  * Renders labeled bounding boxes over a camera preview based on normalized coordinates.
@@ -33,13 +35,15 @@ fun CameraBoundingBoxOverlay(
     boxes: List<BoundingBoxUi>,
     modifier: Modifier = Modifier
 ) {
-    val summary = remember(boxes) {
+    val emptyDescription = stringResource(R.string.camera_overlay_empty_description)
+    val overlayDescription = stringResource(R.string.camera_overlay_description)
+    val summary = remember(boxes, emptyDescription, overlayDescription) {
         if (boxes.isEmpty()) {
-            "Lớp phủ vật thể chưa có kết quả"
+            emptyDescription
         } else {
             val descriptions = boxes
                 .take(3).joinToString(", ") { box -> "${box.labelVi} ${box.zoneLabel}" }
-            "Lớp phủ vật thể: $descriptions"
+            overlayDescription.format(descriptions)
         }
     }
 

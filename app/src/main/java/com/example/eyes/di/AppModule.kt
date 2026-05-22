@@ -80,7 +80,8 @@ val appModule = module {
             hapticService = get(),
             dataStoreManager = get(),
             sceneRepository = get(),
-            audioManager = get()
+            audioManager = get(),
+            context = androidContext()
         )
     }
     viewModel { SettingsViewModel(androidContext(), get(), get(), get()) }

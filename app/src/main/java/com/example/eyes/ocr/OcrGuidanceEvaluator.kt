@@ -136,7 +136,7 @@ object OcrGuidanceEvaluator {
         companion object {
             fun forLanguage(language: AppLanguage): OcrGuidanceText = when (language) {
                 AppLanguage.VI -> VI
-                AppLanguage.EN -> VI
+                AppLanguage.EN -> EN
             }
 
             private val VI = OcrGuidanceText(
@@ -153,6 +153,21 @@ object OcrGuidanceEvaluator {
                     ready = "Văn bản đã nằm trong khung, sẵn sàng chụp.",
                     holdSteady = "Đã thấy văn bản. Hãy giữ camera ổn định."
                 )
+
+            private val EN = OcrGuidanceText(
+                searching = "No text found yet. Point camera at text area.",
+                tooDark = "Image is too dark. Move text to brighter light.",
+                tooBright = "Image is too bright. Avoid direct light on paper.",
+                moveCloser = "Text is too small. Move camera closer.",
+                moveBack = "Text is too close. Move camera back slightly.",
+                textClipped = "Text is near edge. Widen frame to avoid missing words.",
+                moveLeft = "Text is left of center. Move camera left.",
+                moveRight = "Text is right of center. Move camera right.",
+                moveUp = "Text is high in frame. Raise camera slightly.",
+                moveDown = "Text is low in frame. Lower camera slightly.",
+                ready = "Text is in frame, ready to capture.",
+                holdSteady = "Text found. Hold camera steady."
+            )
         }
     }
 }

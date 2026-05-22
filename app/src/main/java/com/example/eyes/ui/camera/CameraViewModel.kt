@@ -1,6 +1,7 @@
 ﻿package com.example.eyes.ui.camera
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.media.AudioDeviceInfo
@@ -20,12 +21,14 @@ import com.example.eyes.ai.HazardAlertPipeline
 import com.example.eyes.ai.HazardFusionEngine
 import com.example.eyes.ai.MiDasDepthEstimator
 import com.example.eyes.ai.YoloDetector
+import com.example.eyes.R
 import com.example.eyes.ai.Zone
 import com.example.eyes.camera.toBitmapWithRotation
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.data.remote.SceneRepository
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.i18n.localizedFor
 import com.example.eyes.ocr.MlKitOcrGuidanceAnalyzer
 import com.example.eyes.ocr.OcrEngine
 import com.example.eyes.ocr.OcrGuidanceEvaluator
@@ -119,10 +122,11 @@ class CameraViewModel(
     private val hapticService: HapticService,
     private val dataStoreManager: DataStoreManager,
     private val sceneRepository: SceneRepository,
-    private val audioManager: AudioManager
+    private val audioManager: AudioManager,
+    private val context: Context
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(CameraText.forLanguage(AppLanguage.VI).initialUiState())
+    private val _uiState = MutableStateFlow(CameraText.from(context, AppLanguage.VI).initialUiState())
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
     private val isProcessingFrame = AtomicBoolean(false)
@@ -156,7 +160,7 @@ class CameraViewModel(
     private val stableOcrGuidanceFrames = AtomicInteger(0)
     private val lastAnnouncedOcrGuidanceStatus = AtomicReference<OcrGuidanceStatus?>(null)
     private var reprocessOcrJob: Job? = null
-    private val cameraText: CameraText get() = CameraText.forLanguage(appLanguage.get())
+    private val cameraText: CameraText get() = CameraText.from(context, appLanguage.get())
 
     init {
         viewModelScope.launch {
@@ -661,6 +665,7 @@ class CameraViewModel(
             detections.forEach { it.midasDepth = miDasDepthEstimator.depthAt(depthMap, it.bbox) }
         }
 
+        val language = appLanguage.get()
         _uiState.update {
             it.copy(
                 boundingBoxes = detections
@@ -672,8 +677,8 @@ class CameraViewModel(
                             top = d.bbox.top,
                             right = d.bbox.right,
                             bottom = d.bbox.bottom,
-                            labelVi = d.labelVi,
-                            zoneLabel = d.zone.labelVi,
+                            labelVi = if (language == AppLanguage.EN) d.labelEn else d.labelVi,
+                            zoneLabel = d.zone.label(language),
                             confidence = d.confidence
                         )
                     }
@@ -1015,7 +1020,17 @@ class CameraViewModel(
         val quotaReason: String,
         val timeoutReason: String,
         val translationUnchangedReason: String,
-        val cannotTranslateReadingOriginal: String
+        val cannotTranslateReadingOriginal: String,
+        val ocrFailedTemplate: String,
+        val accuracyOcrFallbackTemplate: String,
+        val quickModeLabel: String,
+        val accurateModeLabel: String,
+        val switchedToOcrModeTemplate: String,
+        val switchedToQuickMode: String,
+        val switchedToAccurateMode: String,
+        val gptFallbackStatusTemplate: String,
+        val capturedParagraphsTemplate: String,
+        val ocrSentencePositionTemplate: String
     ) {
         fun initialUiState(): CameraUiState = CameraUiState(
             ocrGuidanceMessage = ocrGuidanceSearch,
@@ -1083,81 +1098,91 @@ class CameraViewModel(
             else -> value
         }
 
-        fun ocrFailed(reason: String): String = "OCR thất bại: $reason"
+        fun ocrFailed(reason: String): String = ocrFailedTemplate.format(reason)
 
-        fun accuracyOcrFallback(reason: String): String = "OCR chính xác gặp lỗi: $reason. Đã chuyển sang OCR nhanh."
+        fun accuracyOcrFallback(reason: String): String = accuracyOcrFallbackTemplate.format(reason)
 
         fun ocrModeLabel(mode: OcrMode): String = when (mode) {
-            OcrMode.QUICK -> "Nhanh"
-            OcrMode.ACCURACY -> "Chính xác"
+            OcrMode.QUICK -> quickModeLabel
+            OcrMode.ACCURACY -> accurateModeLabel
         }
 
-        fun switchedToOcrMode(modeLabel: String): String = "Đã chuyển sang chế độ đọc văn bản, mode $modeLabel."
+        fun switchedToOcrMode(modeLabel: String): String = switchedToOcrModeTemplate.format(modeLabel)
 
-        fun switchedOcrMode(mode: OcrMode): String = when (this) {
-            VI -> if (mode == OcrMode.QUICK) "Đã chuyển sang mode Nhanh." else "Đã chuyển sang mode Chính xác."
-            else -> if (mode == OcrMode.QUICK) "Đã chuyển sang mode Nhanh." else "Đã chuyển sang mode Chính xác."
+        fun switchedOcrMode(mode: OcrMode): String = if (mode == OcrMode.QUICK) {
+            switchedToQuickMode
+        } else {
+            switchedToAccurateMode
         }
 
-        fun gptFallbackStatus(count: Int): String = "GPT-4o lỗi, đã fallback OCR nhanh. $count đoạn."
+        fun gptFallbackStatus(count: Int): String = gptFallbackStatusTemplate.format(count)
 
-        fun capturedParagraphs(count: Int): String = "Đã chụp. $count đoạn văn."
+        fun capturedParagraphs(count: Int): String = capturedParagraphsTemplate.format(count)
 
-        fun ocrSentencePosition(index: Int, total: Int, sentence: String): String = "$index trên $total. $sentence"
+        fun ocrSentencePosition(index: Int, total: Int, sentence: String): String =
+            ocrSentencePositionTemplate.format(index, total, sentence)
 
         companion object {
-            private val VI = CameraText(
-                ocrGuidanceSearch = "Hãy hướng camera vào vùng văn bản.",
-                obstacleTitle = "Chế độ phát hiện vật cản",
-                obstacleSummary = "Ứng dụng đang theo dõi vật cản liên tục. Nhấn giữ màn hình để mô tả cảnh xung quanh.",
-                initialStatus = "Đang chờ khung hình tiếp theo",
-                initialAnnouncement = "Chưa có cảnh báo mới",
-                initialDebug = "Debug: đang chờ dữ liệu",
-                ocrTitle = "Chế độ đọc văn bản",
-                ocrSummary = "Double tap để chụp ảnh văn bản. Vuốt trái/phải để đọc từng câu.",
-                sceneDescriptionTitle = "Chế độ mô tả khung cảnh",
-                sceneDescriptionSummary = "Lia camera chậm để ứng dụng chuẩn bị mô tả không gian phía trước.",
-                currencyTitle = "Chế độ nhận diện tiền",
-                currencySummary = "Đưa tờ tiền vào giữa khung hình để ứng dụng chuẩn bị nhận diện mệnh giá.",
-                waitingForClearTextFrame = "Đang chờ khung hình văn bản rõ nét",
-                waitingForSceneFrame = "Đang chờ khung hình khung cảnh",
-                waitingForClearMoneyImage = "Đang chờ hình ảnh tờ tiền rõ nét",
-                trackingObstaclesAhead = "Đang theo dõi vật cản phía trước",
-                frameUnclearRetrying = "Khung hình chưa rõ, đang thử lại",
-                cannotProcessCapturedImage = "Không thể xử lý ảnh đã chụp",
-                processingOcrImage = "Đang xử lý ảnh OCR",
-                unknownReason = "không rõ nguyên nhân",
-                unknownError = "lỗi không xác định",
-                cannotCaptureOcrTryAgain = "Không thể chụp ảnh OCR. Hãy thử lại.",
-                imageMayBeUnclearCapturing = "Ảnh có thể chưa rõ, đang chụp.",
-                readyToCaptureOcr = "Sẵn sàng chụp OCR",
-                readyForNewCapture = "Đã sẵn sàng chụp ảnh mới",
-                endOfText = "Đã đến cuối văn bản.",
-                startOfText = "Đây là đầu văn bản.",
-                switchedToObstacleMode = "Đã chuyển sang chế độ phát hiện vật cản",
-                scanningObstacles = "Đang quét vật cản",
-                switchedToReadTextMode = "Đã chuyển sang chế độ đọc văn bản",
-                ocrDebugWaiting = "OCR: đang chờ dữ liệu",
-                enabledEnglishToVietnameseTranslation = "Đã bật dịch tiếng Anh sang tiếng Việt khi đọc.",
-                disabledEnglishToVietnameseTranslation = "Đã tắt dịch tiếng Anh sang tiếng Việt.",
-                noFrameToDescribe = "Chưa có khung hình để mô tả. Hãy giữ camera ổn định vài giây.",
-                describingScenePleaseWait = "Đang mô tả cảnh, vui lòng chờ",
-                sceneDescriptionDone = "Đã mô tả cảnh xong",
-                sceneDescriptionFailed = "Mô tả cảnh thất bại, vui lòng thử lại",
-                gptRefusedReason = "GPT-4o trả về nội dung từ chối",
-                noTextDetectedTryAgain = "Không phát hiện văn bản. Hãy chụp lại rõ hơn.",
-                updatingOcrReading = "Đang cập nhật bản đọc OCR",
-                apiKeyReason = "sai API key hoặc chưa cấp quyền",
-                modelPermissionReason = "không có quyền dùng model hoặc endpoint",
-                quotaReason = "hết quota hoặc bị giới hạn tốc độ",
-                timeoutReason = "hết thời gian chờ phản hồi",
-                translationUnchangedReason = "Bản dịch không thay đổi nội dung",
-                cannotTranslateReadingOriginal = "Không thể dịch sang tiếng Việt. Đang đọc bản gốc tiếng Anh."
-            )
-
-            fun forLanguage(language: AppLanguage): CameraText = when (language) {
-                AppLanguage.VI -> VI
-                AppLanguage.EN -> VI
+            fun from(context: Context, language: AppLanguage): CameraText {
+                val resources = context.localizedFor(language).resources
+                return CameraText(
+                    ocrGuidanceSearch = resources.getString(R.string.camera_vm_ocr_guidance_search),
+                    obstacleTitle = resources.getString(R.string.camera_vm_obstacle_title),
+                    obstacleSummary = resources.getString(R.string.camera_vm_obstacle_summary),
+                    initialStatus = resources.getString(R.string.camera_vm_initial_status),
+                    initialAnnouncement = resources.getString(R.string.camera_vm_initial_announcement),
+                    initialDebug = resources.getString(R.string.camera_vm_initial_debug),
+                    ocrTitle = resources.getString(R.string.camera_vm_ocr_title),
+                    ocrSummary = resources.getString(R.string.camera_vm_ocr_summary),
+                    sceneDescriptionTitle = resources.getString(R.string.camera_vm_scene_description_title),
+                    sceneDescriptionSummary = resources.getString(R.string.camera_vm_scene_description_summary),
+                    currencyTitle = resources.getString(R.string.camera_vm_currency_title),
+                    currencySummary = resources.getString(R.string.camera_vm_currency_summary),
+                    waitingForClearTextFrame = resources.getString(R.string.camera_vm_waiting_for_clear_text_frame),
+                    waitingForSceneFrame = resources.getString(R.string.camera_vm_waiting_for_scene_frame),
+                    waitingForClearMoneyImage = resources.getString(R.string.camera_vm_waiting_for_clear_money_image),
+                    trackingObstaclesAhead = resources.getString(R.string.camera_vm_tracking_obstacles_ahead),
+                    frameUnclearRetrying = resources.getString(R.string.camera_vm_frame_unclear_retrying),
+                    cannotProcessCapturedImage = resources.getString(R.string.camera_vm_cannot_process_captured_image),
+                    processingOcrImage = resources.getString(R.string.camera_vm_processing_ocr_image),
+                    unknownReason = resources.getString(R.string.camera_vm_unknown_reason),
+                    unknownError = resources.getString(R.string.camera_vm_unknown_error),
+                    cannotCaptureOcrTryAgain = resources.getString(R.string.camera_vm_cannot_capture_ocr_try_again),
+                    imageMayBeUnclearCapturing = resources.getString(R.string.camera_vm_image_may_be_unclear_capturing),
+                    readyToCaptureOcr = resources.getString(R.string.camera_vm_ready_to_capture_ocr),
+                    readyForNewCapture = resources.getString(R.string.camera_vm_ready_for_new_capture),
+                    endOfText = resources.getString(R.string.camera_vm_end_of_text),
+                    startOfText = resources.getString(R.string.camera_vm_start_of_text),
+                    switchedToObstacleMode = resources.getString(R.string.camera_vm_switched_to_obstacle_mode),
+                    scanningObstacles = resources.getString(R.string.camera_vm_scanning_obstacles),
+                    switchedToReadTextMode = resources.getString(R.string.camera_vm_switched_to_read_text_mode),
+                    ocrDebugWaiting = resources.getString(R.string.camera_vm_ocr_debug_waiting),
+                    enabledEnglishToVietnameseTranslation = resources.getString(R.string.camera_vm_enabled_english_to_vietnamese_translation),
+                    disabledEnglishToVietnameseTranslation = resources.getString(R.string.camera_vm_disabled_english_to_vietnamese_translation),
+                    noFrameToDescribe = resources.getString(R.string.camera_vm_no_frame_to_describe),
+                    describingScenePleaseWait = resources.getString(R.string.camera_vm_describing_scene_please_wait),
+                    sceneDescriptionDone = resources.getString(R.string.camera_vm_scene_description_done),
+                    sceneDescriptionFailed = resources.getString(R.string.camera_vm_scene_description_failed),
+                    gptRefusedReason = resources.getString(R.string.camera_vm_gpt_refused_reason),
+                    noTextDetectedTryAgain = resources.getString(R.string.camera_vm_no_text_detected_try_again),
+                    updatingOcrReading = resources.getString(R.string.camera_vm_updating_ocr_reading),
+                    apiKeyReason = resources.getString(R.string.camera_vm_api_key_reason),
+                    modelPermissionReason = resources.getString(R.string.camera_vm_model_permission_reason),
+                    quotaReason = resources.getString(R.string.camera_vm_quota_reason),
+                    timeoutReason = resources.getString(R.string.camera_vm_timeout_reason),
+                    translationUnchangedReason = resources.getString(R.string.camera_vm_translation_unchanged_reason),
+                    cannotTranslateReadingOriginal = resources.getString(R.string.camera_vm_cannot_translate_reading_original),
+                    ocrFailedTemplate = resources.getString(R.string.camera_vm_ocr_failed_template),
+                    accuracyOcrFallbackTemplate = resources.getString(R.string.camera_vm_accuracy_ocr_fallback_template),
+                    quickModeLabel = resources.getString(R.string.camera_vm_quick_mode_label),
+                    accurateModeLabel = resources.getString(R.string.camera_vm_accurate_mode_label),
+                    switchedToOcrModeTemplate = resources.getString(R.string.camera_vm_switched_to_ocr_mode_template),
+                    switchedToQuickMode = resources.getString(R.string.camera_vm_switched_to_quick_mode),
+                    switchedToAccurateMode = resources.getString(R.string.camera_vm_switched_to_accurate_mode),
+                    gptFallbackStatusTemplate = resources.getString(R.string.camera_vm_gpt_fallback_status_template),
+                    capturedParagraphsTemplate = resources.getString(R.string.camera_vm_captured_paragraphs_template),
+                    ocrSentencePositionTemplate = resources.getString(R.string.camera_vm_ocr_sentence_position_template)
+                )
             }
         }
     }

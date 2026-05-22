@@ -262,7 +262,17 @@ class VoiceCommandViewModel(
                     unknown = "Chưa nhận được lệnh. Hãy nói lại rõ hơn.",
                     navigate = { destination -> "Chuẩn bị dẫn đường đến $destination." }
                 )
-                AppLanguage.EN -> AppLanguage.VI.voiceText
+                AppLanguage.EN -> VoiceText(
+                    readText = "Opening read text mode.",
+                    describeScene = "Opening scene description mode.",
+                    recognizeCurrency = "Opening currency recognition mode.",
+                    detectObstacle = "Opening obstacle detection mode.",
+                    nothingToRepeat = "There is nothing to repeat yet.",
+                    stopped = "Stopped.",
+                    help = "You can say: read for me to read text. What is in front to describe the scene. How much is this bill to recognize money. Is there an obstacle to detect obstacles. Go to place name to navigate. Repeat to hear again. Stop to stop and return home.",
+                    unknown = "I did not get that command. Please speak more clearly.",
+                    navigate = { destination -> "Preparing navigation to $destination." }
+                )
             }
     }
 }
