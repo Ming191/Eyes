@@ -1,9 +1,12 @@
 package com.example.eyes.ui.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.eyes.R
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.i18n.localizedFor
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.SpeechOutput
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,6 +23,7 @@ data class SettingsUiState(
 )
 
 class SettingsViewModel(
+    private val context: Context,
     private val dataStoreManager: DataStoreManager,
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticService
@@ -69,13 +73,14 @@ class SettingsViewModel(
     }
 
     fun previewFeedback(state: SettingsUiState) {
-        val speedLabel = String.format("%.2f", state.ttsSpeed)
+        val speedLabel = String.format(state.appLanguage.ttsLocale, "%.2f", state.ttsSpeed)
         val sensitivityLabel = (state.alertSensitivity * 100).toInt()
         speechOutput.setSpeechRate(state.ttsSpeed)
-        val text = when (state.appLanguage) {
-            AppLanguage.VI -> "Đang phát thử phản hồi. Tốc độ đọc $speedLabel lần. Độ nhạy cảnh báo $sensitivityLabel phần trăm."
-            AppLanguage.EN -> "Playing feedback preview. Speech speed $speedLabel times. Alert sensitivity $sensitivityLabel percent."
-        }
+        val text = context.localizedFor(state.appLanguage).getString(
+            R.string.settings_preview_feedback_en,
+            speedLabel,
+            sensitivityLabel
+        )
         speechOutput.speak(text, state.appLanguage.ttsLocale)
         hapticService.confirm()
     }

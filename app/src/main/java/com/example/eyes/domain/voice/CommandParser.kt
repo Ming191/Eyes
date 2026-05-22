@@ -12,9 +12,9 @@ import java.util.Locale
  *
  * Priority order when multiple keywords appear in a single utterance:
  *  1. Stop      — safety: should always interrupt
- *  2. Help      — user is lost; surface guidance
- *  3. Repeat    — user wants the last response again
- *  4. Navigate  — needs destination extraction, handled before generic verbs
+ *  2. Navigate  — needs destination extraction, handled before generic help words
+ *  3. Help      — user is lost; surface guidance
+ *  4. Repeat    — user wants the last response again
  *  5. ReadText / DescribeScene / RecognizeCurrency / DetectObstacle (any order)
  *  6. Unknown   — fallback, preserves [rawText]
  */
@@ -34,17 +34,7 @@ class CommandParser {
             return VoiceCommand.Stop
         }
 
-        // Priority 2: Help
-        if (containsAny(normalized, keywords.help)) {
-            return VoiceCommand.Help
-        }
-
-        // Priority 3: Repeat
-        if (containsAny(normalized, keywords.repeat)) {
-            return VoiceCommand.Repeat
-        }
-
-        // Priority 4: Navigate (must extract destination)
+        // Priority 2: Navigate (must extract destination before generic help words like "guide")
         val navigateMatch = keywords.navigateRegex.find(normalized)
         if (navigateMatch != null) {
             val destination = navigateMatch.groupValues[2]
@@ -55,6 +45,16 @@ class CommandParser {
             } else {
                 VoiceCommand.Navigate(destination)
             }
+        }
+
+        // Priority 3: Help
+        if (containsAny(normalized, keywords.help)) {
+            return VoiceCommand.Help
+        }
+
+        // Priority 4: Repeat
+        if (containsAny(normalized, keywords.repeat)) {
+            return VoiceCommand.Repeat
         }
 
         // Priority 5: feature commands (any order)
@@ -189,14 +189,14 @@ class CommandParser {
 
         private val EN_KEYWORDS = KeywordSet(
             stop = listOf("stop", "cancel", "be quiet", "silence"),
-            help = listOf("help", "guide", "what can i say", "commands"),
+            help = listOf("help", "what can i say", "commands"),
             repeat = listOf("repeat", "say again", "read again"),
             navigateRegex = Regex(
                 "(navigate to|go to|take me to|directions to|guide me to)\\s+(.+?)(?:\\s+(?:please))?\\s*$"
             ),
             readText = listOf("read text", "read this", "read for me", "read words"),
             describeScene = listOf("what is in front", "what's in front", "describe", "describe scene", "what is around"),
-            recognizeCurrency = listOf("currency", "money", "banknote", "how much money", "recognize money"),
+            recognizeCurrency = listOf("currency", "money", "banknote", "bill", "how much money", "how much is this bill", "recognize money"),
             detectObstacle = listOf("obstacle", "detect obstacle", "is there an obstacle", "can i move forward")
         )
     }

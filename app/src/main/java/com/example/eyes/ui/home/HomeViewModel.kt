@@ -1,10 +1,13 @@
 package com.example.eyes.ui.home
 
+import android.content.Context
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.eyes.R
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.i18n.localizedFor
 import com.example.eyes.system.SpeechOutput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -83,6 +86,7 @@ private fun defaultHomeActions(): List<HomeAction> = listOf(
 )
 
 class HomeViewModel(
+    private val context: Context,
     private val tts: SpeechOutput,
     private val dataStoreManager: DataStoreManager? = null
 ) : ViewModel() {
@@ -92,42 +96,89 @@ class HomeViewModel(
 
     private var hasSpokenGreeting = false
     private var appLanguage: AppLanguage = AppLanguage.VI
+    private var isAppLanguageLoaded = false
+    private var pendingGreeting = false
 
     init {
         dataStoreManager?.let { store ->
             viewModelScope.launch {
                 store.appLanguageFlow.collect { language ->
                     appLanguage = language
+                    isAppLanguageLoaded = true
                     _uiState.update { language.homeUiState }
+                    if (pendingGreeting) {
+                        pendingGreeting = false
+                        speakGreetingIfNeeded()
+                    }
                 }
             }
         }
     }
 
     fun onScreenShown() {
+        if (dataStoreManager != null && !isAppLanguageLoaded) {
+            pendingGreeting = true
+            return
+        }
+        speakGreetingIfNeeded()
+    }
+
+    private fun speakGreetingIfNeeded() {
         if (hasSpokenGreeting) return
         hasSpokenGreeting = true
-        val text = when (appLanguage) {
-            AppLanguage.VI -> "Chào mừng. Chọn Xem, Đọc, Đi, Giọng nói hoặc Cài đặt để bắt đầu."
-            AppLanguage.EN -> "Welcome. Choose scan, read, navigate, voice, or settings to start."
-        }
+        val text = context.localizedFor(appLanguage).getString(R.string.home_greeting)
         tts.speak(text, appLanguage.ttsLocale)
     }
 
     private val AppLanguage.homeUiState: HomeUiState
-        get() = when (this) {
-            AppLanguage.VI -> HomeUiState()
-            AppLanguage.EN -> HomeUiState(
-                welcomeTitle = "Clear, brief, safe mobility support",
-                welcomeSummary = "Choose a mode to scan path, read text, or prepare route before going out.",
-                actions = listOf(
-                    HomeAction(HomeActionType.ScanAround, "Scan around", "Open camera to detect obstacles, paths, and signals ahead.", "Prioritize nearby alerts", "Scan around. Open camera to detect obstacles, paths, and signals ahead."),
-                    HomeAction(HomeActionType.ReadTextQuick, "Read text quickly", "Use camera for fast reading with ML Kit.", "Fast OCR mode", "Read text quickly. Use camera to read labels, signs, or short documents with fast OCR."),
-                    HomeAction(HomeActionType.ReadTextAccuracy, "Read text accurately", "Use camera for more accurate reading with GPT-4o.", "Accurate OCR mode", "Read text accurately. Use camera to read documents with higher accuracy using GPT-4o."),
-                    HomeAction(HomeActionType.Navigate, "Go somewhere", "Open map to view destination and prepare navigation.", "Route and landmarks", "Go somewhere. Open map to view destination and prepare navigation."),
-                    HomeAction(HomeActionType.Voice, "Voice command", "Say a command to open reading, description, money recognition, or navigation.", "English supported", "Voice command. Say a command to choose suitable mode."),
-                    HomeAction(HomeActionType.Settings, "Adjust feedback", "Adjust speech speed and alert sensitivity for current environment.", "Sound and vibration", "Adjust feedback. Adjust speech speed and alert sensitivity.")
-                )
+        get() = context.localizedFor(this).homeUiStateFromResources()
+
+    private fun Context.homeUiStateFromResources(): HomeUiState = HomeUiState(
+        welcomeTitle = getString(R.string.home_welcome_title),
+        welcomeSummary = getString(R.string.home_welcome_summary),
+        actions = listOf(
+            HomeAction(
+                HomeActionType.ScanAround,
+                getString(R.string.home_action_scan_title),
+                getString(R.string.home_action_scan_description),
+                getString(R.string.home_action_scan_supporting),
+                getString(R.string.home_action_scan_accessibility)
+            ),
+            HomeAction(
+                HomeActionType.ReadTextQuick,
+                getString(R.string.home_action_read_quick_title),
+                getString(R.string.home_action_read_quick_description),
+                getString(R.string.home_action_read_quick_supporting),
+                getString(R.string.home_action_read_quick_accessibility)
+            ),
+            HomeAction(
+                HomeActionType.ReadTextAccuracy,
+                getString(R.string.home_action_read_accuracy_title),
+                getString(R.string.home_action_read_accuracy_description),
+                getString(R.string.home_action_read_accuracy_supporting),
+                getString(R.string.home_action_read_accuracy_accessibility)
+            ),
+            HomeAction(
+                HomeActionType.Navigate,
+                getString(R.string.home_action_navigate_title),
+                getString(R.string.home_action_navigate_description),
+                getString(R.string.home_action_navigate_supporting),
+                getString(R.string.home_action_navigate_accessibility)
+            ),
+            HomeAction(
+                HomeActionType.Voice,
+                getString(R.string.home_action_voice_title),
+                getString(R.string.home_action_voice_description),
+                getString(R.string.home_action_voice_supporting),
+                getString(R.string.home_action_voice_accessibility)
+            ),
+            HomeAction(
+                HomeActionType.Settings,
+                getString(R.string.home_action_settings_title),
+                getString(R.string.home_action_settings_description),
+                getString(R.string.home_action_settings_supporting),
+                getString(R.string.home_action_settings_accessibility)
             )
-        }
+        )
+    )
 }

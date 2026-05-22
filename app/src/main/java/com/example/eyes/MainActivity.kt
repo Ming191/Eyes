@@ -3,7 +3,6 @@ package com.example.eyes
 import android.annotation.SuppressLint
 import android.content.res.Configuration
 import android.os.Bundle
-import android.os.LocaleList
 import android.os.SystemClock
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
@@ -17,6 +16,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.data.DataStoreManager
+import com.example.eyes.i18n.localizedFor
 import com.example.eyes.service.ObstacleDetectionService
 import com.example.eyes.ui.navigation.AppNavGraph
 import com.example.eyes.ui.theme.EyesTheme
@@ -40,10 +40,7 @@ class MainActivity : ComponentActivity() {
             val activityResultRegistryOwner = checkNotNull(LocalActivityResultRegistryOwner.current)
             val configuration = LocalConfiguration.current
             val localizedContext = remember(baseContext, configuration, language) {
-                val localizedConfiguration = Configuration(configuration).apply {
-                    setLocales(LocaleList(language.ttsLocale))
-                }
-                baseContext.createConfigurationContext(localizedConfiguration)
+                baseContext.localizedFor(language)
             }
 
             CompositionLocalProvider(

@@ -6,10 +6,12 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
+import android.os.LocaleList
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -35,7 +37,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.koin.android.ext.android.inject
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -84,6 +88,7 @@ class ObstacleDetectionService : LifecycleService() {
         super.onCreate()
         running = true
 
+        appLanguage = runBlocking { dataStoreManager.appLanguageFlow.first() }
         createNotificationChannel()
         serviceScope.launch {
             dataStoreManager.alertSensitivityFlow.collect { value ->
@@ -265,9 +270,10 @@ class ObstacleDetectionService : LifecycleService() {
      * @return A Notification configured for the foreground obstacle detection service using CHANNEL_ID.
      */
     private fun buildNotification(): Notification {
+        val localizedContext = localizedContext()
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.obstacle_service_notification_title))
-            .setContentText(getString(R.string.obstacle_service_notification_text))
+            .setContentTitle(localizedContext.getString(R.string.obstacle_service_notification_title))
+            .setContentText(localizedContext.getString(R.string.obstacle_service_notification_text))
             .setSmallIcon(R.mipmap.ic_launcher)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -283,14 +289,22 @@ class ObstacleDetectionService : LifecycleService() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
 
         val manager = getSystemService(NotificationManager::class.java)
+        val localizedContext = localizedContext()
         val channel = NotificationChannel(
             CHANNEL_ID,
-            getString(R.string.obstacle_service_channel_name),
+            localizedContext.getString(R.string.obstacle_service_channel_name),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = getString(R.string.obstacle_service_channel_description)
+            description = localizedContext.getString(R.string.obstacle_service_channel_description)
         }
         manager.createNotificationChannel(channel)
+    }
+
+    private fun localizedContext(): Context {
+        val configuration = Configuration(resources.configuration).apply {
+            setLocales(LocaleList(appLanguage.ttsLocale))
+        }
+        return createConfigurationContext(configuration)
     }
 
     /**

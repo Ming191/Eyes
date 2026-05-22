@@ -43,7 +43,7 @@ class HazardAlertPipeline(
             }
             return AlertResult(
                 statusMessage = if (safeStreak >= SAFE_STATUS_STREAK_FRAMES) {
-                    if (language == AppLanguage.EN) "Path looks clear. Keep scanning your surroundings" else "Lối đi tạm ổn, tiếp tục quét môi trường"
+                    "Lối đi tạm ổn, tiếp tục quét môi trường"
                 } else {
                     null
                 },
@@ -143,12 +143,12 @@ class HazardAlertPipeline(
     ): String {
         return when {
             fusedAlert.primarySource == AlertSource.YOLO && yoloCandidate != null -> {
-                if (language == AppLanguage.EN) "Caution! ${yoloCandidate.labelEn} at ${yoloCandidate.zone.label(language)}." else "Chú ý! ${yoloCandidate.labelVi} ở ${yoloCandidate.zone.label(language)}."
+                "Chú ý! ${yoloCandidate.labelVi} ở ${yoloCandidate.zone.label(language)}."
             }
             fusedAlert.primarySource == AlertSource.DEPTH && depthLabelCandidate != null -> {
-                if (language == AppLanguage.EN) "Caution! ${depthLabelCandidate.labelEn} near ${fusedAlert.primaryZone.label(language)}." else "Chú ý! ${depthLabelCandidate.labelVi} gần ${fusedAlert.primaryZone.label(language)}."
+                "Chú ý! ${depthLabelCandidate.labelVi} gần ${fusedAlert.primaryZone.label(language)}."
             }
-            else -> fusedAlert.speechText ?: if (language == AppLanguage.EN) "Caution! Obstacle nearby ${fusedAlert.primaryZone.label(language)}." else "Chú ý! Có vật cản gần ${fusedAlert.primaryZone.label(language)}."
+            else -> fusedAlert.speechText ?: "Chú ý! Có vật cản gần ${fusedAlert.primaryZone.label(language)}."
         }
     }
 
@@ -161,11 +161,11 @@ class HazardAlertPipeline(
         return when (fusedAlert.primarySource) {
             AlertSource.YOLO -> {
                 val label = if (language == AppLanguage.EN) yoloCandidate?.labelEn ?: "obstacle" else yoloCandidate?.labelVi ?: "vật cản"
-                if (language == AppLanguage.EN) "Detected $label ${fusedAlert.primaryZone.label(language)}" else "Phát hiện $label ${fusedAlert.primaryZone.label(language)}"
+                "Phát hiện $label ${fusedAlert.primaryZone.label(language)}"
             }
             AlertSource.DEPTH -> {
                 val label = if (language == AppLanguage.EN) depthLabelCandidate?.labelEn ?: "obstacle" else depthLabelCandidate?.labelVi ?: "vật cản"
-                if (language == AppLanguage.EN) "Detected $label near ${fusedAlert.primaryZone.label(language)}" else "Phát hiện $label gần ${fusedAlert.primaryZone.label(language)}"
+                "Phát hiện $label gần ${fusedAlert.primaryZone.label(language)}"
             }
         }
     }

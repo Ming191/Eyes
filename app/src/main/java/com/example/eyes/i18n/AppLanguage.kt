@@ -9,8 +9,8 @@ enum class AppLanguage(
     val ttsLocale: Locale,
     val sttLanguageTag: String
 ) {
-    VI("vi", "Vietnamese", "Tiếng Việt", Locale.Builder().setLanguage("vi").setRegion("VN").build(), "vi-VN"),
-    EN("en", "English", "English", Locale.US, "en-US");
+    VI("vi", "Tiếng Việt", "Tiếng Việt", Locale.Builder().setLanguage("vi").setRegion("VN").build(), "vi-VN"),
+    EN("en", "Tiếng Anh", "English", Locale.US, "en-US");
 
     companion object {
         fun fromStorageValue(value: String?): AppLanguage = entries.firstOrNull { it.storageValue == value } ?: VI

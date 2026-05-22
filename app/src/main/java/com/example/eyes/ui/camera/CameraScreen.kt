@@ -272,6 +272,7 @@ fun CameraScreen(
                 onClick = { viewModel.prepareForNextOcrCapture() },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .heightIn(min = 88.dp)
                     .padding(bottom = 164.dp)
                     .semantics { contentDescription = captureAnotherDescription }
             ) {

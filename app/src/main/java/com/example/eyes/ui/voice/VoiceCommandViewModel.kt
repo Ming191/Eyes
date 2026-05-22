@@ -56,6 +56,8 @@ class VoiceCommandViewModel(
     /** Text of the last response we spoke, used by the Repeat command. */
     private var lastSpokenText: String = ""
     private var appLanguage: AppLanguage = AppLanguage.VI
+    private var isAppLanguageLoaded = false
+    private var pendingStartListening = false
 
     init {
         // Mirror recognizer state into UI state.
@@ -75,6 +77,11 @@ class VoiceCommandViewModel(
         viewModelScope.launch {
             dataStoreManager.appLanguageFlow.collect { language ->
                 appLanguage = language
+                isAppLanguageLoaded = true
+                if (pendingStartListening) {
+                    pendingStartListening = false
+                    startListening()
+                }
             }
         }
     }
@@ -99,6 +106,11 @@ class VoiceCommandViewModel(
     }
 
     fun startListening() {
+        if (!isAppLanguageLoaded) {
+            pendingStartListening = true
+            return
+        }
+        if (_uiState.value.sttState != SttState.Idle && _uiState.value.sttState !is SttState.Error) return
         hapticService.confirm()
         _uiState.update { it.copy(partialText = "", finalText = "", lastCommand = null) }
         sttService.startListening(appLanguage)
@@ -250,17 +262,7 @@ class VoiceCommandViewModel(
                     unknown = "Chưa nhận được lệnh. Hãy nói lại rõ hơn.",
                     navigate = { destination -> "Chuẩn bị dẫn đường đến $destination." }
                 )
-                AppLanguage.EN -> VoiceText(
-                    readText = "Opening text reading mode.",
-                    describeScene = "Opening scene description mode.",
-                    recognizeCurrency = "Opening currency recognition mode.",
-                    detectObstacle = "Opening obstacle detection mode.",
-                    nothingToRepeat = "There is nothing to repeat yet.",
-                    stopped = "Stopped.",
-                    help = "You can say: read this, what is in front, how much money is this, is there an obstacle, navigate to a place, repeat, stop, or help.",
-                    unknown = "I did not understand the command. Please say it again clearly.",
-                    navigate = { destination -> "Preparing directions to $destination." }
-                )
+                AppLanguage.EN -> AppLanguage.VI.voiceText
             }
     }
 }

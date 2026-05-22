@@ -52,7 +52,7 @@ class HazardFusionEngine {
                 primaryZone = yoloDetection.zone,
                 speechText = when (language) {
                     AppLanguage.VI -> "Phát hiện ${yoloDetection.labelVi} ở ${yoloDetection.zone.label(language)}"
-                    AppLanguage.EN -> "Detected ${yoloDetection.labelEn} at ${yoloDetection.zone.label(language)}"
+                    AppLanguage.EN -> "Phát hiện ${yoloDetection.labelVi} ở ${yoloDetection.zone.label(language)}"
                 },
                 secondaryHapticZone = secondary
             )
@@ -65,7 +65,7 @@ class HazardFusionEngine {
             primaryZone = depthHazard.zone,
             speechText = when (language) {
                 AppLanguage.VI -> "Có vật cản gần ở ${depthHazard.zone.label(language)}"
-                AppLanguage.EN -> "Obstacle nearby at ${depthHazard.zone.label(language)}"
+                AppLanguage.EN -> "Có vật cản gần ở ${depthHazard.zone.label(language)}"
             },
             secondaryHapticZone = null
         )

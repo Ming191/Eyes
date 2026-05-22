@@ -63,7 +63,12 @@ class CommandParserTest {
 
     @Test
     fun parse_readText_phrase2_returnsReadText() {
-        assertEquals(VoiceCommand.ReadText, parser.parse("đọc văn bản này"))
+        // GIVEN
+        val input = "đọc văn bản này"
+        // WHEN
+        val result = parser.parse(input)
+        // THEN
+        assertEquals(VoiceCommand.ReadText, result)
     }
 
     @Test
@@ -80,7 +85,12 @@ class CommandParserTest {
 
     @Test
     fun parse_describeScene_phrase1_returnsDescribeScene() {
-        assertEquals(VoiceCommand.DescribeScene, parser.parse("trước mặt có gì"))
+        // GIVEN
+        val input = "trước mặt có gì"
+        // WHEN
+        val result = parser.parse(input)
+        // THEN
+        assertEquals(VoiceCommand.DescribeScene, result)
     }
 
     @Test
@@ -97,7 +107,12 @@ class CommandParserTest {
 
     @Test
     fun parse_currency_phrase1_returnsRecognizeCurrency() {
-        assertEquals(VoiceCommand.RecognizeCurrency, parser.parse("tờ tiền này bao nhiêu"))
+        // GIVEN
+        val input = "tờ tiền này bao nhiêu"
+        // WHEN
+        val result = parser.parse(input)
+        // THEN
+        assertEquals(VoiceCommand.RecognizeCurrency, result)
     }
 
     @Test
@@ -265,15 +280,45 @@ class CommandParserTest {
 
     @Test
     fun parse_englishReadText_returnsReadText() {
-        assertEquals(VoiceCommand.ReadText, parser.parse("read this", AppLanguage.EN))
+        // GIVEN
+        val input = "read this"
+        // WHEN
+        val result = parser.parse(input, AppLanguage.EN)
+        // THEN
+        assertEquals(VoiceCommand.ReadText, result)
     }
 
     @Test
     fun parse_englishNavigate_extractsDestination() {
+        // GIVEN
+        val input = "navigate to Central Park"
+        // WHEN
+        val result = parser.parse(input, AppLanguage.EN)
+        // THEN
         assertEquals(
             VoiceCommand.Navigate("central park"),
-            parser.parse("navigate to Central Park", AppLanguage.EN)
+            result
         )
+    }
+
+    @Test
+    fun parse_englishGuideMeTo_extractsDestination() {
+        // GIVEN
+        val input = "guide me to Central Park"
+        // WHEN
+        val result = parser.parse(input, AppLanguage.EN)
+        // THEN
+        assertEquals(VoiceCommand.Navigate("central park"), result)
+    }
+
+    @Test
+    fun parse_englishHowMuchIsThisBill_returnsRecognizeCurrency() {
+        // GIVEN
+        val input = "How much is this bill"
+        // WHEN
+        val result = parser.parse(input, AppLanguage.EN)
+        // THEN
+        assertEquals(VoiceCommand.RecognizeCurrency, result)
     }
 
     @Test
