@@ -102,8 +102,16 @@ class TtsService(context: Context) : SpeechOutput {
         speak(text = text, priority = priority, locale = null)
     }
 
+    override fun speak(text: String, locale: Locale) {
+        speak(text = text, priority = SpeechOutput.Priority.NORMAL, locale = locale)
+    }
+
     override suspend fun speakAndAwait(text: String, priority: SpeechOutput.Priority) {
         speakAndAwait(text = text, priority = priority, locale = null)
+    }
+
+    override suspend fun speakAndAwait(text: String, locale: Locale) {
+        speakAndAwait(text = text, priority = SpeechOutput.Priority.NORMAL, locale = locale)
     }
 
     suspend fun speakAndAwait(
@@ -147,6 +155,10 @@ class TtsService(context: Context) : SpeechOutput {
 
     fun speak(text: String, priority: Priority, locale: Locale? = null) {
         speak(text, priority.toSpeechOutputPriority(), locale)
+    }
+
+    fun isSpeaking(): Boolean = synchronized(lock) {
+        inFlightUtteranceIds.isNotEmpty() || pendingUtterances.isNotEmpty()
     }
 
     suspend fun speakAndAwait(text: String, priority: Priority, locale: Locale? = null) {

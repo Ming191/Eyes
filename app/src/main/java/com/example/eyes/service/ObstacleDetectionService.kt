@@ -6,10 +6,12 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
+import android.os.LocaleList
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -27,6 +29,7 @@ import com.example.eyes.camera.CameraManager
 import com.example.eyes.camera.FrameThrottle
 import com.example.eyes.camera.toBitmapWithRotation
 import com.example.eyes.data.DataStoreManager
+import com.example.eyes.i18n.AppLanguage
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
 import kotlinx.coroutines.CoroutineScope
@@ -34,7 +37,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.koin.android.ext.android.inject
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -63,11 +68,18 @@ class ObstacleDetectionService : LifecycleService() {
         latestDepthHazardSnapshot = { depthHazardSnapshot.get() },
         isHeadsetConnected = { isHeadsetConnected() },
         dispatchHaptic = ::dispatchObstacleHaptic,
-        speakUrgent = { announcement -> ttsService.speak(announcement, TtsService.Priority.URGENT) }
+        speakUrgent = { announcement ->
+            if (!ttsService.isSpeaking()) {
+                ttsService.speak(announcement, TtsService.Priority.URGENT)
+            }
+        }
     )
 
     @Volatile
     private var alertSensitivity: Float = HazardAlertPipeline.DEFAULT_ALERT_SENSITIVITY
+
+    @Volatile
+    private var appLanguage: AppLanguage = AppLanguage.VI
 
     /**
      * Initializes the service when it is created.
@@ -80,10 +92,16 @@ class ObstacleDetectionService : LifecycleService() {
         super.onCreate()
         running = true
 
+        appLanguage = runBlocking { dataStoreManager.appLanguageFlow.first() }
         createNotificationChannel()
         serviceScope.launch {
             dataStoreManager.alertSensitivityFlow.collect { value ->
                 alertSensitivity = value
+            }
+        }
+        serviceScope.launch {
+            dataStoreManager.appLanguageFlow.collect { language ->
+                appLanguage = language
             }
         }
     }
@@ -169,7 +187,8 @@ class ObstacleDetectionService : LifecycleService() {
 
                     hazardAlertPipeline.process(
                         detections = detections,
-                        alertSensitivity = alertSensitivity
+                        alertSensitivity = alertSensitivity,
+                        language = appLanguage
                     )
                 } catch (e: CancellationException) {
                     throw e
@@ -255,9 +274,10 @@ class ObstacleDetectionService : LifecycleService() {
      * @return A Notification configured for the foreground obstacle detection service using CHANNEL_ID.
      */
     private fun buildNotification(): Notification {
+        val localizedContext = localizedContext()
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Eyes đang hoạt động")
-            .setContentText("Chế độ phát hiện vật cản đang bật")
+            .setContentTitle(localizedContext.getString(R.string.obstacle_service_notification_title))
+            .setContentText(localizedContext.getString(R.string.obstacle_service_notification_text))
             .setSmallIcon(R.mipmap.ic_launcher)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -273,14 +293,22 @@ class ObstacleDetectionService : LifecycleService() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
 
         val manager = getSystemService(NotificationManager::class.java)
+        val localizedContext = localizedContext()
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Obstacle Detection",
+            localizedContext.getString(R.string.obstacle_service_channel_name),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Thông báo dịch vụ phát hiện vật cản"
+            description = localizedContext.getString(R.string.obstacle_service_channel_description)
         }
         manager.createNotificationChannel(channel)
+    }
+
+    private fun localizedContext(): Context {
+        val configuration = Configuration(resources.configuration).apply {
+            setLocales(LocaleList(appLanguage.ttsLocale))
+        }
+        return createConfigurationContext(configuration)
     }
 
     /**

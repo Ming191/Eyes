@@ -67,7 +67,7 @@ val appModule = module {
     }
     single { SceneRepository(androidContext(), get()) }
     viewModel { AppNavViewModel(get(), get()) }
-    viewModel { HomeViewModel(get()) }
+    viewModel { HomeViewModel(androidContext(), get(), get()) }
     viewModel {
         CameraViewModel(
             yoloDetector = get(),
@@ -80,9 +80,10 @@ val appModule = module {
             hapticService = get(),
             dataStoreManager = get(),
             sceneRepository = get(),
-            audioManager = get()
+            audioManager = get(),
+            context = androidContext()
         )
     }
-    viewModel { SettingsViewModel(get(), get(), get()) }
+    viewModel { SettingsViewModel(androidContext(), get(), get(), get()) }
     viewModel { com.example.eyes.ui.voice.VoiceCommandViewModel(get(), get(), get(), get(), get()) }
 }

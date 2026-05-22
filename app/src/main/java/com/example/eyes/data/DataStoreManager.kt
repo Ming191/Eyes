@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.eyes.domain.voice.VoiceCommand
+import com.example.eyes.i18n.AppLanguage
 import com.example.eyes.ocr.OcrMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -23,6 +24,7 @@ class DataStoreManager(private val context: Context) {
         val OcrMode = stringPreferencesKey("ocr_mode")
         val OcrTranslateToVietnamese = booleanPreferencesKey("ocr_translate_to_vi")
         val LastVoiceCommand = stringPreferencesKey("last_voice_command")
+        val AppLanguage = stringPreferencesKey("app_language")
     }
 
     val ttsSpeedFlow: Flow<Float> = context.dataStore.data.map { preferences: Preferences ->
@@ -54,6 +56,10 @@ class DataStoreManager(private val context: Context) {
             preferences[PreferenceKeys.LastVoiceCommand]?.let(::decodeVoiceCommand)
         }
 
+    val appLanguageFlow: Flow<AppLanguage> = context.dataStore.data.map { preferences: Preferences ->
+        AppLanguage.fromStorageValue(preferences[PreferenceKeys.AppLanguage])
+    }
+
     suspend fun setTtsSpeed(value: Float) {
         context.dataStore.edit { preferences -> preferences[PreferenceKeys.TtsSpeed] = value }
     }
@@ -80,6 +86,10 @@ class DataStoreManager(private val context: Context) {
 
     suspend fun clearLastVoiceCommand() {
         context.dataStore.edit { preferences -> preferences.remove(PreferenceKeys.LastVoiceCommand) }
+    }
+
+    suspend fun setAppLanguage(language: AppLanguage) {
+        context.dataStore.edit { preferences -> preferences[PreferenceKeys.AppLanguage] = language.storageValue }
     }
 
     private companion object {

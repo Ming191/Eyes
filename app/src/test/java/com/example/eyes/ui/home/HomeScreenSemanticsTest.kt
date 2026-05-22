@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.test.core.app.ApplicationProvider
 import com.example.eyes.system.SpeechOutput
 import org.junit.After
 import org.junit.Before
@@ -36,7 +37,7 @@ class HomeScreenSemanticsTest {
     @Test
     fun xemXungQuanh_hasAccessibleDescription_andClickAction() {
         // GIVEN
-        val viewModel = HomeViewModel(FakeSpeechOutput())
+        val viewModel = HomeViewModel(ApplicationProvider.getApplicationContext(), FakeSpeechOutput())
 
         // WHEN
         composeTestRule.setContent {

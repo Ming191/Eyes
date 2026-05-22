@@ -1,15 +1,19 @@
 package com.example.eyes.ui.home
 
+import androidx.test.core.app.ApplicationProvider
 import com.example.eyes.system.SpeechOutput
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class HomeViewModelTest {
 
     @Test
     fun onScreenShown_callsSpeakOnce_withExpectedVietnameseMessage() {
         val fakeSpeechOutput = FakeSpeechOutput()
-        val viewModel = HomeViewModel(fakeSpeechOutput)
+        val viewModel = HomeViewModel(ApplicationProvider.getApplicationContext(), fakeSpeechOutput)
 
         viewModel.onScreenShown()
         viewModel.onScreenShown()

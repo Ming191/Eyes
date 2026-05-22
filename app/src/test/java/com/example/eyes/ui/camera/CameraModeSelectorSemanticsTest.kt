@@ -46,10 +46,10 @@ class CameraModeSelectorSemanticsTest {
         }
 
         val obstacleNode = composeTestRule.onNodeWithContentDescription(
-            "Chuyển sang chế độ phát hiện vật cản"
+            "Switch to obstacle detection mode"
         )
         val ocrNode = composeTestRule.onNodeWithContentDescription(
-            "Chuyển sang chế độ đọc văn bản OCR"
+            "Switch to OCR text reading mode"
         )
 
         obstacleNode
@@ -58,7 +58,7 @@ class CameraModeSelectorSemanticsTest {
             .assert(
                 SemanticsMatcher.expectValue(
                     SemanticsProperties.StateDescription,
-                    "Đang chọn"
+                    "Selected"
                 )
             )
 
@@ -68,7 +68,7 @@ class CameraModeSelectorSemanticsTest {
             .assert(
                 SemanticsMatcher.expectValue(
                     SemanticsProperties.StateDescription,
-                    "Chưa chọn"
+                    "Not selected"
                 )
             )
     }
@@ -85,7 +85,7 @@ class CameraModeSelectorSemanticsTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription("Chuyển sang chế độ đọc văn bản OCR")
+        composeTestRule.onNodeWithContentDescription("Switch to OCR text reading mode")
             .performClick()
 
         assertEquals(CameraMode.OCR, selectedMode)
