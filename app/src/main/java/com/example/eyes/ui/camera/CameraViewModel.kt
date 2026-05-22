@@ -149,7 +149,11 @@ class CameraViewModel(
         latestDepthHazardSnapshot = { latestDepthHazardSnapshot.get() },
         isHeadsetConnected = { isHeadsetConnected() },
         dispatchHaptic = ::dispatchObstacleHaptic,
-        speakUrgent = { announcement -> ttsService.speak(announcement, SpeechOutput.Priority.URGENT, appLanguage.get().ttsLocale) }
+        speakUrgent = { announcement ->
+            if (!ttsService.isSpeaking()) {
+                ttsService.speak(announcement, SpeechOutput.Priority.URGENT, appLanguage.get().ttsLocale)
+            }
+        }
     )
 
     private val alertSensitivity = MutableStateFlow(HazardAlertPipeline.DEFAULT_ALERT_SENSITIVITY)

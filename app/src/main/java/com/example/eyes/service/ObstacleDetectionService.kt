@@ -68,7 +68,11 @@ class ObstacleDetectionService : LifecycleService() {
         latestDepthHazardSnapshot = { depthHazardSnapshot.get() },
         isHeadsetConnected = { isHeadsetConnected() },
         dispatchHaptic = ::dispatchObstacleHaptic,
-        speakUrgent = { announcement -> ttsService.speak(announcement, TtsService.Priority.URGENT) }
+        speakUrgent = { announcement ->
+            if (!ttsService.isSpeaking()) {
+                ttsService.speak(announcement, TtsService.Priority.URGENT)
+            }
+        }
     )
 
     @Volatile

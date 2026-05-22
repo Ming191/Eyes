@@ -157,6 +157,10 @@ class TtsService(context: Context) : SpeechOutput {
         speak(text, priority.toSpeechOutputPriority(), locale)
     }
 
+    fun isSpeaking(): Boolean = synchronized(lock) {
+        inFlightUtteranceIds.isNotEmpty() || pendingUtterances.isNotEmpty()
+    }
+
     suspend fun speakAndAwait(text: String, priority: Priority, locale: Locale? = null) {
         speakAndAwait(text, priority.toSpeechOutputPriority(), locale)
     }
@@ -269,7 +273,6 @@ class TtsService(context: Context) : SpeechOutput {
                 completionWaiters.values.forEach { it.complete(Unit) }
                 completionWaiters.clear()
                 inFlightUtteranceIds.clear()
-                tts.stop()
                 TextToSpeech.QUEUE_FLUSH
             }
             SpeechOutput.Priority.HIGH, SpeechOutput.Priority.NORMAL -> TextToSpeech.QUEUE_ADD
