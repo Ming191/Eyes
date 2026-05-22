@@ -12,6 +12,7 @@ enum class HomeActionType {
     ReadTextQuick,
     ReadTextAccuracy,
     Navigate,
+    Voice,
     Settings
 }
 
@@ -61,6 +62,13 @@ private fun defaultHomeActions(): List<HomeAction> = listOf(
         accessibilityLabel = "Đi đến nơi. Mở bản đồ để xem điểm đến và chuẩn bị dẫn đường."
     ),
     HomeAction(
+        type = HomeActionType.Voice,
+        title = "Ra lệnh bằng giọng nói",
+        description = "Nói một câu lệnh để mở chế độ đọc, mô tả, nhận diện tiền hoặc dẫn đường.",
+        supportingLabel = "Hỗ trợ tiếng Việt",
+        accessibilityLabel = "Ra lệnh bằng giọng nói. Nói một câu lệnh để chọn chế độ phù hợp."
+    ),
+    HomeAction(
         type = HomeActionType.Settings,
         title = "Tinh chỉnh phản hồi",
         description = "Điều chỉnh tốc độ đọc và độ nhạy cảnh báo để phù hợp với môi trường hiện tại.",
@@ -81,6 +89,6 @@ class HomeViewModel(
     fun onScreenShown() {
         if (hasSpokenGreeting) return
         hasSpokenGreeting = true
-        tts.speak("Chào mừng. Chọn Xem, Đọc, Đi hoặc Cài đặt để bắt đầu.")
+        tts.speak("Chào mừng. Chọn Xem, Đọc, Đi, Giọng nói hoặc Cài đặt để bắt đầu.")
     }
 }

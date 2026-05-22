@@ -36,6 +36,7 @@ import com.example.eyes.ui.map.MapScreen
 import com.example.eyes.ocr.OcrMode
 import com.example.eyes.ui.onboarding.OnboardingScreen
 import com.example.eyes.ui.settings.SettingsScreen
+import com.example.eyes.ui.voice.VoiceCommandScreen
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -162,6 +163,11 @@ private fun MainNavigationScaffold(
                         },
                         onOpenSettings = {
                             navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
+                        },
+                        onOpenVoice = {
+                            navController.navigate(VoiceRoute) {
+                                launchSingleTop = true
+                            }
                         }
                     )
                 }
@@ -176,6 +182,25 @@ private fun MainNavigationScaffold(
                 }
                 composable<SettingsRoute> {
                     SettingsScreen()
+                }
+                composable<VoiceRoute> {
+                    VoiceCommandScreen(
+                        onNavigateToCamera = {
+                            navController.navigate(CameraRoute) {
+                                popUpTo(HomeRoute) { saveState = true }
+                                launchSingleTop = true
+                            }
+                        },
+                        onNavigateToMap = {
+                            navController.navigate(MapRoute) {
+                                popUpTo(HomeRoute) { saveState = true }
+                                launchSingleTop = true
+                            }
+                        },
+                        onNavigateBackHome = {
+                            navController.popBackStack(HomeRoute, inclusive = false)
+                        }
+                    )
                 }
             }
         }

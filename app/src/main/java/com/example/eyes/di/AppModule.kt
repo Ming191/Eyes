@@ -7,6 +7,7 @@ import com.example.eyes.ai.MiDasDepthEstimator
 import com.example.eyes.ai.YoloDetector
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.data.DataStoreManager
+import com.example.eyes.domain.voice.CommandParser
 import com.example.eyes.ocr.Gpt4oOcrEngine
 import com.example.eyes.ocr.GptTranslationEngine
 import com.example.eyes.ocr.MlKitOcrEngine
@@ -17,6 +18,7 @@ import com.example.eyes.data.remote.SceneApi
 import com.example.eyes.data.remote.SceneRepository
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.SpeechOutput
+import com.example.eyes.system.SttService
 import com.example.eyes.system.TtsService
 import com.example.eyes.ui.camera.CameraViewModel
 import com.example.eyes.ui.home.HomeViewModel
@@ -40,6 +42,8 @@ val appModule = module {
     single { HapticService(androidContext()) }
     single { DataStoreManager(androidContext()) }
     single { CameraManager(androidContext()) }
+    factory { SttService(androidContext()) }
+    single { CommandParser() }
     factory<OcrEngine>(named("quick-ocr")) { MlKitOcrEngine() }
     factory<OcrEngine>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
     factory { MlKitOcrGuidanceAnalyzer() }
@@ -80,4 +84,5 @@ val appModule = module {
         )
     }
     viewModel { SettingsViewModel(get(), get(), get()) }
+    viewModel { com.example.eyes.ui.voice.VoiceCommandViewModel(get(), get(), get(), get(), get()) }
 }

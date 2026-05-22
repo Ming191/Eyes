@@ -15,6 +15,18 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
 
+    <!--
+        Required for SpeechRecognizer on Android 11+ (API 30+).
+        Without this, isRecognitionAvailable() may falsely return false
+        on devices that DO have Google Speech Services installed.
+        See: https://developer.android.com/reference/android/speech/SpeechRecognizer#isRecognitionAvailable(android.content.Context)
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:name=".EyesApp"
         android:allowBackup="true"

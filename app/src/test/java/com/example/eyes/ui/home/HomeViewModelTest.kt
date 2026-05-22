@@ -16,15 +16,17 @@ class HomeViewModelTest {
 
         assertEquals(1, fakeSpeechOutput.spokenTexts.size)
         assertEquals(
-            "Chào mừng. Chọn Xem, Đọc, Đi hoặc Cài đặt để bắt đầu.",
+            "Chào mừng. Chọn Xem, Đọc, Đi, Giọng nói hoặc Cài đặt để bắt đầu.",
             fakeSpeechOutput.spokenTexts.single()
         )
     }
 
     private class FakeSpeechOutput : SpeechOutput {
         val spokenTexts = mutableListOf<String>()
-
         override fun speak(text: String) {
+            spokenTexts.add(text)
+        }
+        override fun speak(text: String, priority: SpeechOutput.Priority) {
             spokenTexts.add(text)
         }
     }

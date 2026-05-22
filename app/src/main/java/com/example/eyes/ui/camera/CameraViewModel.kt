@@ -24,6 +24,7 @@ import com.example.eyes.ai.Zone
 import com.example.eyes.camera.toBitmapWithRotation
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.data.remote.SceneRepository
+import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.ocr.MlKitOcrGuidanceAnalyzer
 import com.example.eyes.ocr.OcrEngine
 import com.example.eyes.ocr.OcrGuidanceEvaluator
@@ -34,6 +35,7 @@ import com.example.eyes.ocr.OcrResult
 import com.example.eyes.ocr.OcrTextBounds
 import com.example.eyes.ocr.OcrTranslator
 import com.example.eyes.system.HapticService
+import com.example.eyes.system.SpeechOutput
 import com.example.eyes.system.TtsService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -142,7 +144,7 @@ class CameraViewModel(
         latestDepthHazardSnapshot = { latestDepthHazardSnapshot.get() },
         isHeadsetConnected = { isHeadsetConnected() },
         dispatchHaptic = ::dispatchObstacleHaptic,
-        speakUrgent = { announcement -> ttsService.speak(announcement, TtsService.Priority.URGENT) }
+        speakUrgent = { announcement -> ttsService.speak(announcement, SpeechOutput.Priority.URGENT) }
     )
 
     private val alertSensitivity = MutableStateFlow(HazardAlertPipeline.DEFAULT_ALERT_SENSITIVITY)
@@ -167,6 +169,70 @@ class CameraViewModel(
             dataStoreManager.ocrTranslateToVietnameseFlow.collect { enabled ->
                 _uiState.update { it.copy(ocrTranslateToVietnamese = enabled) }
             }
+        }
+        viewModelScope.launch {
+            dataStoreManager.lastVoiceCommandFlow.collect { command ->
+                when (command) {
+                    VoiceCommand.ReadText -> applyVoiceCameraCommand(
+                        mode = CameraMode.OCR,
+                        statusMessage = "Đang chờ khung hình văn bản rõ nét"
+                    )
+
+                    VoiceCommand.DescribeScene -> applyVoiceCameraCommand(
+                        mode = CameraMode.OBSTACLE,
+                        title = "Chế độ mô tả khung cảnh",
+                        summary = "Lia camera chậm để ứng dụng chuẩn bị mô tả không gian phía trước.",
+                        statusMessage = "Đang chờ khung hình khung cảnh"
+                    )
+
+                    VoiceCommand.RecognizeCurrency -> applyVoiceCameraCommand(
+                        mode = CameraMode.OCR,
+                        title = "Chế độ nhận diện tiền",
+                        summary = "Đưa tờ tiền vào giữa khung hình để ứng dụng chuẩn bị nhận diện mệnh giá.",
+                        statusMessage = "Đang chờ hình ảnh tờ tiền rõ nét"
+                    )
+
+                    VoiceCommand.DetectObstacle -> applyVoiceCameraCommand(
+                        mode = CameraMode.OBSTACLE,
+                        statusMessage = "Đang theo dõi vật cản phía trước"
+                    )
+
+                    else -> return@collect
+                }
+                dataStoreManager.clearLastVoiceCommand()
+            }
+        }
+    }
+
+    private fun applyVoiceCameraCommand(
+        mode: CameraMode,
+        title: String = if (mode == CameraMode.OCR) "Chế độ đọc văn bản" else "Chế độ phát hiện vật cản",
+        summary: String = if (mode == CameraMode.OCR) {
+            "Double tap để chụp ảnh văn bản. Vuốt trái/phải để đọc từng câu."
+        } else {
+            "Ứng dụng đang theo dõi vật cản liên tục. Nhấn giữ màn hình để mô tả cảnh xung quanh."
+        },
+        statusMessage: String
+    ) {
+        _uiState.update {
+            it.copy(
+                activeMode = mode,
+                title = title,
+                summary = summary,
+                statusMessage = statusMessage,
+                lastAnnouncement = statusMessage,
+                isOcrScanning = false,
+                ocrSentences = emptyList(),
+                ocrCurrentIndex = 0,
+                canTranslateCurrentOcrDocument = false,
+                ocrCapturedBitmap = null,
+                ocrGuidanceStatus = OcrGuidanceStatus.SEARCHING,
+                ocrGuidanceMessage = "Hãy hướng camera vào vùng văn bản.",
+                isOcrReadyToCapture = false,
+                ocrGuidanceBounds = null,
+                boundingBoxes = if (mode == CameraMode.OCR) emptyList() else it.boundingBoxes,
+                depthPreviewBitmap = if (mode == CameraMode.OCR) null else it.depthPreviewBitmap
+            )
         }
     }
 

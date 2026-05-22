@@ -33,6 +33,7 @@ fun HomeScreen(
     onOpenOcrAccuracy: () -> Unit,
     onOpenMap: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenVoice: () -> Unit,
     viewModel: HomeViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -49,6 +50,7 @@ fun HomeScreen(
                 HomeActionType.ReadTextQuick -> onOpenOcrQuick()
                 HomeActionType.ReadTextAccuracy -> onOpenOcrAccuracy()
                 HomeActionType.Navigate -> onOpenMap()
+                HomeActionType.Voice -> onOpenVoice()
                 HomeActionType.Settings -> onOpenSettings()
             }
         }

@@ -10,14 +10,40 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.eyes.data.DataStoreManager
+import com.example.eyes.domain.voice.VoiceCommand
+import org.koin.compose.koinInject
 
 @Composable
 fun MapScreen() {
+    val dataStoreManager: DataStoreManager = koinInject()
+    val command by dataStoreManager.lastVoiceCommandFlow.collectAsStateWithLifecycle(initialValue = null)
+    var retainedDestination by rememberSaveable { mutableStateOf<String?>(null) }
+    val destination = retainedDestination ?: (command as? VoiceCommand.Navigate)?.destination
+    val title = destination?.let { "Dẫn đường đến $it" } ?: "Chuẩn bị lộ trình"
+    val summary = destination
+        ?.let { "Màn hình đang giữ chỗ cho tìm điểm đến $it, xem mốc định hướng và hướng dẫn từng chặng." }
+        ?: "Trong giai đoạn này, màn hình đang giữ chỗ cho tìm điểm đến, xem mốc định hướng và hướng dẫn từng chặng."
+
+    LaunchedEffect(command) {
+        val voiceDestination = (command as? VoiceCommand.Navigate)?.destination
+        if (voiceDestination != null) {
+            retainedDestination = voiceDestination
+            dataStoreManager.clearLastVoiceCommand()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -27,9 +53,12 @@ fun MapScreen() {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Chuẩn bị lộ trình",
+            text = title,
             style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.semantics { heading() }
+            modifier = Modifier.semantics {
+                heading()
+                contentDescription = "Tiêu đề: $title"
+            }
         )
         Surface(
             modifier = Modifier
@@ -47,12 +76,18 @@ fun MapScreen() {
                 Text(
                     text = "Bản đồ sẽ hiển thị ở đây",
                     style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Bản đồ sẽ hiển thị ở đây"
+                    }
                 )
                 Text(
-                    text = "Trong giai đoạn này, màn hình đang giữ chỗ cho tìm điểm đến, xem mốc định hướng và hướng dẫn từng chặng.",
+                    text = summary,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.semantics {
+                        contentDescription = summary
+                    }
                 )
             }
         }

@@ -61,10 +61,10 @@ class SettingsViewModel(
     fun previewFeedback(state: SettingsUiState) {
         val speedLabel = String.format("%.2f", state.ttsSpeed)
         val sensitivityLabel = (state.alertSensitivity * 100).toInt()
-
         speechOutput.setSpeechRate(state.ttsSpeed)
         speechOutput.speak(
-            "Đang phát thử phản hồi. Tốc độ đọc $speedLabel lần. Độ nhạy cảnh báo $sensitivityLabel phần trăm."
+            "Đang phát thử phản hồi. Tốc độ đọc $speedLabel lần. " +
+                    "Độ nhạy cảnh báo $sensitivityLabel phần trăm."
         )
         hapticService.confirm()
     }
