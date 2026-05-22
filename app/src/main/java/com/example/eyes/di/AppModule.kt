@@ -42,7 +42,7 @@ val appModule = module {
     single { HapticService(androidContext()) }
     single { DataStoreManager(androidContext()) }
     single { CameraManager(androidContext()) }
-    single { SttService(androidContext()) }
+    factory { SttService(androidContext()) }
     single { CommandParser() }
     factory<OcrEngine>(named("quick-ocr")) { MlKitOcrEngine() }
     factory<OcrEngine>(named("accuracy-ocr")) { Gpt4oOcrEngine() }

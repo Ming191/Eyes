@@ -20,6 +20,11 @@ interface SpeechOutput {
     /** Speak [text] at the given [priority]. */
     fun speak(text: String, priority: Priority)
 
+    /** Speak [text] and resume when the utterance is done, stopped, or fails. */
+    suspend fun speakAndAwait(text: String, priority: Priority = Priority.NORMAL) {
+        speak(text, priority)
+    }
+
     /** Update the TTS engine speech rate. Range typically 0.5f..2.0f. */
     fun setSpeechRate(rate: Float) = Unit
 

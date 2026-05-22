@@ -1,5 +1,9 @@
 package com.example.eyes.ui.voice
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -36,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.system.SttErrorReason
@@ -51,10 +57,28 @@ fun VoiceCommandScreen(
     viewModel: VoiceCommandViewModel = koinViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.onMicrophonePermissionResult(granted)
+    }
 
-    // Greet + auto-start STT when the screen first appears.
+    fun requestMicrophoneOrStart() {
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            viewModel.startListening()
+        } else {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    // Auto-start STT when the screen first appears.
     LaunchedEffect(Unit) {
-        viewModel.onScreenShown()
+        requestMicrophoneOrStart()
     }
 
     // Consume one-shot navigation events from the ViewModel.
@@ -70,7 +94,7 @@ fun VoiceCommandScreen(
 
     VoiceCommandContent(
         state = state,
-        onMicTap = viewModel::startListening,
+        onMicTap = ::requestMicrophoneOrStart,
         onStopTap = viewModel::stopListening
     )
 }
@@ -99,13 +123,19 @@ private fun VoiceCommandContent(
             fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .fillMaxWidth()
-                .semantics { heading() }
+                .semantics {
+                    heading()
+                    contentDescription = "Tiêu đề: Ra lệnh bằng giọng nói"
+                }
         )
 
         Text(
             text = "Hãy nói một câu lệnh tiếng Việt sau khi nghe tín hiệu.",
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.semantics {
+                contentDescription = "Hướng dẫn: Hãy nói một câu lệnh tiếng Việt sau khi nghe tín hiệu."
+            }
         )
 
         StatusBlock(state = state)
@@ -150,21 +180,30 @@ private fun StatusBlock(state: VoiceCommandUiState) {
                 text = statusText,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.semantics {
+                    contentDescription = "Trạng thái hiện tại: $statusText"
+                }
             )
 
             if (state.partialText.isNotEmpty()) {
                 Text(
                     text = "\"${state.partialText}...\"",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Đang nghe: ${state.partialText}"
+                    }
                 )
             }
 
             if (state.finalText.isNotEmpty()) {
                 Text(
                     text = "Đã nghe: ${state.finalText}",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Đã nghe: ${state.finalText}"
+                    }
                 )
             }
 
@@ -172,7 +211,10 @@ private fun StatusBlock(state: VoiceCommandUiState) {
                 Text(
                     text = "Lệnh: ${commandLabelFor(command)}",
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Lệnh đã nhận: ${commandLabelFor(command)}"
+                    }
                 )
             }
         }
@@ -253,7 +295,10 @@ private fun AvailableCommandsCard(expanded: Boolean) {
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.semantics { heading() }
+                modifier = Modifier.semantics {
+                    heading()
+                    contentDescription = "Tiêu đề: Các lệnh khả dụng"
+                }
             )
             CommandLine("Đọc giúp tôi", "đọc văn bản trước camera")
             CommandLine("Trước mặt có gì", "mô tả khung cảnh")

@@ -49,9 +49,9 @@ class DataStoreManager(private val context: Context) {
         preferences[PreferenceKeys.OcrTranslateToVietnamese] ?: false
     }
 
-    val lastVoiceCommandFlow: Flow<String?> =
+    val lastVoiceCommandFlow: Flow<VoiceCommand?> =
         context.dataStore.data.map { preferences: Preferences ->
-            preferences[PreferenceKeys.LastVoiceCommand]
+            preferences[PreferenceKeys.LastVoiceCommand]?.let(::decodeVoiceCommand)
         }
 
     suspend fun setTtsSpeed(value: Float) {
@@ -108,6 +108,18 @@ class DataStoreManager(private val context: Context) {
             VoiceCommand.Help -> "HELP"
             is VoiceCommand.Navigate -> "NAVIGATE:${command.destination}"
             is VoiceCommand.Unknown -> "UNKNOWN"
+        }
+
+        fun decodeVoiceCommand(value: String): VoiceCommand = when {
+            value == "READ_TEXT" -> VoiceCommand.ReadText
+            value == "DESCRIBE_SCENE" -> VoiceCommand.DescribeScene
+            value == "RECOGNIZE_CURRENCY" -> VoiceCommand.RecognizeCurrency
+            value == "DETECT_OBSTACLE" -> VoiceCommand.DetectObstacle
+            value == "REPEAT" -> VoiceCommand.Repeat
+            value == "STOP" -> VoiceCommand.Stop
+            value == "HELP" -> VoiceCommand.Help
+            value.startsWith("NAVIGATE:") -> VoiceCommand.Navigate(value.removePrefix("NAVIGATE:"))
+            else -> VoiceCommand.Unknown("")
         }
     }
 }

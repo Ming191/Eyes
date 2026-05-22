@@ -7,10 +7,13 @@ import android.media.AudioManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
+import kotlinx.coroutines.CompletableDeferred
 import java.util.Locale
 import java.util.UUID
 
 class TtsService(context: Context) : SpeechOutput {
+
+    enum class Priority { URGENT, HIGH, NORMAL }
 
     private enum class InitState { PENDING, READY, FAILED }
 
@@ -18,12 +21,14 @@ class TtsService(context: Context) : SpeechOutput {
         val text: String,
         val priority: SpeechOutput.Priority,
         val locale: Locale?,
-        val sequence: Long
+        val sequence: Long,
+        val completion: CompletableDeferred<Unit>? = null
     )
 
     private val lock = Any()
     private val pendingUtterances = mutableListOf<PendingUtterance>()
     private val inFlightUtteranceIds = mutableSetOf<String>()
+    private val completionWaiters = mutableMapOf<String, CompletableDeferred<Unit>>()
     private var nextSequence = 0L
     private var initState: InitState = InitState.PENDING
     private var currentLocale: Locale? = null
@@ -40,7 +45,7 @@ class TtsService(context: Context) : SpeechOutput {
             synchronized(lock) {
                 if (status != TextToSpeech.SUCCESS) {
                     initState = InitState.FAILED
-                    pendingUtterances.clear()
+                    clearPendingLocked()
                     Log.w(TAG, "TTS initialization failed with status=$status")
                     return@TextToSpeech
                 }
@@ -97,6 +102,32 @@ class TtsService(context: Context) : SpeechOutput {
         speak(text = text, priority = priority, locale = null)
     }
 
+    override suspend fun speakAndAwait(text: String, priority: SpeechOutput.Priority) {
+        speakAndAwait(text = text, priority = priority, locale = null)
+    }
+
+    suspend fun speakAndAwait(
+        text: String,
+        priority: SpeechOutput.Priority = SpeechOutput.Priority.NORMAL,
+        locale: Locale? = null
+    ) {
+        val normalizedText = preprocessText(text)
+        if (normalizedText.isBlank()) return
+
+        val completion = CompletableDeferred<Unit>()
+        synchronized(lock) {
+            when (initState) {
+                InitState.PENDING -> enqueuePendingLocked(normalizedText, priority, locale, completion)
+                InitState.FAILED -> {
+                    Log.w(TAG, "TTS unavailable; dropping utterance")
+                    completion.complete(Unit)
+                }
+                InitState.READY -> speakInternalLocked(normalizedText, priority, locale, completion)
+            }
+        }
+        completion.await()
+    }
+
     fun speak(
         text: String,
         priority: SpeechOutput.Priority = SpeechOutput.Priority.NORMAL,
@@ -114,6 +145,14 @@ class TtsService(context: Context) : SpeechOutput {
         }
     }
 
+    fun speak(text: String, priority: Priority, locale: Locale? = null) {
+        speak(text, priority.toSpeechOutputPriority(), locale)
+    }
+
+    suspend fun speakAndAwait(text: String, priority: Priority, locale: Locale? = null) {
+        speakAndAwait(text, priority.toSpeechOutputPriority(), locale)
+    }
+
     override fun setSpeechRate(rate: Float) {
         synchronized(lock) {
             speechRate = rate.coerceIn(MIN_SPEECH_RATE, MAX_SPEECH_RATE)
@@ -125,7 +164,9 @@ class TtsService(context: Context) : SpeechOutput {
 
     override fun stop() {
         synchronized(lock) {
-            pendingUtterances.clear()
+            clearPendingLocked()
+            completionWaiters.values.forEach { it.complete(Unit) }
+            completionWaiters.clear()
             inFlightUtteranceIds.clear()
             if (initState == InitState.READY) {
                 tts.stop()
@@ -136,7 +177,9 @@ class TtsService(context: Context) : SpeechOutput {
 
     fun shutdown() {
         synchronized(lock) {
-            pendingUtterances.clear()
+            clearPendingLocked()
+            completionWaiters.values.forEach { it.complete(Unit) }
+            completionWaiters.clear()
             inFlightUtteranceIds.clear()
             if (initState == InitState.READY) {
                 tts.stop()
@@ -150,18 +193,20 @@ class TtsService(context: Context) : SpeechOutput {
     private fun enqueuePendingLocked(
         text: String,
         priority: SpeechOutput.Priority,
-        locale: Locale?
+        locale: Locale?,
+        completion: CompletableDeferred<Unit>? = null
     ) {
         val item = PendingUtterance(
             text = text,
             priority = priority,
             locale = locale,
-            sequence = nextSequence++
+            sequence = nextSequence++,
+            completion = completion
         )
 
         when (priority) {
             SpeechOutput.Priority.URGENT -> {
-                pendingUtterances.clear()
+                clearPendingLocked()
                 pendingUtterances.add(item)
             }
             SpeechOutput.Priority.HIGH -> {
@@ -181,8 +226,13 @@ class TtsService(context: Context) : SpeechOutput {
             .sortedWith(compareBy({ it.priority.rank }, { it.sequence }))
 
         sortedPending.forEach { item ->
-            speakInternalLocked(item.text, item.priority, item.locale)
+            speakInternalLocked(item.text, item.priority, item.locale, item.completion)
         }
+        pendingUtterances.clear()
+    }
+
+    private fun clearPendingLocked() {
+        pendingUtterances.forEach { it.completion?.complete(Unit) }
         pendingUtterances.clear()
     }
 
@@ -202,11 +252,14 @@ class TtsService(context: Context) : SpeechOutput {
     private fun speakInternalLocked(
         text: String,
         priority: SpeechOutput.Priority,
-        locale: Locale?
+        locale: Locale?,
+        completion: CompletableDeferred<Unit>? = null
     ) {
         val queueMode = when (priority) {
             SpeechOutput.Priority.URGENT -> {
-                pendingUtterances.clear()
+                clearPendingLocked()
+                completionWaiters.values.forEach { it.complete(Unit) }
+                completionWaiters.clear()
                 inFlightUtteranceIds.clear()
                 TextToSpeech.QUEUE_FLUSH
             }
@@ -233,8 +286,10 @@ class TtsService(context: Context) : SpeechOutput {
         val result = tts.speak(text, queueMode, null, utteranceId)
         if (result == TextToSpeech.SUCCESS) {
             inFlightUtteranceIds.add(utteranceId)
+            completion?.let { completionWaiters[utteranceId] = it }
         } else {
             Log.w(TAG, "TTS speak failed with result=$result")
+            completion?.complete(Unit)
             if (inFlightUtteranceIds.isEmpty()) {
                 abandonAudioFocusLocked()
             }
@@ -245,6 +300,7 @@ class TtsService(context: Context) : SpeechOutput {
         synchronized(lock) {
             if (utteranceId != null) {
                 inFlightUtteranceIds.remove(utteranceId)
+                completionWaiters.remove(utteranceId)?.complete(Unit)
             }
 
             if (inFlightUtteranceIds.isEmpty()) {
@@ -314,4 +370,10 @@ class TtsService(context: Context) : SpeechOutput {
             SpeechOutput.Priority.HIGH -> 1
             SpeechOutput.Priority.NORMAL -> 2
         }
+
+    private fun Priority.toSpeechOutputPriority(): SpeechOutput.Priority = when (this) {
+        Priority.URGENT -> SpeechOutput.Priority.URGENT
+        Priority.HIGH -> SpeechOutput.Priority.HIGH
+        Priority.NORMAL -> SpeechOutput.Priority.NORMAL
+    }
 }
