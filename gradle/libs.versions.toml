@@ -1,7 +1,7 @@
 [versions]
 agp = "8.13.2"
 core = "1.7.0"
-kotlin = "2.0.21"
+kotlin = "2.3.10"
 kotlinSerialization = "1.7.3"
 coreKtx = "1.10.1"
 junit = "4.13.2"
@@ -20,6 +20,7 @@ mlkitTextRecognition = "19.0.1"
 retrofit = "2.11.0"
 okhttp = "4.12.0"
 lifecycleService = "2.8.7"
+screenshot = "0.0.1-alpha14"
 
 [libraries]
 androidx-core = { module = "androidx.test:core", version.ref = "core" }
@@ -58,6 +59,7 @@ retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit
 retrofit-converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "retrofit" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 lifecycle-service = { module = "androidx.lifecycle:lifecycle-service", version.ref = "lifecycleService" }
+screenshot-validation-api = { group = "com.android.tools.screenshot", name = "screenshot-validation-api", version.ref = "screenshot" }
 
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinSerialization" }
 
@@ -66,3 +68,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+screenshot = { id = "com.android.compose.screenshot", version.ref = "screenshot" }

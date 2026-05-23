@@ -1,0 +1,31 @@
+package com.example.eyes.ui.home
+
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
+import com.android.tools.screenshot.PreviewTest
+import com.example.eyes.system.SpeechOutput
+import com.example.eyes.ui.theme.EyesTheme
+
+@PreviewTest
+@Preview(name = "Home screen", showBackground = true)
+@Composable
+fun homeScreenDefaultPreview() {
+    EyesTheme {
+        HomeScreen(
+            onOpenOcrQuick = {},
+            onOpenOcrAccuracy = {},
+            onOpenSettings = {},
+            onOpenVoice = {},
+            viewModel = HomeViewModel(
+                context = LocalContext.current,
+                tts = FakeSpeechOutput()
+            )
+        )
+    }
+}
+
+private class FakeSpeechOutput : SpeechOutput {
+    override fun speak(text: String) = Unit
+    override fun speak(text: String, priority: SpeechOutput.Priority) = Unit
+}
