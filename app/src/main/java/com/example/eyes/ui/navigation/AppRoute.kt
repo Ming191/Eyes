@@ -23,6 +23,7 @@ data object MapRoute
 @Serializable
 data object SettingsRoute
 
+@Serializable
 enum class CameraMode {
     Navigation,
     OCR,

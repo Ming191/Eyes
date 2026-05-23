@@ -20,7 +20,7 @@ val appModule = module {
     single { DataStoreManager(androidContext()) }
     single { CameraManager(androidContext()) }
     viewModel { AppNavViewModel(get()) }
-    viewModel { HomeViewModel(get()) }
+    viewModel { HomeViewModel(get(), androidContext()) }
     viewModel { CameraViewModel(get(), get(), androidContext()) }
     viewModel { SettingsViewModel(get(), get(), get()) }
 }

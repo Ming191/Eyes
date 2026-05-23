@@ -1,9 +1,12 @@
 package com.example.eyes.ui.camera
 
+import android.content.Context
+import android.util.Log
 import androidx.camera.core.ImageProxy
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.eyes.R
 import com.example.eyes.camera.CurrencyAnalyzer
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.SpeechOutput
@@ -14,89 +17,94 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 
 @Immutable
 data class CameraUiState(
-    val title: String = "Camera đang sẵn sàng",
-    val summary: String = "Giữ điện thoại ngang ngực và lia chậm để ứng dụng có thể mô tả vật cản ở phía trước.",
-    val statusMessage: String = "Đang chờ khung hình tiếp theo",
+    val title: String = "",
+    val summary: String = "",
+    val statusMessage: String = "",
     val currentMode: CameraMode = CameraMode.Navigation,
-    // ── Currency fields ──────────────────────────────────────────
-    val currencyDisplay: String = "",       // "50.000 ₫"
+    val currencyDisplay: String = "",
     val currencyConfidence: Float = 0f,
 )
 
 class CameraViewModel(
     private val tts: SpeechOutput,
     private val haptic: HapticService,
-    private val context: android.content.Context
+    private val context: Context,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(CameraUiState())
+    private val _uiState = MutableStateFlow(
+        CameraUiState(
+            title = context.getString(R.string.camera_ready_title),
+            summary = context.getString(R.string.camera_navigation_summary),
+            statusMessage = context.getString(R.string.camera_waiting_for_frame),
+        )
+    )
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
     private val isProcessingFrame = AtomicBoolean(false)
-
-    // Theo dõi tờ tiền cuối cùng đã đọc để không đọc lại
     private var lastSpokenLabel = ""
+    private var currencyAnalyzer: CurrencyAnalyzer? = null
 
-    // CurrencyAnalyzer khởi tạo lazy, chỉ tạo khi cần
-    private val currencyAnalyzer by lazy {
-        try {
+    private fun getCurrencyAnalyzer(): CurrencyAnalyzer? {
+        currencyAnalyzer?.let { return it }
+        return try {
             CurrencyAnalyzer(context) { label, confidence ->
                 onCurrencyResult(label, confidence)
-            }
+            }.also { currencyAnalyzer = it }
         } catch (e: Exception) {
-            _uiState.update { it.copy(statusMessage = "Lỗi tải model: ${e.localizedMessage}") }
+            Log.e(TAG, "Cannot load currency model", e)
+            _uiState.update { it.copy(statusMessage = context.getString(R.string.currency_model_load_error)) }
             null
         }
     }
 
-    // ── Xử lý kết quả từ CurrencyAnalyzer ────────────────────────
-
     private fun onCurrencyResult(label: String, confidence: Float) {
+        if (_uiState.value.currentMode != CameraMode.Currency) return
+        val safeConfidence = confidence.coerceIn(0f, 1f)
+
         if (label == CurrencyAnalyzer.EMPTY_LABEL) {
-            // Không thấy tiền hoặc chưa ổn định
             val hadResult = _uiState.value.currencyDisplay.isNotEmpty()
             if (hadResult) {
-                // Rút tờ tiền ra → reset
                 lastSpokenLabel = ""
                 currencyAnalyzer?.resetBuffer()
             }
             _uiState.update {
                 it.copy(
-                    currencyDisplay    = "",
+                    currencyDisplay = "",
                     currencyConfidence = 0f,
-                    statusMessage      = "Giơ tờ tiền vào camera",
+                    statusMessage = context.getString(R.string.currency_instruction),
                 )
             }
             return
         }
 
-        val display = CurrencyAnalyzer.LABEL_DISPLAY[label] ?: label
-        val labelVi = CurrencyAnalyzer.LABEL_VI[label] ?: label
+        val display = currencyDisplay(label)
+        val spokenLabel = currencySpokenLabel(label)
 
-        // Chỉ đọc khi nhận được tờ tiền MỚI (khác tờ trước)
         if (label != lastSpokenLabel) {
             lastSpokenLabel = label
-            tts.speak(labelVi)
+            tts.speak(spokenLabel)
             haptic.confirm()
         }
 
         _uiState.update {
             it.copy(
-                currencyDisplay    = display,
-                currencyConfidence = confidence,
-                statusMessage      = "Nhận diện: $display (${"%.0f%%".format(confidence * 100)})",
+                currencyDisplay = display,
+                currencyConfidence = safeConfidence,
+                statusMessage = context.getString(
+                    R.string.currency_detected_status,
+                    display,
+                    String.format(Locale.getDefault(), "%.0f%%", safeConfidence * 100),
+                ),
             )
         }
     }
 
-    // ── Mode switching ────────────────────────────────────────────
-
     fun setMode(mode: CameraMode) {
-        // Reset currency state khi rời khỏi mode Currency
         if (_uiState.value.currentMode == CameraMode.Currency && mode != CameraMode.Currency) {
             lastSpokenLabel = ""
             currencyAnalyzer?.resetBuffer()
@@ -105,36 +113,36 @@ class CameraViewModel(
         _uiState.update { state ->
             when (mode) {
                 CameraMode.Navigation -> state.copy(
-                    title          = "Chế độ Xem xung quanh",
-                    summary        = "Giữ điện thoại ngang ngực và lia chậm để ứng dụng có thể mô tả vật cản ở phía trước.",
-                    statusMessage  = "Đang khởi động chế độ Xem...",
-                    currentMode    = mode,
-                    currencyDisplay    = "",
+                    title = context.getString(R.string.camera_mode_navigation_title),
+                    summary = context.getString(R.string.camera_navigation_summary),
+                    statusMessage = context.getString(R.string.camera_mode_navigation_starting),
+                    currentMode = mode,
+                    currencyDisplay = "",
                     currencyConfidence = 0f,
                 )
+
                 CameraMode.OCR -> state.copy(
-                    title          = "Chế độ Đọc văn bản",
-                    summary        = "Hướng camera vào vùng có văn bản hoặc tài liệu để ứng dụng đọc to nội dung.",
-                    statusMessage  = "Đang khởi động chế độ Đọc...",
-                    currentMode    = mode,
-                    currencyDisplay    = "",
+                    title = context.getString(R.string.camera_mode_ocr_title),
+                    summary = context.getString(R.string.camera_ocr_summary),
+                    statusMessage = context.getString(R.string.camera_mode_ocr_starting),
+                    currentMode = mode,
+                    currencyDisplay = "",
                     currencyConfidence = 0f,
                 )
+
                 CameraMode.Currency -> state.copy(
-                    title          = "Chế độ Nhận diện tiền",
-                    summary        = "Đặt tờ tiền phẳng trước camera để ứng dụng nhận diện mệnh giá.",
-                    statusMessage  = "Giơ tờ tiền vào camera",
-                    currentMode    = mode,
-                    currencyDisplay    = "",
+                    title = context.getString(R.string.camera_mode_currency_title),
+                    summary = context.getString(R.string.camera_currency_summary),
+                    statusMessage = context.getString(R.string.currency_instruction),
+                    currentMode = mode,
+                    currencyDisplay = "",
                     currencyConfidence = 0f,
                 )
             }
         }
 
-        tts.speak("Đã chuyển sang ${_uiState.value.title}")
+        tts.speak(context.getString(R.string.camera_mode_changed, _uiState.value.title))
     }
-
-    // ── Frame processing ──────────────────────────────────────────
 
     fun processFrame(imageProxy: ImageProxy) {
         if (!isProcessingFrame.compareAndSet(false, true)) {
@@ -148,11 +156,12 @@ class CameraViewModel(
             try {
                 when (mode) {
                     CameraMode.Navigation -> processNavigation(imageProxy)
-                    CameraMode.OCR        -> processOCR(imageProxy)
-                    CameraMode.Currency   -> processCurrency(imageProxy)
+                    CameraMode.OCR -> processOCR(imageProxy)
+                    CameraMode.Currency -> processCurrency(imageProxy)
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(statusMessage = "Lỗi xử lý: ${e.localizedMessage}") }
+                Log.e(TAG, "Cannot process camera frame", e)
+                _uiState.update { it.copy(statusMessage = context.getString(R.string.camera_processing_error)) }
                 imageProxy.close()
             } finally {
                 isProcessingFrame.set(false)
@@ -161,32 +170,57 @@ class CameraViewModel(
     }
 
     private fun processNavigation(imageProxy: ImageProxy) {
-        // Placeholder — logic vật cản ở đây
         imageProxy.close()
-        _uiState.update { it.copy(statusMessage = "Camera đang theo dõi lối đi") }
+        _uiState.update { it.copy(statusMessage = context.getString(R.string.camera_navigation_tracking)) }
     }
 
     private fun processOCR(imageProxy: ImageProxy) {
-        // Placeholder — logic OCR ở đây
         imageProxy.close()
-        _uiState.update { it.copy(statusMessage = "Đang tìm văn bản...") }
+        _uiState.update { it.copy(statusMessage = context.getString(R.string.camera_ocr_searching)) }
     }
 
     private fun processCurrency(imageProxy: ImageProxy) {
-        val analyzer = currencyAnalyzer
+        val analyzer = getCurrencyAnalyzer()
         if (analyzer == null) {
             imageProxy.close()
-            _uiState.update { it.copy(statusMessage = "Lỗi: Không thể khởi tạo model") }
+            _uiState.update { it.copy(statusMessage = context.getString(R.string.currency_model_init_error)) }
             return
         }
-        // CurrencyAnalyzer tự đóng imageProxy bên trong
         analyzer.analyze(imageProxy)
     }
-
-    // ── Cleanup ───────────────────────────────────────────────────
 
     override fun onCleared() {
         currencyAnalyzer?.close()
         super.onCleared()
+    }
+
+    private fun currencyDisplay(label: String): String = when (label) {
+        "1000" -> context.getString(R.string.currency_display_1000)
+        "2000" -> context.getString(R.string.currency_display_2000)
+        "5000" -> context.getString(R.string.currency_display_5000)
+        "10000" -> context.getString(R.string.currency_display_10000)
+        "20000" -> context.getString(R.string.currency_display_20000)
+        "50000" -> context.getString(R.string.currency_display_50000)
+        "100000" -> context.getString(R.string.currency_display_100000)
+        "200000" -> context.getString(R.string.currency_display_200000)
+        "500000" -> context.getString(R.string.currency_display_500000)
+        else -> label
+    }
+
+    private fun currencySpokenLabel(label: String): String = when (label) {
+        "1000" -> context.getString(R.string.currency_spoken_1000)
+        "2000" -> context.getString(R.string.currency_spoken_2000)
+        "5000" -> context.getString(R.string.currency_spoken_5000)
+        "10000" -> context.getString(R.string.currency_spoken_10000)
+        "20000" -> context.getString(R.string.currency_spoken_20000)
+        "50000" -> context.getString(R.string.currency_spoken_50000)
+        "100000" -> context.getString(R.string.currency_spoken_100000)
+        "200000" -> context.getString(R.string.currency_spoken_200000)
+        "500000" -> context.getString(R.string.currency_spoken_500000)
+        else -> label
+    }
+
+    private companion object {
+        const val TAG = "CameraViewModel"
     }
 }

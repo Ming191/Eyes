@@ -20,15 +20,18 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.eyes.R
 import com.example.eyes.ui.navigation.CameraMode
 import com.example.eyes.ui.theme.EyesTheme
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun HomeScreen(
+    modifier: Modifier = Modifier,
     onOpenCamera: (CameraMode) -> Unit,
     onOpenMap: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -41,6 +44,7 @@ fun HomeScreen(
     }
 
     HomeContent(
+        modifier = modifier,
         uiState = uiState,
         onActionSelected = { action ->
             when (action) {
@@ -61,11 +65,16 @@ fun HomeContent(
     onActionSelected: (HomeActionType) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val screenContentDescription = stringResource(R.string.home_screen_content_description)
+    val shortcutsTitle = stringResource(R.string.home_shortcuts_title)
+    val safetyTipContentDescription = stringResource(R.string.home_safety_tip_content_description)
+    val safetyTipTitle = stringResource(R.string.home_safety_tip_title)
+    val safetyTipBody = stringResource(R.string.home_safety_tip_body)
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .semantics { contentDescription = "Màn hình trang chủ hỗ trợ nhanh" },
+            .semantics { contentDescription = screenContentDescription },
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -77,7 +86,7 @@ fun HomeContent(
         }
         item {
             Text(
-                text = "Lối tắt chính",
+                text = shortcutsTitle,
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.semantics { heading() }
             )
@@ -93,7 +102,7 @@ fun HomeContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics(mergeDescendants = true) {
-                        contentDescription = "Mẹo sử dụng. Đeo tai nghe một bên để nghe hướng dẫn và vẫn giữ nhận biết âm thanh xung quanh."
+                        contentDescription = safetyTipContentDescription
                     },
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.secondaryContainer
@@ -103,12 +112,12 @@ fun HomeContent(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "Mẹo an toàn",
+                        text = safetyTipTitle,
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Text(
-                        text = "Đeo tai nghe một bên để nghe hướng dẫn và vẫn giữ nhận biết âm thanh xung quanh.",
+                        text = safetyTipBody,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
@@ -124,11 +133,13 @@ private fun HomeHeroCard(
     summary: String,
     modifier: Modifier = Modifier
 ) {
+    val heroLabel = stringResource(R.string.home_hero_label)
+    val heroContentDescription = stringResource(R.string.home_hero_content_description, title, summary)
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .semantics(mergeDescendants = true) {
-                contentDescription = "Tóm tắt trang chủ. $title. $summary"
+                contentDescription = heroContentDescription
             },
         shape = MaterialTheme.shapes.large,
         tonalElevation = 4.dp,
@@ -148,7 +159,7 @@ private fun HomeHeroCard(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "Sẵn sàng hỗ trợ",
+                text = heroLabel,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
@@ -204,7 +215,11 @@ private fun AdaptiveActionGrid(
 private fun HomeContentPreview() {
     EyesTheme(dynamicColor = false) {
         HomeContent(
-            uiState = HomeUiState(),
+            uiState = HomeUiState(
+                welcomeTitle = "Hỗ trợ di chuyển rõ ràng, ngắn gọn và an toàn",
+                welcomeSummary = "Chọn một chế độ để quét lối đi, đọc văn bản, nhận diện tiền hoặc chuẩn bị lộ trình trước khi ra ngoài.",
+                actions = emptyList(),
+            ),
             onActionSelected = {}
         )
     }

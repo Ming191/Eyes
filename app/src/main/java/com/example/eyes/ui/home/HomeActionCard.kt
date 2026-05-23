@@ -18,9 +18,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.eyes.R
 import com.example.eyes.ui.theme.EyesTheme
 
 @Composable
@@ -29,12 +31,13 @@ fun HomeActionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val onClickLabel = stringResource(R.string.home_action_open_label, action.title.lowercase())
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 112.dp)
             .clickable(
-                onClickLabel = "Mở ${action.title.lowercase()}",
+                onClickLabel = onClickLabel,
                 onClick = onClick
             )
             .semantics(mergeDescendants = true) {

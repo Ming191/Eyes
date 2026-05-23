@@ -43,6 +43,8 @@ class CurrencyAnalyzer(
     private val clsBuf = ByteBuffer
         .allocateDirect(224 * 224 * 3 * 4)
         .order(ByteOrder.nativeOrder())
+    private val yoloPixels = IntArray(640 * 640)
+    private val clsPixels = IntArray(224 * 224)
 
     // ── Frame averaging ───────────────────────────────────────────
     private val frameWindow   = LinkedList<Map<String, Float>>()
@@ -52,28 +54,6 @@ class CurrencyAnalyzer(
 
     // ── Label maps ────────────────────────────────────────────────
     companion object {
-        val LABEL_VI = mapOf(
-            "1000"   to "một nghìn đồng",
-            "2000"   to "hai nghìn đồng",
-            "5000"   to "năm nghìn đồng",
-            "10000"  to "mười nghìn đồng",
-            "20000"  to "hai mươi nghìn đồng",
-            "50000"  to "năm mươi nghìn đồng",
-            "100000" to "một trăm nghìn đồng",
-            "200000" to "hai trăm nghìn đồng",
-            "500000" to "năm trăm nghìn đồng",
-        )
-        val LABEL_DISPLAY = mapOf(
-            "1000"   to "1.000 ₫",
-            "2000"   to "2.000 ₫",
-            "5000"   to "5.000 ₫",
-            "10000"  to "10.000 ₫",
-            "20000"  to "20.000 ₫",
-            "50000"  to "50.000 ₫",
-            "100000" to "100.000 ₫",
-            "200000" to "200.000 ₫",
-            "500000" to "500.000 ₫",
-        )
         const val EMPTY_LABEL = ""
         private const val YOLO_CONF_THRESHOLD     = 0.40f
         private const val CLASSIFY_CONF_THRESHOLD = 0.70f
@@ -159,10 +139,9 @@ class CurrencyAnalyzer(
     private fun detectWithYolo(bitmap: Bitmap): BBox? {
         yoloCvs.drawBitmap(bitmap, null, Rect(0, 0, 640, 640), null)
 
-        val pixels = IntArray(640 * 640)
-        yoloBmp.getPixels(pixels, 0, 640, 0, 0, 640, 640)
+        yoloBmp.getPixels(yoloPixels, 0, 640, 0, 0, 640, 640)
         yoloBuf.rewind()
-        for (px in pixels) {
+        for (px in yoloPixels) {
             yoloBuf.putFloat(((px shr 16) and 0xFF) / 255f)
             yoloBuf.putFloat(((px shr 8)  and 0xFF) / 255f)
             yoloBuf.putFloat((px          and 0xFF) / 255f)
@@ -195,10 +174,9 @@ class CurrencyAnalyzer(
     private fun classifyWithEfficientNet(crop: Bitmap): Pair<String, Float> {
         clsCvs.drawBitmap(crop, null, Rect(0, 0, 224, 224), null)
 
-        val pixels = IntArray(224 * 224)
-        clsBmp.getPixels(pixels, 0, 224, 0, 0, 224, 224)
+        clsBmp.getPixels(clsPixels, 0, 224, 0, 0, 224, 224)
         clsBuf.rewind()
-        for (px in pixels) {
+        for (px in clsPixels) {
             clsBuf.putFloat((((px shr 16) and 0xFF) / 255f - 0.485f) / 0.229f)
             clsBuf.putFloat((((px shr 8)  and 0xFF) / 255f - 0.456f) / 0.224f)
             clsBuf.putFloat(((px          and 0xFF) / 255f - 0.406f) / 0.225f)

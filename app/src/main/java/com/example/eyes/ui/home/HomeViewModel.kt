@@ -1,7 +1,9 @@
 package com.example.eyes.ui.home
 
+import android.content.Context
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
+import com.example.eyes.R
 import com.example.eyes.system.SpeechOutput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,54 +28,61 @@ data class HomeAction(
 
 @Immutable
 data class HomeUiState(
-    val welcomeTitle: String = "Hỗ trợ di chuyển rõ ràng, ngắn gọn và an toàn",
-    val welcomeSummary: String = "Chọn một chế độ để quét lối đi, đọc văn bản hoặc chuẩn bị lộ trình trước khi ra ngoài.",
-    val actions: List<HomeAction> = defaultHomeActions()
+    val welcomeTitle: String,
+    val welcomeSummary: String,
+    val actions: List<HomeAction>,
 )
 
-private fun defaultHomeActions(): List<HomeAction> = listOf(
+private fun defaultHomeActions(context: Context): List<HomeAction> = listOf(
     HomeAction(
         type = HomeActionType.ScanAround,
-        title = "Xem xung quanh",
-        description = "Mở camera để nhận biết vật cản, lối đi và các tín hiệu ngay phía trước.",
-        supportingLabel = "Ưu tiên cảnh báo gần",
-        accessibilityLabel = "Xem xung quanh. Mở camera để nhận biết vật cản, lối đi và tín hiệu phía trước."
+        title = context.getString(R.string.home_action_scan_title),
+        description = context.getString(R.string.home_action_scan_description),
+        supportingLabel = context.getString(R.string.home_action_scan_supporting),
+        accessibilityLabel = context.getString(R.string.home_action_scan_accessibility),
     ),
     HomeAction(
         type = HomeActionType.ReadText,
-        title = "Đọc văn bản",
-        description = "Dùng camera để đọc nhãn, biển báo hoặc tài liệu ngắn bằng tiếng Việt.",
-        supportingLabel = "Chế độ OCR nhanh",
-        accessibilityLabel = "Đọc văn bản. Dùng camera để đọc nhãn, biển báo hoặc tài liệu ngắn."
+        title = context.getString(R.string.home_action_read_title),
+        description = context.getString(R.string.home_action_read_description),
+        supportingLabel = context.getString(R.string.home_action_read_supporting),
+        accessibilityLabel = context.getString(R.string.home_action_read_accessibility),
     ),
     HomeAction(
         type = HomeActionType.IdentifyCurrency,
-        title = "Nhận diện tiền",
-        description = "Dùng camera để nhận biết các mệnh giá tiền mặt Việt Nam đang cầm trên tay.",
-        supportingLabel = "Hỗ trợ tiền polymer",
-        accessibilityLabel = "Nhận diện tiền. Mở camera để nhận biết mệnh giá tiền mặt Việt Nam."
+        title = context.getString(R.string.home_action_currency_title),
+        description = context.getString(R.string.home_action_currency_description),
+        supportingLabel = context.getString(R.string.home_action_currency_supporting),
+        accessibilityLabel = context.getString(R.string.home_action_currency_accessibility),
     ),
     HomeAction(
         type = HomeActionType.Navigate,
-        title = "Đi đến nơi",
-        description = "Mở bản đồ để xem điểm đến và chuẩn bị cho dẫn đường ở các bước tiếp theo.",
-        supportingLabel = "Lộ trình và mốc định hướng",
-        accessibilityLabel = "Đi đến nơi. Mở bản đồ để xem điểm đến và chuẩn bị dẫn đường."
+        title = context.getString(R.string.home_action_navigate_title),
+        description = context.getString(R.string.home_action_navigate_description),
+        supportingLabel = context.getString(R.string.home_action_navigate_supporting),
+        accessibilityLabel = context.getString(R.string.home_action_navigate_accessibility),
     ),
     HomeAction(
         type = HomeActionType.Settings,
-        title = "Tinh chỉnh phản hồi",
-        description = "Điều chỉnh tốc độ đọc và độ nhạy cảnh báo để phù hợp với môi trường hiện tại.",
-        supportingLabel = "Âm thanh và rung",
-        accessibilityLabel = "Tinh chỉnh phản hồi. Điều chỉnh tốc độ đọc và độ nhạy cảnh báo."
-    )
+        title = context.getString(R.string.home_action_settings_title),
+        description = context.getString(R.string.home_action_settings_description),
+        supportingLabel = context.getString(R.string.home_action_settings_supporting),
+        accessibilityLabel = context.getString(R.string.home_action_settings_accessibility),
+    ),
 )
 
 class HomeViewModel(
-    private val tts: SpeechOutput
+    private val tts: SpeechOutput,
+    private val context: Context,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(HomeUiState())
+    private val _uiState = MutableStateFlow(
+        HomeUiState(
+            welcomeTitle = context.getString(R.string.home_welcome_title),
+            welcomeSummary = context.getString(R.string.home_welcome_summary),
+            actions = defaultHomeActions(context),
+        )
+    )
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private var hasSpokenGreeting = false
@@ -81,6 +90,6 @@ class HomeViewModel(
     fun onScreenShown() {
         if (hasSpokenGreeting) return
         hasSpokenGreeting = true
-        tts.speak("Chào mừng. Chọn Xem, Đọc, Đi hoặc Cài đặt để bắt đầu.")
+        tts.speak(context.getString(R.string.home_welcome_tts))
     }
 }

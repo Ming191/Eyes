@@ -38,6 +38,14 @@ import com.example.eyes.ui.onboarding.OnboardingScreen
 import com.example.eyes.ui.settings.SettingsScreen
 import org.koin.androidx.compose.koinViewModel
 
+object Routes {
+    val onboarding = OnboardingRoute
+    val home = HomeRoute
+    val camera = CameraRoute()
+    val map = MapRoute
+    val settings = SettingsRoute
+}
+
 @Composable
 fun AppNavGraph(
     viewModel: AppNavViewModel = koinViewModel()
@@ -72,12 +80,12 @@ private fun OnboardingNavHost(
 
         NavHost(
             navController = navController,
-            startDestination = OnboardingRoute,
+            startDestination = Routes.onboarding,
             modifier = Modifier
                 .fillMaxSize()
                 .semantics { contentDescription = "Điều hướng khởi động" }
         ) {
-            composable<OnboardingRoute> {
+                composable<OnboardingRoute> {
                 OnboardingScreen(onFinish = onFinish)
             }
         }
@@ -137,13 +145,13 @@ private fun MainNavigationScaffold() {
         ) { innerPadding ->
             NavHost(
                 navController = navController,
-                startDestination = HomeRoute,
+                startDestination = Routes.home,
                 modifier = Modifier.padding(innerPadding)
             ) {
                 composable<HomeRoute> {
                     HomeScreen(
                         onOpenCamera = { mode ->
-                            navController.navigate(CameraRoute(mode = mode)) {
+                            navController.navigate(Routes.camera.copy(mode = mode)) {
                                 launchSingleTop = true
                                 restoreState = true
                                 popUpTo(navController.graph.findStartDestination().id) {
@@ -178,10 +186,10 @@ private fun NavHostController.navigateToTopLevelDestination(
     destination: TopLevelDestination
 ) {
     val route = when (destination) {
-        TopLevelDestination.HOME -> HomeRoute
-        TopLevelDestination.CAMERA -> CameraRoute()
-        TopLevelDestination.MAP -> MapRoute
-        TopLevelDestination.SETTINGS -> SettingsRoute
+        TopLevelDestination.HOME -> Routes.home
+        TopLevelDestination.CAMERA -> Routes.camera
+        TopLevelDestination.MAP -> Routes.map
+        TopLevelDestination.SETTINGS -> Routes.settings
     }
 
     navigate(route) {
