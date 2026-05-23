@@ -18,16 +18,6 @@ sealed interface VoiceCommand {
     /** Recognize Vietnamese banknote denomination (currency feature). */
     data object RecognizeCurrency : VoiceCommand
 
-    /** Detect obstacles in front of the user (obstacle alert feature). */
-    data object DetectObstacle : VoiceCommand
-
-    /**
-     * Start turn-by-turn navigation to [destination].
-     * The destination is the free-form text that followed the navigation verb,
-     * e.g. "bệnh viện Bạch Mai" from "đi đến bệnh viện Bạch Mai".
-     */
-    data class Navigate(val destination: String) : VoiceCommand
-
     /** Repeat the last spoken response. */
     data object Repeat : VoiceCommand
 

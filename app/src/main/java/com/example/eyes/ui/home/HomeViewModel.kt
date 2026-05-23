@@ -16,10 +16,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 enum class HomeActionType {
-    ScanAround,
     ReadTextQuick,
     ReadTextAccuracy,
-    Navigate,
     Voice,
     Settings
 }
@@ -35,19 +33,12 @@ data class HomeAction(
 
 @Immutable
 data class HomeUiState(
-    val welcomeTitle: String = "Hỗ trợ di chuyển rõ ràng, ngắn gọn và an toàn",
-    val welcomeSummary: String = "Chọn một chế độ để quét lối đi, đọc văn bản hoặc chuẩn bị lộ trình trước khi ra ngoài.",
+    val welcomeTitle: String = "Hỗ trợ đọc văn bản rõ ràng và ngắn gọn",
+    val welcomeSummary: String = "Chọn một chế độ để đọc văn bản, ra lệnh bằng giọng nói hoặc tinh chỉnh phản hồi.",
     val actions: List<HomeAction> = defaultHomeActions()
 )
 
 private fun defaultHomeActions(): List<HomeAction> = listOf(
-    HomeAction(
-        type = HomeActionType.ScanAround,
-        title = "Xem xung quanh",
-        description = "Mở camera để nhận biết vật cản, lối đi và các tín hiệu ngay phía trước.",
-        supportingLabel = "Ưu tiên cảnh báo gần",
-        accessibilityLabel = "Xem xung quanh. Mở camera để nhận biết vật cản, lối đi và tín hiệu phía trước."
-    ),
     HomeAction(
         type = HomeActionType.ReadTextQuick,
         title = "Đọc văn bản nhanh",
@@ -63,16 +54,9 @@ private fun defaultHomeActions(): List<HomeAction> = listOf(
         accessibilityLabel = "Đọc văn bản chính xác. Dùng camera để đọc tài liệu với độ chính xác cao hơn bằng GPT-4o."
     ),
     HomeAction(
-        type = HomeActionType.Navigate,
-        title = "Đi đến nơi",
-        description = "Mở bản đồ để xem điểm đến và chuẩn bị cho dẫn đường ở các bước tiếp theo.",
-        supportingLabel = "Lộ trình và mốc định hướng",
-        accessibilityLabel = "Đi đến nơi. Mở bản đồ để xem điểm đến và chuẩn bị dẫn đường."
-    ),
-    HomeAction(
         type = HomeActionType.Voice,
         title = "Ra lệnh bằng giọng nói",
-        description = "Nói một câu lệnh để mở chế độ đọc, mô tả, nhận diện tiền hoặc dẫn đường.",
+        description = "Nói một câu lệnh để mở chế độ đọc, mô tả hoặc nhận diện tiền.",
         supportingLabel = "Hỗ trợ tiếng Việt",
         accessibilityLabel = "Ra lệnh bằng giọng nói. Nói một câu lệnh để chọn chế độ phù hợp."
     ),
@@ -138,13 +122,6 @@ class HomeViewModel(
         welcomeSummary = getString(R.string.home_welcome_summary),
         actions = listOf(
             HomeAction(
-                HomeActionType.ScanAround,
-                getString(R.string.home_action_scan_title),
-                getString(R.string.home_action_scan_description),
-                getString(R.string.home_action_scan_supporting),
-                getString(R.string.home_action_scan_accessibility)
-            ),
-            HomeAction(
                 HomeActionType.ReadTextQuick,
                 getString(R.string.home_action_read_quick_title),
                 getString(R.string.home_action_read_quick_description),
@@ -157,13 +134,6 @@ class HomeViewModel(
                 getString(R.string.home_action_read_accuracy_description),
                 getString(R.string.home_action_read_accuracy_supporting),
                 getString(R.string.home_action_read_accuracy_accessibility)
-            ),
-            HomeAction(
-                HomeActionType.Navigate,
-                getString(R.string.home_action_navigate_title),
-                getString(R.string.home_action_navigate_description),
-                getString(R.string.home_action_navigate_supporting),
-                getString(R.string.home_action_navigate_accessibility)
             ),
             HomeAction(
                 HomeActionType.Voice,

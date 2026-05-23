@@ -162,29 +162,20 @@ fun CameraScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        if (uiState.activeMode == CameraMode.OBSTACLE) {
-            CameraBoundingBoxOverlay(
-                boxes = uiState.boundingBoxes,
+        if (uiState.ocrCapturedBitmap == null) {
+            OcrGuidanceOverlay(
+                bounds = uiState.ocrGuidanceBounds,
+                isReady = uiState.isOcrReadyToCapture,
                 modifier = Modifier.fillMaxSize()
             )
         }
-
-        if (uiState.activeMode == CameraMode.OCR) {
-            if (uiState.ocrCapturedBitmap == null) {
-                OcrGuidanceOverlay(
-                    bounds = uiState.ocrGuidanceBounds,
-                    isReady = uiState.isOcrReadyToCapture,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            uiState.ocrCapturedBitmap?.let { capturedBitmap ->
-                Image(
-                    bitmap = capturedBitmap.asImageBitmap(),
-                    contentDescription = capturedOcrDescription,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
+        uiState.ocrCapturedBitmap?.let { capturedBitmap ->
+            Image(
+                bitmap = capturedBitmap.asImageBitmap(),
+                contentDescription = capturedOcrDescription,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         if (uiState.isStatusCardVisible) {
@@ -197,35 +188,15 @@ fun CameraScreen(
             )
         }
 
-        if (uiState.activeMode == CameraMode.OBSTACLE) uiState.depthPreviewBitmap?.let { depthBitmap ->
-            DepthPreviewPanel(
-                depthBitmap = depthBitmap.asImageBitmap(),
-                aspectRatio = depthBitmap.width.toFloat() / depthBitmap.height.toFloat(),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(start = 16.dp, end = 16.dp, bottom = 144.dp)
-            )
-        }
-
-        CameraModeSelector(
-            activeMode = uiState.activeMode,
-            onModeSelected = viewModel::selectMode,
+        OcrEngineModeSelector(
+            mode = uiState.ocrMode,
+            onModeSelected = viewModel::selectOcrMode,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 16.dp, vertical = 24.dp)
         )
 
-        if (uiState.activeMode == CameraMode.OCR) {
-            OcrEngineModeSelector(
-                mode = uiState.ocrMode,
-                onModeSelected = viewModel::selectOcrMode,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 16.dp, vertical = 124.dp)
-            )
-        }
-
-        if (uiState.activeMode == CameraMode.OCR && uiState.isOcrScanning) {
+        if (uiState.isOcrScanning) {
             Surface(
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -240,7 +211,7 @@ fun CameraScreen(
             }
         }
 
-        if (uiState.activeMode == CameraMode.OCR && uiState.isOcrDocumentMode) {
+        if (uiState.isOcrDocumentMode) {
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -410,104 +381,11 @@ private fun CameraStatusPanel(
 }
 
 @Composable
-private fun DepthPreviewPanel(
-    depthBitmap: ImageBitmap,
-    aspectRatio: Float,
-    modifier: Modifier = Modifier
-) {
-    val panelDescription = stringResource(R.string.camera_depth_panel_description)
-    val titleDescription = stringResource(R.string.camera_depth_title_description)
-    val titleText = stringResource(R.string.camera_depth_title)
-    val imageDescription = stringResource(R.string.camera_depth_image_description)
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .semantics(mergeDescendants = true) { contentDescription = panelDescription },
-        shape = MaterialTheme.shapes.medium,
-        tonalElevation = 4.dp,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = titleText,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.semantics { contentDescription = titleDescription }
-            )
-            Image(
-                bitmap = depthBitmap,
-                contentDescription = imageDescription,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(aspectRatio)
-                    .heightIn(max = 360.dp)
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun CameraModeSelector(
-    activeMode: CameraMode,
-    onModeSelected: (CameraMode) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val modes = remember { CameraMode.entries }
-    val selectorDescription = stringResource(R.string.camera_mode_selector_description)
-    val rowDescription = stringResource(R.string.camera_mode_row_description)
-    val selectedDescription = stringResource(R.string.camera_selected_description)
-    val unselectedDescription = stringResource(R.string.camera_unselected_description)
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .semantics(mergeDescendants = true) { contentDescription = selectorDescription },
-        shape = MaterialTheme.shapes.large,
-        tonalElevation = 4.dp,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
-    ) {
-        SingleChoiceSegmentedButtonRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-                .semantics { contentDescription = rowDescription }
-        ) {
-            modes.forEachIndexed { index, mode ->
-                val selected = mode == activeMode
-                val modeLabel = mode.localizedLabel()
-                val modeDescription = stringResource(
-                    R.string.camera_switch_mode_description,
-                    mode.localizedDescription()
-                )
-                SegmentedButton(
-                    selected = selected,
-                    onClick = { onModeSelected(mode) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
-                    modifier = Modifier
-                        .heightIn(min = 88.dp)
-                        .semantics {
-                            contentDescription = modeDescription
-                            stateDescription = if (selected) selectedDescription else unselectedDescription
-                        },
-                    label = { Text(text = modeLabel) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun CameraMode.localizedLabel(): String = when (this) {
-    CameraMode.OBSTACLE -> stringResource(R.string.camera_mode_obstacle_label)
     CameraMode.OCR -> stringResource(R.string.camera_mode_ocr_label)
 }
 
 @Composable
 private fun CameraMode.localizedDescription(): String = when (this) {
-    CameraMode.OBSTACLE -> stringResource(R.string.camera_mode_obstacle_description)
     CameraMode.OCR -> stringResource(R.string.camera_mode_ocr_description)
 }

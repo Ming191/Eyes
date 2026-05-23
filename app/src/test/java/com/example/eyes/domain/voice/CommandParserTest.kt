@@ -120,71 +120,56 @@ class CommandParserTest {
         assertEquals(VoiceCommand.RecognizeCurrency, parser.parse("đây là tờ mệnh giá gì"))
     }
 
-    // ----- DetectObstacle -----
+    // ----- Removed obstacle commands -----
 
     @Test
-    fun parse_obstacle_vatCan_returnsDetectObstacle() {
-        assertEquals(VoiceCommand.DetectObstacle, parser.parse("có vật cản không"))
+    fun parse_obstacle_vatCan_returnsUnknown() {
+        val input = "có vật cản không"
+        assertEquals(VoiceCommand.Unknown(input), parser.parse(input))
     }
 
     @Test
-    fun parse_obstacle_chuongNgai_returnsDetectObstacle() {
-        assertEquals(VoiceCommand.DetectObstacle, parser.parse("phía trước có chướng ngại không"))
+    fun parse_obstacle_chuongNgai_returnsUnknown() {
+        val input = "phía trước có chướng ngại không"
+        assertEquals(VoiceCommand.Unknown(input), parser.parse(input))
     }
 
-    // ----- Navigate -----
+    // ----- Removed navigation commands -----
 
     @Test
-    fun parse_navigate_diDen_extractsDestination() {
-        // GIVEN
+    fun parse_navigate_diDen_returnsUnknown() {
         val input = "đi đến bệnh viện Bạch Mai"
-        // WHEN
-        val result = parser.parse(input)
-        // THEN
-        assertEquals(VoiceCommand.Navigate("bệnh viện bạch mai"), result)
+        assertEquals(VoiceCommand.Unknown(input), parser.parse(input))
     }
 
     @Test
-    fun parse_navigate_den_extractsDestination() {
-        assertEquals(VoiceCommand.Navigate("hồ gươm"), parser.parse("đến hồ Gươm"))
+    fun parse_navigate_den_returnsUnknown() {
+        val input = "đến hồ Gươm"
+        assertEquals(VoiceCommand.Unknown(input), parser.parse(input))
     }
 
     @Test
-    fun parse_navigate_danToiToi_extractsDestination() {
-        assertEquals(
-            VoiceCommand.Navigate("chợ đồng xuân"),
-            parser.parse("dẫn tôi tới chợ Đồng Xuân")
-        )
+    fun parse_navigate_danToiToi_returnsUnknown() {
+        val input = "dẫn tôi tới chợ Đồng Xuân"
+        assertEquals(VoiceCommand.Unknown(input), parser.parse(input))
     }
 
     @Test
     fun parse_navigate_emptyDestination_returnsUnknown() {
-        // GIVEN — verb only, no destination
         val input = "đi đến"
-        // WHEN
-        val result = parser.parse(input)
-        // THEN — fall back to Unknown so the UI can prompt for clarification
-        assertTrue(result is VoiceCommand.Unknown)
+        assertEquals(VoiceCommand.Unknown(input), parser.parse(input))
     }
 
     @Test
-    fun parse_navigate_extraWhitespaceInDestination_isCollapsed() {
-        // GIVEN
+    fun parse_navigate_extraWhitespaceInDestination_returnsUnknown() {
         val input = "đi đến    bệnh viện   Bạch Mai   "
-        // WHEN
-        val result = parser.parse(input)
-        // THEN
-        assertEquals(VoiceCommand.Navigate("bệnh viện bạch mai"), result)
+        assertEquals(VoiceCommand.Unknown(input), parser.parse(input))
     }
 
     @Test
-    fun parse_navigate_trailingPolitenessParticle_isStripped() {
-        // GIVEN — "nhé" is a politeness particle, not part of the destination
+    fun parse_navigate_trailingPolitenessParticle_returnsUnknown() {
         val input = "đi đến hồ Gươm nhé"
-        // WHEN
-        val result = parser.parse(input)
-        // THEN
-        assertEquals(VoiceCommand.Navigate("hồ gươm"), result)
+        assertEquals(VoiceCommand.Unknown(input), parser.parse(input))
     }
 
     // ----- Repeat -----
@@ -289,26 +274,15 @@ class CommandParserTest {
     }
 
     @Test
-    fun parse_englishNavigate_extractsDestination() {
-        // GIVEN
+    fun parse_englishNavigate_returnsUnknown() {
         val input = "navigate to Central Park"
-        // WHEN
-        val result = parser.parse(input, AppLanguage.EN)
-        // THEN
-        assertEquals(
-            VoiceCommand.Navigate("central park"),
-            result
-        )
+        assertEquals(VoiceCommand.Unknown(input), parser.parse(input, AppLanguage.EN))
     }
 
     @Test
-    fun parse_englishGuideMeTo_extractsDestination() {
-        // GIVEN
+    fun parse_englishGuideMeTo_returnsUnknown() {
         val input = "guide me to Central Park"
-        // WHEN
-        val result = parser.parse(input, AppLanguage.EN)
-        // THEN
-        assertEquals(VoiceCommand.Navigate("central park"), result)
+        assertEquals(VoiceCommand.Unknown(input), parser.parse(input, AppLanguage.EN))
     }
 
     @Test

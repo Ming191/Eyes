@@ -17,8 +17,6 @@ datastorePreferences = "1.1.1"
 camerax = "1.4.1"
 robolectric = "4.16.1"
 mlkitTextRecognition = "19.0.1"
-tflite = "2.16.1"
-tfliteSupport = "0.4.4"
 retrofit = "2.11.0"
 okhttp = "4.12.0"
 lifecycleService = "2.8.7"
@@ -56,8 +54,6 @@ koin-compose-viewmodel = { group = "io.insert-koin", name = "koin-compose-viewmo
 koin-test = { module = "io.insert-koin:koin-test" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 mlkit-text-recognition = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition", version.ref = "mlkitTextRecognition" }
-tflite-core = { module = "org.tensorflow:tensorflow-lite", version.ref = "tflite" }
-tflite-support = { module = "org.tensorflow:tensorflow-lite-support", version.ref = "tfliteSupport" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 retrofit-converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "retrofit" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }

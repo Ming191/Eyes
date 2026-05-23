@@ -32,9 +32,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.eyes.R
 import com.example.eyes.ui.camera.CameraScreen
-import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.home.HomeScreen
-import com.example.eyes.ui.map.MapScreen
 import com.example.eyes.ocr.OcrMode
 import com.example.eyes.ui.onboarding.OnboardingScreen
 import com.example.eyes.ui.settings.SettingsScreen
@@ -156,10 +154,6 @@ private fun MainNavigationScaffold(
             ) {
                 composable<HomeRoute> {
                     HomeScreen(
-                        onOpenCamera = {
-                            viewModel.requestOpenCamera(CameraMode.OBSTACLE)
-                            navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
-                        },
                         onOpenOcrQuick = {
                             viewModel.requestOpenCameraOcr(OcrMode.QUICK)
                             navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
@@ -167,9 +161,6 @@ private fun MainNavigationScaffold(
                         onOpenOcrAccuracy = {
                             viewModel.requestOpenCameraOcr(OcrMode.ACCURACY)
                             navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
-                        },
-                        onOpenMap = {
-                            navController.navigateToTopLevelDestination(TopLevelDestination.MAP)
                         },
                         onOpenSettings = {
                             navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
@@ -187,9 +178,6 @@ private fun MainNavigationScaffold(
                         onRequestedModeConsumed = viewModel::clearRequestedCameraMode
                     )
                 }
-                composable<MapRoute> {
-                    MapScreen()
-                }
                 composable<SettingsRoute> {
                     SettingsScreen()
                 }
@@ -197,12 +185,6 @@ private fun MainNavigationScaffold(
                     VoiceCommandScreen(
                         onNavigateToCamera = {
                             navController.navigate(CameraRoute) {
-                                popUpTo(HomeRoute) { saveState = true }
-                                launchSingleTop = true
-                            }
-                        },
-                        onNavigateToMap = {
-                            navController.navigate(MapRoute) {
                                 popUpTo(HomeRoute) { saveState = true }
                                 launchSingleTop = true
                             }
@@ -223,7 +205,6 @@ private fun NavHostController.navigateToTopLevelDestination(
     val route = when (destination) {
         TopLevelDestination.HOME -> HomeRoute
         TopLevelDestination.CAMERA -> CameraRoute
-        TopLevelDestination.MAP -> MapRoute
         TopLevelDestination.SETTINGS -> SettingsRoute
     }
 
@@ -239,7 +220,6 @@ private fun NavHostController.navigateToTopLevelDestination(
 private fun NavDestination?.toTopLevelDestination(): TopLevelDestination {
     return when {
         this.isInHierarchy(TopLevelDestination.CAMERA) -> TopLevelDestination.CAMERA
-        this.isInHierarchy(TopLevelDestination.MAP) -> TopLevelDestination.MAP
         this.isInHierarchy(TopLevelDestination.SETTINGS) -> TopLevelDestination.SETTINGS
         else -> TopLevelDestination.HOME
     }
@@ -250,7 +230,6 @@ private fun NavDestination?.isInHierarchy(destination: TopLevelDestination): Boo
         when (destination) {
             TopLevelDestination.HOME -> currentDestination.route == HomeRoute::class.qualifiedName
             TopLevelDestination.CAMERA -> currentDestination.route == CameraRoute::class.qualifiedName
-            TopLevelDestination.MAP -> currentDestination.route == MapRoute::class.qualifiedName
             TopLevelDestination.SETTINGS -> currentDestination.route == SettingsRoute::class.qualifiedName
         }
     } == true

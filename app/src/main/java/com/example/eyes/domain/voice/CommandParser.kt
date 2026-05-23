@@ -12,10 +12,10 @@ import java.util.Locale
  *
  * Priority order when multiple keywords appear in a single utterance:
  *  1. Stop      — safety: should always interrupt
- *  2. Navigate  — needs destination extraction, handled before generic help words
+     *  2. Removed navigation requests — return Unknown
  *  3. Help      — user is lost; surface guidance
  *  4. Repeat    — user wants the last response again
- *  5. ReadText / DescribeScene / RecognizeCurrency / DetectObstacle (any order)
+     *  5. ReadText / DescribeScene / RecognizeCurrency (any order)
  *  6. Unknown   — fallback, preserves [rawText]
  */
 class CommandParser {
@@ -34,18 +34,8 @@ class CommandParser {
             return VoiceCommand.Stop
         }
 
-        // Priority 2: Navigate (must extract destination before generic help words like "guide")
-        val navigateMatch = keywords.navigateRegex.find(normalized)
-        if (navigateMatch != null) {
-            val destination = navigateMatch.groupValues[2]
-                .replace(WHITESPACE_REGEX, " ")
-                .trim()
-            return if (destination.isEmpty()) {
-                VoiceCommand.Unknown(original)
-            } else {
-                VoiceCommand.Navigate(destination)
-            }
-        }
+        // Priority 2: removed navigation commands
+        if (keywords.navigateRegex.containsMatchIn(normalized)) return VoiceCommand.Unknown(original)
 
         // Priority 3: Help
         if (containsAny(normalized, keywords.help)) {
@@ -67,9 +57,7 @@ class CommandParser {
         if (containsAny(normalized, keywords.recognizeCurrency)) {
             return VoiceCommand.RecognizeCurrency
         }
-        if (containsAny(normalized, keywords.detectObstacle)) {
-            return VoiceCommand.DetectObstacle
-        }
+        if (containsAny(normalized, keywords.detectObstacle)) return VoiceCommand.Unknown(original)
 
         return VoiceCommand.Unknown(original)
     }
@@ -133,7 +121,7 @@ class CommandParser {
             ),
 
         /**
-         * Navigate verbs followed by a destination.
+         * Removed navigation verbs followed by a destination.
          * Group 1: the verb phrase (discarded). Group 2: the destination.
          *
          * Verbs supported (case-insensitive after [normalize]):
