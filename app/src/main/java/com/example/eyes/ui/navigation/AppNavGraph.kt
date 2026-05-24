@@ -2,7 +2,10 @@ package com.example.eyes.ui.navigation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -10,17 +13,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -48,7 +56,10 @@ fun AppNavGraph(
 
     when {
         uiState.isLoading -> LoadingScreen()
-        uiState.onboardingCompleted -> MainNavigationScaffold(viewModel = viewModel)
+        uiState.onboardingCompleted -> MainNavigationScaffold(
+            viewModel = viewModel,
+            appLanguage = uiState.appLanguage
+        )
         else -> OnboardingNavHost(onFinish = viewModel::completeOnboarding)
     }
 }
@@ -91,14 +102,19 @@ private fun OnboardingNavHost(
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun MainNavigationScaffold(
-    viewModel: AppNavViewModel
+    viewModel: AppNavViewModel,
+    appLanguage: com.example.eyes.i18n.AppLanguage
 ) {
     key("main") {
         val navController = rememberNavController()
         val requestedCameraMode by viewModel.requestedCameraMode.collectAsStateWithLifecycle()
+        val currentSpokenText by viewModel.currentSpokenText.collectAsStateWithLifecycle(initialValue = null)
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentDestination = navBackStackEntry?.destination
         val currentTopLevelDestination = currentDestination.toTopLevelDestination()
+        LaunchedEffect(currentTopLevelDestination, appLanguage) {
+            viewModel.announceScreen(currentTopLevelDestination, appLanguage)
+        }
         val currentTitle = stringResource(currentTopLevelDestination.titleRes)
         val scaffoldDescription = stringResource(R.string.nav_scaffold_description)
         val topBarDescription = stringResource(R.string.nav_top_bar_description, currentTitle)
@@ -153,58 +169,97 @@ private fun MainNavigationScaffold(
                 }
             }
         ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = HomeRoute,
-                modifier = Modifier.padding(innerPadding)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
             ) {
-                composable<HomeRoute> {
-                    HomeScreen(
-                        onOpenOcrQuick = {
-                            viewModel.requestOpenCameraOcr(OcrMode.QUICK)
-                            navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
-                        },
-                        onOpenOcrAccuracy = {
-                            viewModel.requestOpenCameraOcr(OcrMode.ACCURACY)
-                            navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
-                        },
-                        onOpenSettings = {
-                            navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
-                        },
-                        onOpenVoice = {
-                            navController.navigate(VoiceRoute) {
-                                launchSingleTop = true
+                NavHost(
+                    navController = navController,
+                    startDestination = HomeRoute,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    composable<HomeRoute> {
+                        HomeScreen(
+                            onOpenOcrQuick = {
+                                viewModel.requestOpenCameraOcr(OcrMode.QUICK)
+                                navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
+                            },
+                            onOpenOcrAccuracy = {
+                                viewModel.requestOpenCameraOcr(OcrMode.ACCURACY)
+                                navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
+                            },
+                            onOpenSettings = {
+                                navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
+                            },
+                            onOpenVoice = {
+                                navController.navigate(VoiceRoute) {
+                                    launchSingleTop = true
+                                }
                             }
-                        }
-                    )
-                }
-                composable<CameraRoute> {
-                    CameraScreen(
-                        requestedMode = requestedCameraMode,
-                        onRequestedModeConsumed = viewModel::clearRequestedCameraMode
-                    )
-                }
-                composable<SettingsRoute> {
-                    SettingsScreen()
-                }
-                composable<VoiceRoute> {
-                    VoiceCommandScreen(
-                        onNavigateToCamera = {
-                            navController.navigate(CameraRoute) {
-                                popUpTo(HomeRoute) { saveState = true }
-                                launchSingleTop = true
+                        )
+                    }
+                    composable<CameraRoute> {
+                        CameraScreen(
+                            requestedMode = requestedCameraMode,
+                            onRequestedModeConsumed = viewModel::clearRequestedCameraMode
+                        )
+                    }
+                    composable<SettingsRoute> {
+                        SettingsScreen()
+                    }
+                    composable<VoiceRoute> {
+                        VoiceCommandScreen(
+                            onNavigateToCamera = {
+                                navController.navigate(CameraRoute) {
+                                    popUpTo(HomeRoute) { saveState = true }
+                                    launchSingleTop = true
+                                }
+                            },
+                            onNavigateBackHome = {
+                                navController.popBackStack(HomeRoute, inclusive = false)
                             }
-                        },
-                        onNavigateBackHome = {
-                            navController.popBackStack(HomeRoute, inclusive = false)
-                        }
-                    )
+                        )
+                    }
                 }
+                SpeechSubtitle(
+                    text = currentSpokenText,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
     }
 }
 
+@Composable
+private fun SpeechSubtitle(
+    text: String?,
+    modifier: Modifier = Modifier
+) {
+    if (text.isNullOrBlank()) return
+    val subtitleDescription = stringResource(R.string.voice_guide_subtitle_description, text)
+
+    Surface(
+        modifier = modifier
+            .navigationBarsPadding()
+            .padding(horizontal = 24.dp, vertical = 16.dp)
+            .widthIn(max = 560.dp)
+            .fillMaxWidth()
+            .semantics { contentDescription = subtitleDescription },
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+        color = Color.Black.copy(alpha = 0.78f),
+        tonalElevation = 8.dp,
+        shadowElevation = 8.dp
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+            color = Color.White,
+            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
+    }
+}
 private fun NavHostController.navigateToTopLevelDestination(
     destination: TopLevelDestination
 ) {

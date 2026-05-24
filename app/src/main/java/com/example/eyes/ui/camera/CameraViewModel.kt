@@ -718,25 +718,19 @@ class CameraViewModel(
     }
 
     private fun maybeAnnounceOcrGuidance(status: OcrGuidanceStatus, message: String) {
+        if (status != OcrGuidanceStatus.READY) return
+
         val now = System.currentTimeMillis()
         val previousStatus = lastAnnouncedOcrGuidanceStatus.get()
         val elapsed = now - lastOcrGuidanceSpeechAtMs.get()
-        if (
-            status != OcrGuidanceStatus.READY &&
-            elapsed < OCR_GUIDANCE_SPEECH_INTERVAL_MS
-        ) {
-            return
-        }
         if (previousStatus == status && elapsed < OCR_GUIDANCE_SPEECH_INTERVAL_MS) return
 
         lastAnnouncedOcrGuidanceStatus.set(status)
         lastOcrGuidanceSpeechAtMs.set(now)
 
-        if (status == OcrGuidanceStatus.READY && previousStatus != OcrGuidanceStatus.READY) {
+        if (previousStatus != OcrGuidanceStatus.READY) {
             hapticService.confirm()
             ttsService.speak(message, TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
-        } else if (status != OcrGuidanceStatus.READY) {
-            ttsService.speak(message, TtsService.Priority.NORMAL, appLanguage.get().ttsLocale)
         }
     }
 

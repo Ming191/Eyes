@@ -19,6 +19,14 @@
     <string name="settings_auto_translate_description">Tự động dịch tiếng Anh sang tiếng Việt khi OCR</string>
     <string name="settings_auto_translate_label">Tự động dịch EN -> VI khi OCR</string>
     <string name="settings_auto_translate_switch_description">Bật tắt tự động dịch tiếng Anh sang tiếng Việt khi OCR</string>
+    <string name="settings_voice_guide_description">In-app voice guide</string>
+    <string name="settings_voice_guide_label">Voice guide</string>
+    <string name="settings_voice_guide_summary">The app reads main screens, statuses, and important guidance without requiring system TalkBack.</string>
+    <string name="settings_voice_guide_switch_description">Turn in-app voice guide on or off</string>
+    <string name="settings_voice_guide_state_on">On</string>
+    <string name="settings_voice_guide_state_off">Off</string>
+    <string name="settings_voice_guide_enabled_announcement">Voice guide is on.</string>
+    <string name="settings_voice_guide_disabled_announcement">Voice guide is off. Safety alerts will still be spoken.</string>
     <string name="settings_preview_button_description">Nút nghe thử phản hồi bằng âm thanh và rung theo cài đặt hiện tại</string>
     <string name="settings_preview_button_label">Nghe thử phản hồi</string>
     <string name="home_screen_description">Màn hình trang chủ hỗ trợ nhanh</string>
@@ -148,6 +156,10 @@
     <string name="nav_bottom_bar_description">Thanh điều hướng chính</string>
     <string name="nav_selected_description">Đang được chọn</string>
     <string name="nav_unselected_description">Chưa chọn</string>
+    <string name="voice_guide_home_intro">Home.</string>
+    <string name="voice_guide_camera_intro">Camera.</string>
+    <string name="voice_guide_settings_intro">Settings.</string>
+    <string name="voice_guide_subtitle_description">Spoken text subtitle: %1$s</string>
     <string name="camera_screen_description">Màn hình camera ở chế độ %1$s. Nhấn giữ để mô tả cảnh xung quanh.</string>
     <string name="camera_describe_scene_description">Mô tả cảnh xung quanh</string>
     <string name="camera_captured_ocr_description">Ảnh OCR đã chụp</string>
