@@ -92,7 +92,8 @@ data class DetectionOverlayItem(
     val left: Float,
     val top: Float,
     val right: Float,
-    val bottom: Float
+    val bottom: Float,
+    val sourceAspectRatio: Float
 )
 
 private data class OcrRecognitionOutcome(
@@ -190,8 +191,9 @@ class CameraViewModel(
 
     private fun warmUpObjectDetectionModel() {
         viewModelScope.launch(Dispatchers.Default) {
-            runCatching { objectDetector.inspectOutputShape() }
-                .onSuccess { outputs ->
+            try {
+                val outputs = objectDetector.inspectOutputShape()
+                if (_uiState.value.activeMode == CameraMode.OBJECT_DETECTION) {
                     val message = cameraText.objectDetectionWarmupDone
                     Log.i(TAG, "Object detection warmup done: $outputs")
                     _uiState.update {
@@ -203,7 +205,10 @@ class CameraViewModel(
                         )
                     }
                 }
-                .onFailure { error ->
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                if (_uiState.value.activeMode == CameraMode.OBJECT_DETECTION) {
                     val message = cameraText.objectDetectionWarmupFailed
                     Log.e(TAG, "Object detection warmup failed", error)
                     _uiState.update {
@@ -213,6 +218,7 @@ class CameraViewModel(
                         )
                     }
                 }
+            }
         }
     }
 
@@ -222,6 +228,7 @@ class CameraViewModel(
         summary: String = cameraText.ocrSummary,
         statusMessage: String
     ) {
+        resetObjectAnnouncementDebounce()
         _uiState.update {
             it.copy(
                 activeMode = mode,
@@ -339,34 +346,47 @@ class CameraViewModel(
     }
 
     private suspend fun processObjectDetection(bitmap: Bitmap) {
-        runCatching { objectDetector.detect(bitmap) }
-            .onSuccess { detections ->
-                val overlayItems = detections.map { detection ->
-                    detection.toOverlayItem(bitmap.width, bitmap.height)
+        try {
+            val detections = objectDetector.detect(bitmap)
+            if (_uiState.value.activeMode != CameraMode.OBJECT_DETECTION) return
+
+            val overlayItems = detections.map { detection ->
+                detection.toOverlayItem(bitmap.width, bitmap.height)
+            }
+            Log.i(TAG, "Object detection frame: ${overlayItems.size} detections")
+            val announcement = if (overlayItems.isNotEmpty()) {
+                overlayItems.joinToString(separator = ". ") { item ->
+                    cameraText.objectDetectionAnnouncement(item.label, item.positionText)
                 }
-                Log.i(TAG, "Object detection frame: ${overlayItems.size} detections")
-                val announcement = if (overlayItems.isNotEmpty()) {
-                    overlayItems.joinToString(separator = ". ") { item ->
-                        cameraText.objectDetectionAnnouncement(item.label, item.positionText)
-                    }
-                } else {
-                    cameraText.objectDetectionNoObjects
-                }
-                maybeSpeakObjectDetection(announcement, overlayItems.isNotEmpty())
+            } else {
+                cameraText.objectDetectionNoObjects
+            }
+            maybeSpeakObjectDetection(announcement, overlayItems.isNotEmpty())
+            _uiState.update {
+                it.copy(
+                    objectDetections = overlayItems,
+                    lastAnnouncement = announcement,
+                    debugMetrics = cameraText.objectDetectionDebug(overlayItems.size)
+                )
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            Log.e(TAG, "Object detection failed", error)
+            if (_uiState.value.activeMode == CameraMode.OBJECT_DETECTION) {
                 _uiState.update {
                     it.copy(
-                        objectDetections = overlayItems,
-                        lastAnnouncement = announcement,
-                        debugMetrics = cameraText.objectDetectionDebug(overlayItems.size)
+                        objectDetections = emptyList(),
+                        debugMetrics = "YOLO detect: ${error.message ?: error::class.java.simpleName}"
                     )
                 }
             }
-            .onFailure { error ->
-                Log.e(TAG, "Object detection failed", error)
-                _uiState.update {
-                    it.copy(debugMetrics = "YOLO detect: ${error.message ?: error::class.java.simpleName}")
-                }
-            }
+        }
+    }
+
+    private fun resetObjectAnnouncementDebounce() {
+        lastObjectAnnouncement.set("")
+        lastObjectAnnouncementAtMs.set(0L)
     }
 
     private fun maybeSpeakObjectDetection(
@@ -401,12 +421,13 @@ class CameraViewModel(
             left = box.left / frameWidth,
             top = box.top / frameHeight,
             right = box.right / frameWidth,
-            bottom = box.bottom / frameHeight
+            bottom = box.bottom / frameHeight,
+            sourceAspectRatio = frameWidth.toFloat() / frameHeight.toFloat()
         )
     }
 
     private fun localizedObjectDetectionLabel(classId: Int, fallback: String): String {
-        val labels = context.resources.getStringArray(R.array.object_detection_coco_labels)
+        val labels = context.localizedFor(appLanguage.get()).resources.getStringArray(R.array.object_detection_coco_labels)
         return labels.getOrNull(classId) ?: fallback
     }
 
@@ -525,6 +546,7 @@ class CameraViewModel(
     fun selectMode(mode: CameraMode) {
         if (_uiState.value.activeMode == mode) return
         resetOcrGuidanceTracking()
+        resetObjectAnnouncementDebounce()
         when (mode) {
             CameraMode.OCR -> {
                 hapticService.confirm()
@@ -612,7 +634,7 @@ class CameraViewModel(
     }
 
     fun describeScene() {
-        val currentFrame = latestFrame.get() ?: run {
+        val currentFrame = copyLatestFrameForProcessing() ?: run {
             _uiState.update { it.copy(statusMessage = cameraText.noFrameToDescribe) }
             hapticService.error()
             return
@@ -635,8 +657,19 @@ class CameraViewModel(
                 _uiState.update { it.copy(statusMessage = cameraText.sceneDescriptionFailed) }
                 hapticService.error()
             } finally {
+                recycleBitmapIfNeeded(currentFrame)
                 _uiState.update { it.copy(isDescribingScene = false) }
             }
+        }
+    }
+
+    private fun copyLatestFrameForProcessing(): Bitmap? {
+        val frame = latestFrame.get() ?: return null
+        if (frame.isRecycled) return null
+        return try {
+            frame.copy(Bitmap.Config.ARGB_8888, false)
+        } catch (e: IllegalStateException) {
+            null
         }
     }
 

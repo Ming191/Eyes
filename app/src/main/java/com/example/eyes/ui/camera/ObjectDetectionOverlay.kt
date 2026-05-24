@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ObjectDetectionOverlay(
     detections: List<DetectionOverlayItem>,
+    sourceAspectRatio: Float? = null,
     modifier: Modifier = Modifier
 ) {
     val description = detections.joinToString { detection ->
@@ -29,6 +30,29 @@ fun ObjectDetectionOverlay(
             .fillMaxSize()
             .semantics { contentDescription = description }
     ) {
+        val contentWidth: Float
+        val contentHeight: Float
+        val contentLeft: Float
+        val contentTop: Float
+        if (sourceAspectRatio != null && sourceAspectRatio > 0f) {
+            val canvasAspectRatio = size.width / size.height
+            if (canvasAspectRatio > sourceAspectRatio) {
+                contentHeight = size.height
+                contentWidth = contentHeight * sourceAspectRatio
+                contentLeft = (size.width - contentWidth) / 2f
+                contentTop = 0f
+            } else {
+                contentWidth = size.width
+                contentHeight = contentWidth / sourceAspectRatio
+                contentLeft = 0f
+                contentTop = (size.height - contentHeight) / 2f
+            }
+        } else {
+            contentWidth = size.width
+            contentHeight = size.height
+            contentLeft = 0f
+            contentTop = 0f
+        }
         val textPaint = android.graphics.Paint().apply {
             color = android.graphics.Color.WHITE
             textSize = 14.sp.toPx()
@@ -37,10 +61,10 @@ fun ObjectDetectionOverlay(
         }
         detections.forEachIndexed { index, detection ->
             val color = BOX_COLORS[index % BOX_COLORS.size]
-            val left = detection.left.coerceIn(0f, 1f) * size.width
-            val top = detection.top.coerceIn(0f, 1f) * size.height
-            val right = detection.right.coerceIn(0f, 1f) * size.width
-            val bottom = detection.bottom.coerceIn(0f, 1f) * size.height
+            val left = contentLeft + detection.left.coerceIn(0f, 1f) * contentWidth
+            val top = contentTop + detection.top.coerceIn(0f, 1f) * contentHeight
+            val right = contentLeft + detection.right.coerceIn(0f, 1f) * contentWidth
+            val bottom = contentTop + detection.bottom.coerceIn(0f, 1f) * contentHeight
             if (right <= left || bottom <= top) return@forEachIndexed
             drawRoundRect(
                 color = color,

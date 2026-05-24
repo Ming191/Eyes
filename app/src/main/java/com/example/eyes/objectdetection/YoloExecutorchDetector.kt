@@ -2,6 +2,7 @@ package com.example.eyes.objectdetection
 
 import android.graphics.Bitmap
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.pytorch.executorch.EValue
@@ -53,6 +54,8 @@ class YoloExecutorchDetector(
                     frameWidth = bitmap.width,
                     frameHeight = bitmap.height
                 )
+            } catch (exception: CancellationException) {
+                throw exception
             } catch (throwable: Throwable) {
                 Log.e(TAG, "YOLO ExecuTorch detection failed: ${throwable.message}", throwable)
                 emptyList()

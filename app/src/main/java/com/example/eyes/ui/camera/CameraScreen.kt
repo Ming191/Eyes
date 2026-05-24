@@ -172,6 +172,7 @@ fun CameraScreen(
         if (uiState.activeMode == CameraMode.OBJECT_DETECTION) {
             ObjectDetectionOverlay(
                 detections = uiState.objectDetections,
+                sourceAspectRatio = uiState.objectDetections.firstOrNull()?.sourceAspectRatio,
                 modifier = Modifier.fillMaxSize()
             )
         }
