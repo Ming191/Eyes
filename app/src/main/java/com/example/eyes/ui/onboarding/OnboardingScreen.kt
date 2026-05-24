@@ -30,6 +30,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.example.eyes.R
+import com.example.eyes.ui.blind.BlindAction
+import com.example.eyes.ui.blind.blindFocusable
 import com.example.eyes.ui.permission.PermissionScreen
 import kotlinx.coroutines.launch
 
@@ -91,7 +93,12 @@ fun OnboardingScreen(
                 .fillMaxWidth()
                 .semantics {
                     contentDescription = heroDescription
-                },
+                }
+                .blindFocusable(
+                    id = "onboarding_hero",
+                    label = heroDescription,
+                    onActivate = {}
+                ),
             shape = MaterialTheme.shapes.large,
             tonalElevation = 2.dp
         ) {
@@ -137,6 +144,23 @@ fun OnboardingScreen(
                     stateDescription = pagerStateDescription
                     liveRegion = LiveRegionMode.Polite
                 }
+                .blindFocusable(
+                    id = "onboarding_page_${pagerState.currentPage}",
+                    label = pages[pagerState.currentPage].accessibilityLabel,
+                    onActivate = {},
+                    actions = listOf(
+                        BlindAction(label = nextDescription, onActivate = {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage((pagerState.currentPage + 1).coerceAtMost(pages.lastIndex))
+                            }
+                        }),
+                        BlindAction(label = backDescription, onActivate = {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage((pagerState.currentPage - 1).coerceAtLeast(0))
+                            }
+                        })
+                    )
+                )
         ) { page ->
             val item = pages[page]
             Surface(
@@ -199,6 +223,15 @@ fun OnboardingScreen(
                             backDisabledDescription
                         }
                     }
+                    .blindFocusable(
+                        id = "onboarding_back",
+                        label = backDescription,
+                        onActivate = {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage((pagerState.currentPage - 1).coerceAtLeast(0))
+                            }
+                        }
+                    )
             ) {
                 Text(backText)
             }
@@ -222,7 +255,20 @@ fun OnboardingScreen(
                         } else {
                             nextDescription
                         }
-                    },
+                    }
+                    .blindFocusable(
+                        id = "onboarding_next_start",
+                        label = if (pagerState.currentPage == pages.lastIndex) startDescription else nextDescription,
+                        onActivate = {
+                            if (pagerState.currentPage == pages.lastIndex) {
+                                onFinish()
+                            } else {
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                }
+                            }
+                        }
+                    ),
                 colors = ButtonDefaults.buttonColors()
             ) {
                 Text(if (pagerState.currentPage == pages.lastIndex) startText else nextText)

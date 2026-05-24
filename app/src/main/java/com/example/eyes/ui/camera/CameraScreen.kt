@@ -56,6 +56,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.R
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.ocr.OcrMode
+import com.example.eyes.ui.blind.BlindAction
+import com.example.eyes.ui.blind.blindFocusable
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
@@ -79,6 +81,19 @@ fun CameraScreen(
     val captureAnotherDescription = stringResource(R.string.camera_capture_another_description)
     val captureAnotherText = stringResource(R.string.camera_capture_another_text)
     val showStatusDescription = stringResource(R.string.camera_show_status_description)
+    fun captureOcrIfReady() {
+        if (
+            uiState.activeMode == CameraMode.OCR &&
+            !uiState.isOcrScanning &&
+            !uiState.isOcrDocumentMode
+        ) {
+            viewModel.onOcrCaptureRequested()
+            cameraManager.takePictureAfterCenterFocus(
+                onCaptured = viewModel::processCapturedOcrImage,
+                onError = { viewModel.onOcrCaptureError() }
+            )
+        }
+    }
 
     LaunchedEffect(requestedMode) {
         if (requestedMode != null) {
@@ -98,17 +113,7 @@ fun CameraScreen(
             .pointerInput(uiState.activeMode, uiState.isOcrDocumentMode, uiState.isOcrScanning) {
                 detectTapGestures(
                     onDoubleTap = {
-                        if (
-                            uiState.activeMode == CameraMode.OCR &&
-                            !uiState.isOcrScanning &&
-                            !uiState.isOcrDocumentMode
-                        ) {
-                            viewModel.onOcrCaptureRequested()
-                            cameraManager.takePictureAfterCenterFocus(
-                                onCaptured = viewModel::processCapturedOcrImage,
-                                onError = { viewModel.onOcrCaptureError() }
-                            )
-                        }
+                        captureOcrIfReady()
                     },
                     onLongPress = { viewModel.describeScene() }
                 )
@@ -145,7 +150,16 @@ fun CameraScreen(
                     viewModel.describeScene()
                     true
                 }
-            },
+            }
+            .blindFocusable(
+                id = "camera_viewfinder",
+                label = screenDescription,
+                onActivate = { captureOcrIfReady() },
+                actions = listOf(
+                    BlindAction(label = describeSceneDescription, onActivate = { viewModel.describeScene() }),
+                    BlindAction(label = captureAnotherDescription, onActivate = { captureOcrIfReady() })
+                )
+            ),
         contentAlignment = Alignment.Center
     ) {
         AndroidView(
@@ -272,6 +286,11 @@ fun CameraScreen(
                     .heightIn(min = 88.dp)
                     .padding(bottom = 164.dp)
                     .semantics { contentDescription = captureAnotherDescription }
+                    .blindFocusable(
+                        id = "camera_capture_another",
+                        label = captureAnotherDescription,
+                        onActivate = { viewModel.prepareForNextOcrCapture() }
+                    )
             ) {
                 Text(captureAnotherText)
             }
@@ -284,6 +303,11 @@ fun CameraScreen(
                     .align(Alignment.TopEnd)
                     .padding(16.dp)
                     .semantics { contentDescription = showStatusDescription }
+                    .blindFocusable(
+                        id = "camera_show_status",
+                        label = showStatusDescription,
+                        onActivate = viewModel::toggleStatusCardVisibility
+                    )
             ) {
                 Icon(imageVector = Icons.Rounded.Info, contentDescription = null)
             }
@@ -330,7 +354,12 @@ private fun CameraModeSelector(
                         .semantics {
                             contentDescription = itemDescription
                             stateDescription = if (selected) selectedDescription else unselectedDescription
-                        },
+                        }
+                        .blindFocusable(
+                            id = "camera_mode_${item.name}",
+                            label = itemDescription,
+                            onActivate = { onModeSelected(item) }
+                        ),
                     label = { Text(itemLabel) }
                 )
             }
@@ -377,7 +406,12 @@ private fun OcrEngineModeSelector(
                         .semantics {
                             contentDescription = if (item == OcrMode.QUICK) quickDescription else accurateDescription
                             stateDescription = if (selected) selectedDescription else unselectedDescription
-                        },
+                        }
+                        .blindFocusable(
+                            id = "camera_ocr_mode_${item.name}",
+                            label = if (item == OcrMode.QUICK) quickDescription else accurateDescription,
+                            onActivate = { onModeSelected(item) }
+                        ),
                     label = { Text(if (item == OcrMode.QUICK) quickLabel else accurateLabel) }
                 )
             }
@@ -408,7 +442,12 @@ private fun CurrencyResultOverlay(
             .semantics(mergeDescendants = true) {
                 contentDescription = if (hasResult) resultDescription else overlayDescription
                 liveRegion = LiveRegionMode.Polite
-            },
+            }
+            .blindFocusable(
+                id = "camera_currency_result",
+                label = if (hasResult) resultDescription else overlayDescription,
+                onActivate = {}
+            ),
         shape = MaterialTheme.shapes.large,
         tonalElevation = 4.dp,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
@@ -455,7 +494,15 @@ private fun CameraStatusPanel(
                 contentDescription = panelDescription
                 stateDescription = "${uiState.title}. ${uiState.statusMessage}. ${uiState.lastAnnouncement}."
                 liveRegion = LiveRegionMode.Polite
-            },
+            }
+            .blindFocusable(
+                id = "camera_status_panel",
+                label = "${uiState.title}. ${uiState.statusMessage}. ${uiState.lastAnnouncement}.",
+                onActivate = {},
+                actions = listOf(
+                    BlindAction(label = hideStatusDescription, onActivate = { onDismiss() })
+                )
+            ),
         shape = MaterialTheme.shapes.large,
         tonalElevation = 4.dp,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
@@ -485,7 +532,13 @@ private fun CameraStatusPanel(
                 Spacer(modifier = Modifier.width(12.dp))
                 FilledTonalIconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.semantics { contentDescription = hideStatusDescription }
+                    modifier = Modifier
+                        .semantics { contentDescription = hideStatusDescription }
+                        .blindFocusable(
+                            id = "camera_hide_status",
+                            label = hideStatusDescription,
+                            onActivate = onDismiss
+                        )
                 ) {
                     Icon(imageVector = Icons.Rounded.Close, contentDescription = null)
                 }

@@ -48,6 +48,7 @@ import com.example.eyes.R
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.system.SttErrorReason
 import com.example.eyes.system.SttState
+import com.example.eyes.ui.blind.blindFocusable
 import com.example.eyes.ui.theme.EyesTheme
 import org.koin.androidx.compose.koinViewModel
 
@@ -132,6 +133,11 @@ private fun VoiceCommandContent(
                     heading()
                     contentDescription = titleDescription
                 }
+                .blindFocusable(
+                    id = "voice_title",
+                    label = titleDescription,
+                    onActivate = {}
+                )
         )
 
         Text(
@@ -174,7 +180,12 @@ private fun StatusBlock(state: VoiceCommandUiState) {
             .semantics {
                 contentDescription = statusDescription
                 liveRegion = LiveRegionMode.Polite
-            },
+            }
+            .blindFocusable(
+                id = "voice_status",
+                label = statusDescription,
+                onActivate = {}
+            ),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant,
         tonalElevation = 2.dp
@@ -278,6 +289,17 @@ private fun MicButton(
         modifier = Modifier
             .size(160.dp)
             .semantics { contentDescription = description }
+            .blindFocusable(
+                id = "voice_mic_button",
+                label = description,
+                onActivate = {
+                    when (sttState) {
+                        SttState.Listening -> onStopTap()
+                        SttState.Processing -> Unit
+                        else -> onMicTap()
+                    }
+                }
+            )
     ) {
         Icon(
             imageVector = if (isListening) Icons.Rounded.MicOff else Icons.Rounded.Mic,
@@ -297,7 +319,12 @@ private fun AvailableCommandsCard(expanded: Boolean) {
             .fillMaxWidth()
             .semantics(mergeDescendants = false) {
                 contentDescription = description
-            },
+            }
+            .blindFocusable(
+                id = "voice_commands",
+                label = description,
+                onActivate = {}
+            ),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.secondaryContainer,
         tonalElevation = 1.dp

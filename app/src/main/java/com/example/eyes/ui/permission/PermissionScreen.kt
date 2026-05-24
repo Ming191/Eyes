@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.eyes.R
+import com.example.eyes.ui.blind.blindFocusable
 
 private val REQUIRED_PERMISSIONS = listOf(
     Manifest.permission.CAMERA,
@@ -81,7 +82,12 @@ fun PermissionScreen(
                 .semantics(mergeDescendants = true) {
                     contentDescription = summaryDescription
                     liveRegion = LiveRegionMode.Polite
-                },
+                }
+                .blindFocusable(
+                    id = "permission_summary",
+                    label = summaryDescription,
+                    onActivate = {}
+                ),
             shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.surfaceVariant
         ) {
@@ -116,6 +122,11 @@ fun PermissionScreen(
                 .semantics {
                     contentDescription = requestDescription
                 }
+                .blindFocusable(
+                    id = "permission_request",
+                    label = requestDescription,
+                    onActivate = { permissionsLauncher.launch(REQUIRED_PERMISSIONS.toTypedArray()) }
+                )
         ) {
             Text(requestText)
         }

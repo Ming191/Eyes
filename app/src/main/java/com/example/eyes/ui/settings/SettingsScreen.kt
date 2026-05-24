@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.R
 import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.ui.blind.BlindAction
+import com.example.eyes.ui.blind.blindFocusable
 import com.example.eyes.ui.theme.EyesTheme
 import org.koin.androidx.compose.koinViewModel
 
@@ -52,6 +54,8 @@ fun SettingsScreen(
         if (state.voiceGuideEnabled) R.string.settings_voice_guide_state_on else R.string.settings_voice_guide_state_off
     )
     val previewButtonDescription = stringResource(R.string.settings_preview_button_description)
+    val increaseLabel = stringResource(R.string.blind_action_increase)
+    val decreaseLabel = stringResource(R.string.blind_action_decrease)
 
     Column(
         modifier = Modifier
@@ -80,7 +84,16 @@ fun SettingsScreen(
             sliderStateDescription = stringResource(R.string.settings_slider_state_description, ttsSpeedLabel),
             value = state.ttsSpeed,
             valueRange = 0.5f..2.0f,
-            onValueChange = viewModel::setTtsSpeed
+            onValueChange = viewModel::setTtsSpeed,
+            modifier = Modifier.blindFocusable(
+                id = "settings_tts_speed",
+                label = stringResource(R.string.settings_tts_speed_slider_description, ttsSpeedLabel),
+                onActivate = {},
+                actions = listOf(
+                    BlindAction(label = increaseLabel, onActivate = { viewModel.setTtsSpeed((state.ttsSpeed + 0.05f).coerceAtMost(2.0f)) }),
+                    BlindAction(label = decreaseLabel, onActivate = { viewModel.setTtsSpeed((state.ttsSpeed - 0.05f).coerceAtLeast(0.5f)) })
+                )
+            )
         )
 
         SettingSliderCard(
@@ -91,7 +104,16 @@ fun SettingsScreen(
             sliderStateDescription = stringResource(R.string.settings_percent_state_description, alertSensitivityPercent),
             value = state.alertSensitivity,
             valueRange = 0f..1f,
-            onValueChange = viewModel::setAlertSensitivity
+            onValueChange = viewModel::setAlertSensitivity,
+            modifier = Modifier.blindFocusable(
+                id = "settings_alert_sensitivity",
+                label = stringResource(R.string.settings_alert_sensitivity_slider_description, alertSensitivityPercent),
+                onActivate = {},
+                actions = listOf(
+                    BlindAction(label = increaseLabel, onActivate = { viewModel.setAlertSensitivity((state.alertSensitivity + 0.05f).coerceAtMost(1f)) }),
+                    BlindAction(label = decreaseLabel, onActivate = { viewModel.setAlertSensitivity((state.alertSensitivity - 0.05f).coerceAtLeast(0f)) })
+                )
+            )
         )
 
         val languageSectionDescription = stringResource(R.string.settings_language_section_description)
@@ -112,7 +134,12 @@ fun SettingsScreen(
                     .heightIn(min = 56.dp)
                     .semantics {
                         contentDescription = if (language == AppLanguage.VI) vietnameseDescription else englishDescription
-                    },
+                    }
+                    .blindFocusable(
+                        id = "settings_language_${language.storageValue}",
+                        label = if (language == AppLanguage.VI) vietnameseDescription else englishDescription,
+                        onActivate = { viewModel.setAppLanguage(language) }
+                    ),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -131,7 +158,12 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp)
-                .semantics { contentDescription = autoTranslateDescription },
+                .semantics { contentDescription = autoTranslateDescription }
+                .blindFocusable(
+                    id = "settings_auto_translate",
+                    label = autoTranslateDescription,
+                    onActivate = { viewModel.setAutoTranslateEnglishOcrToVietnamese(!state.autoTranslateEnglishOcrToVietnamese) }
+                ),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -159,7 +191,12 @@ fun SettingsScreen(
                     contentDescription = voiceGuideDescription
                     stateDescription = voiceGuideStateDescription
                     role = Role.Switch
-                },
+                }
+                .blindFocusable(
+                    id = "settings_voice_guide",
+                    label = "$voiceGuideDescription. $voiceGuideStateDescription",
+                    onActivate = { viewModel.setVoiceGuideEnabled(!state.voiceGuideEnabled) }
+                ),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -191,6 +228,11 @@ fun SettingsScreen(
                 .semantics {
                     contentDescription = previewButtonDescription
                 }
+                .blindFocusable(
+                    id = "settings_preview_feedback",
+                    label = previewButtonDescription,
+                    onActivate = { viewModel.previewFeedback(state) }
+                )
         ) {
             Text(stringResource(R.string.settings_preview_button_label))
         }
