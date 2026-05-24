@@ -25,6 +25,7 @@ class DataStoreManager(private val context: Context) {
         val OcrTranslateToVietnamese = booleanPreferencesKey("ocr_translate_to_vi")
         val LastVoiceCommand = stringPreferencesKey("last_voice_command")
         val AppLanguage = stringPreferencesKey("app_language")
+        val VoiceGuideEnabled = booleanPreferencesKey("voice_guide_enabled")
     }
 
     val ttsSpeedFlow: Flow<Float> = context.dataStore.data.map { preferences: Preferences ->
@@ -60,6 +61,10 @@ class DataStoreManager(private val context: Context) {
         AppLanguage.fromStorageValue(preferences[PreferenceKeys.AppLanguage])
     }
 
+    val voiceGuideEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences: Preferences ->
+        preferences[PreferenceKeys.VoiceGuideEnabled] ?: true
+    }
+
     suspend fun setTtsSpeed(value: Float) {
         context.dataStore.edit { preferences -> preferences[PreferenceKeys.TtsSpeed] = value }
     }
@@ -90,6 +95,10 @@ class DataStoreManager(private val context: Context) {
 
     suspend fun setAppLanguage(language: AppLanguage) {
         context.dataStore.edit { preferences -> preferences[PreferenceKeys.AppLanguage] = language.storageValue }
+    }
+
+    suspend fun setVoiceGuideEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences -> preferences[PreferenceKeys.VoiceGuideEnabled] = enabled }
     }
 
     private companion object {

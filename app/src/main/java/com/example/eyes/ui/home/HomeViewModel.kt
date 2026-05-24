@@ -9,6 +9,8 @@ import com.example.eyes.data.DataStoreManager
 import com.example.eyes.i18n.AppLanguage
 import com.example.eyes.i18n.localizedFor
 import com.example.eyes.system.SpeechOutput
+import com.example.eyes.voiceguide.AnnouncementCategory
+import com.example.eyes.voiceguide.AnnouncementController
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -72,7 +74,8 @@ private fun defaultHomeActions(): List<HomeAction> = listOf(
 class HomeViewModel(
     private val context: Context,
     private val tts: SpeechOutput,
-    private val dataStoreManager: DataStoreManager? = null
+    private val dataStoreManager: DataStoreManager? = null,
+    private val announcementController: AnnouncementController? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -111,7 +114,12 @@ class HomeViewModel(
         if (hasSpokenGreeting) return
         hasSpokenGreeting = true
         val text = context.localizedFor(appLanguage).getString(R.string.home_greeting)
-        tts.speak(text, appLanguage.ttsLocale)
+        announcementController?.announce(
+            text = text,
+            priority = SpeechOutput.Priority.NORMAL,
+            category = AnnouncementCategory.Guidance,
+            locale = appLanguage.ttsLocale
+        ) ?: tts.speak(text, appLanguage.ttsLocale)
     }
 
     private val AppLanguage.homeUiState: HomeUiState

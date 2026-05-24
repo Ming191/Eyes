@@ -1,5 +1,6 @@
 package com.example.eyes.ui.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,9 +20,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -41,6 +46,11 @@ fun SettingsScreen(
     val screenDescription = stringResource(R.string.settings_screen_description)
     val autoTranslateDescription = stringResource(R.string.settings_auto_translate_description)
     val autoTranslateSwitchDescription = stringResource(R.string.settings_auto_translate_switch_description)
+    val voiceGuideDescription = stringResource(R.string.settings_voice_guide_description)
+    val voiceGuideSwitchDescription = stringResource(R.string.settings_voice_guide_switch_description)
+    val voiceGuideStateDescription = stringResource(
+        if (state.voiceGuideEnabled) R.string.settings_voice_guide_state_on else R.string.settings_voice_guide_state_off
+    )
     val previewButtonDescription = stringResource(R.string.settings_preview_button_description)
 
     Column(
@@ -120,6 +130,7 @@ fun SettingsScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 56.dp)
                 .semantics { contentDescription = autoTranslateDescription },
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -134,6 +145,41 @@ fun SettingsScreen(
                 modifier = Modifier.semantics {
                     contentDescription = autoTranslateSwitchDescription
                 }
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .clickable(onClickLabel = voiceGuideSwitchDescription) {
+                    viewModel.setVoiceGuideEnabled(!state.voiceGuideEnabled)
+                }
+                .semantics {
+                    contentDescription = voiceGuideDescription
+                    stateDescription = voiceGuideStateDescription
+                    role = Role.Switch
+                },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_voice_guide_label),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text(
+                    text = stringResource(R.string.settings_voice_guide_summary),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = state.voiceGuideEnabled,
+                onCheckedChange = null,
+                modifier = Modifier.clearAndSetSemantics { }
             )
         }
 
@@ -190,6 +236,30 @@ private fun SettingsScreenPreview() {
                 valueRange = 0f..1f,
                 onValueChange = {}
             )
+            val previewVoiceGuideDescription = stringResource(R.string.settings_voice_guide_description)
+            val previewVoiceGuideState = stringResource(R.string.settings_voice_guide_state_on)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    .semantics {
+                        contentDescription = previewVoiceGuideDescription
+                        stateDescription = previewVoiceGuideState
+                        role = Role.Switch
+                    },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_voice_guide_label),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Switch(
+                    checked = true,
+                    onCheckedChange = null,
+                    modifier = Modifier.clearAndSetSemantics { }
+                )
+            }
         }
     }
 }

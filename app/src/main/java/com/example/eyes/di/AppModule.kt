@@ -26,6 +26,11 @@ import com.example.eyes.ui.camera.CameraViewModel
 import com.example.eyes.ui.home.HomeViewModel
 import com.example.eyes.ui.navigation.AppNavViewModel
 import com.example.eyes.ui.settings.SettingsViewModel
+import com.example.eyes.voiceguide.AccessibilityStateProvider
+import com.example.eyes.voiceguide.AndroidAccessibilityStateProvider
+import com.example.eyes.voiceguide.AnnouncementController
+import com.example.eyes.voiceguide.ApplicationScope
+import com.example.eyes.voiceguide.DefaultAnnouncementController
 import org.koin.core.qualifier.named
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -41,6 +46,9 @@ val appModule = module {
     }
     single { TtsService(androidContext()) }
     single<SpeechOutput> { get<TtsService>() }
+    single { ApplicationScope() }
+    single<AccessibilityStateProvider> { AndroidAccessibilityStateProvider(androidContext()) }
+    single<AnnouncementController> { DefaultAnnouncementController(get<DataStoreManager>().voiceGuideEnabledFlow, get(), get(), get()) }
     single { HapticService(androidContext()) }
     single { DataStoreManager(androidContext()) }
     single { CameraManager(androidContext()) }
@@ -70,8 +78,8 @@ val appModule = module {
             .create(SceneApi::class.java)
     }
     single { SceneRepository(androidContext(), get()) }
-    viewModel { AppNavViewModel(get(), get()) }
-    viewModel { HomeViewModel(androidContext(), get(), get()) }
+    viewModel { AppNavViewModel(get(), get(), get(), androidContext()) }
+    viewModel { HomeViewModel(androidContext(), get(), get(), get()) }
     viewModel {
         CameraViewModel(
             quickOcrEngine = get(named("quick-ocr")),
@@ -87,6 +95,6 @@ val appModule = module {
             context = androidContext()
         )
     }
-    viewModel { SettingsViewModel(androidContext(), get(), get(), get()) }
+    viewModel { SettingsViewModel(androidContext(), get(), get(), get(), get()) }
     viewModel { com.example.eyes.ui.voice.VoiceCommandViewModel(get(), get(), get(), get(), get()) }
 }
