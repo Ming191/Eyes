@@ -361,21 +361,28 @@ class CameraViewModel(
             } else {
                 cameraText.objectDetectionNoObjects
             }
+            if (_uiState.value.activeMode != CameraMode.OBJECT_DETECTION) return
             maybeSpeakObjectDetection(announcement, overlayItems.isNotEmpty())
-            _uiState.update {
-                it.copy(
-                    objectDetections = overlayItems,
-                    lastAnnouncement = announcement,
-                    debugMetrics = cameraText.objectDetectionDebug(overlayItems.size)
-                )
+            _uiState.update { state ->
+                if (state.activeMode != CameraMode.OBJECT_DETECTION) {
+                    state
+                } else {
+                    state.copy(
+                        objectDetections = overlayItems,
+                        lastAnnouncement = announcement,
+                        debugMetrics = cameraText.objectDetectionDebug(overlayItems.size)
+                    )
+                }
             }
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
             Log.e(TAG, "Object detection failed", error)
-            if (_uiState.value.activeMode == CameraMode.OBJECT_DETECTION) {
-                _uiState.update {
-                    it.copy(
+            _uiState.update { state ->
+                if (state.activeMode != CameraMode.OBJECT_DETECTION) {
+                    state
+                } else {
+                    state.copy(
                         objectDetections = emptyList(),
                         debugMetrics = "YOLO detect: ${error.message ?: error::class.java.simpleName}"
                     )
