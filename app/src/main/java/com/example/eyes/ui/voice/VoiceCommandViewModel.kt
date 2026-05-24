@@ -1,11 +1,14 @@
 package com.example.eyes.ui.voice
 
+import android.content.Context
+import com.example.eyes.R
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.domain.voice.CommandParser
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.i18n.localizedFor
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.SpeechOutput
 import com.example.eyes.system.SttErrorReason
@@ -42,7 +45,8 @@ class VoiceCommandViewModel(
     private val commandParser: CommandParser,
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticService,
-    private val dataStoreManager: DataStoreManager
+    private val dataStoreManager: DataStoreManager,
+    private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(VoiceCommandUiState())
@@ -174,10 +178,10 @@ class VoiceCommandViewModel(
 
                 VoiceCommand.Repeat -> {
                     if (lastSpokenText.isBlank()) {
-                    speechOutput.speakAndAwait(appLanguage.voiceText.nothingToRepeat, appLanguage.ttsLocale)
-                } else {
-                    speechOutput.speakAndAwait(lastSpokenText, appLanguage.ttsLocale)
-                }
+                        speechOutput.speakAndAwait(voiceText.nothingToRepeat, appLanguage.ttsLocale)
+                    } else {
+                        speechOutput.speakAndAwait(lastSpokenText, appLanguage.ttsLocale)
+                    }
                     restartListeningAfterSpeech()
                 }
 
@@ -213,7 +217,7 @@ class VoiceCommandViewModel(
      * Speak [text] and remember it for the Repeat command.
      */
     private val voiceText: VoiceText
-        get() = appLanguage.voiceText
+        get() = context.localizedFor(appLanguage).voiceTextFromResources()
 
     private suspend fun speakAndRemember(text: String) {
         lastSpokenText = text
@@ -225,37 +229,23 @@ class VoiceCommandViewModel(
         sttService.release()
     }
 
-    private companion object {
-        private data class VoiceText(
-            val readText: String,
-            val describeScene: String,
-            val recognizeCurrency: String,
-            val nothingToRepeat: String,
-            val stopped: String,
-            val help: String,
-            val unknown: String
-        )
+    private data class VoiceText(
+        val readText: String,
+        val describeScene: String,
+        val recognizeCurrency: String,
+        val nothingToRepeat: String,
+        val stopped: String,
+        val help: String,
+        val unknown: String
+    )
 
-        private val AppLanguage.voiceText: VoiceText
-            get() = when (this) {
-                AppLanguage.VI -> VoiceText(
-                    readText = "Mở chế độ đọc văn bản.",
-                    describeScene = "Mở chế độ mô tả khung cảnh.",
-                    recognizeCurrency = "Mở chế độ nhận diện tiền.",
-                    nothingToRepeat = "Chưa có câu nào để đọc lại.",
-                    stopped = "Đã dừng.",
-                    help = "Bạn có thể nói: đọc giúp tôi để đọc văn bản. Trước mặt có gì để mô tả khung cảnh. Tờ tiền này bao nhiêu để nhận diện tiền. Đọc lại để nghe lại. Dừng để dừng và về trang chủ.",
-                    unknown = "Chưa nhận được lệnh. Hãy nói lại rõ hơn."
-                )
-                AppLanguage.EN -> VoiceText(
-                    readText = "Opening read text mode.",
-                    describeScene = "Opening scene description mode.",
-                    recognizeCurrency = "Opening currency recognition mode.",
-                    nothingToRepeat = "There is nothing to repeat yet.",
-                    stopped = "Stopped.",
-                    help = "You can say: read for me to read text. What is in front to describe the scene. How much is this bill to recognize money. Repeat to hear again. Stop to stop and return home.",
-                    unknown = "I did not get that command. Please speak more clearly."
-                )
-            }
-    }
+    private fun Context.voiceTextFromResources(): VoiceText = VoiceText(
+        readText = getString(R.string.voice_response_read_text),
+        describeScene = getString(R.string.voice_response_describe_scene),
+        recognizeCurrency = getString(R.string.voice_response_recognize_currency),
+        nothingToRepeat = getString(R.string.voice_response_nothing_to_repeat),
+        stopped = getString(R.string.voice_response_stopped),
+        help = getString(R.string.voice_response_help),
+        unknown = getString(R.string.voice_response_unknown)
+    )
 }

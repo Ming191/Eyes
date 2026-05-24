@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
+import com.example.eyes.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -27,7 +28,7 @@ class SceneRepository(
      */
     suspend fun describeScene(bitmap: Bitmap): String = withContext(Dispatchers.IO) {
 
-        val fallback = OFFLINE_FALLBACK_DESCRIPTION
+        val fallback = context.getString(R.string.scene_offline_fallback)
 
         if (!isNetworkAvailable()) {
             return@withContext fallback
@@ -103,6 +104,5 @@ class SceneRepository(
 
     private companion object {
         private val JPEG_MEDIA_TYPE = "image/jpeg".toMediaType()
-        private const val OFFLINE_FALLBACK_DESCRIPTION = "Chưa thể mô tả khung hình. Hãy thử lại khi có mạng."
     }
 }

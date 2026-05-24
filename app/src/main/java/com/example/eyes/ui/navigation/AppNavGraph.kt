@@ -39,6 +39,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.eyes.R
+import com.example.eyes.system.SpeechOutput
+import com.example.eyes.ui.blind.BlindAction
+import com.example.eyes.ui.blind.BlindGestureLayer
+import com.example.eyes.ui.blind.blindFocusable
 import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.camera.CameraScreen
 import com.example.eyes.ui.home.HomeScreen
@@ -46,21 +50,29 @@ import com.example.eyes.ocr.OcrMode
 import com.example.eyes.ui.onboarding.OnboardingScreen
 import com.example.eyes.ui.settings.SettingsScreen
 import com.example.eyes.ui.voice.VoiceCommandScreen
+import org.koin.compose.koinInject
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun AppNavGraph(
-    viewModel: AppNavViewModel = koinViewModel()
+    viewModel: AppNavViewModel = koinViewModel(),
+    speechOutput: SpeechOutput = koinInject()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    when {
-        uiState.isLoading -> LoadingScreen()
-        uiState.onboardingCompleted -> MainNavigationScaffold(
-            viewModel = viewModel,
-            appLanguage = uiState.appLanguage
-        )
-        else -> OnboardingNavHost(onFinish = viewModel::completeOnboarding)
+    BlindGestureLayer(
+        speechOutput = speechOutput,
+        localeProvider = { uiState.appLanguage.ttsLocale },
+        noActionsLabel = stringResource(R.string.blind_gesture_no_actions)
+    ) {
+        when {
+            uiState.isLoading -> LoadingScreen()
+            uiState.onboardingCompleted -> MainNavigationScaffold(
+                viewModel = viewModel,
+                appLanguage = uiState.appLanguage
+            )
+            else -> OnboardingNavHost(onFinish = viewModel::completeOnboarding)
+        }
     }
 }
 
@@ -166,7 +178,29 @@ private fun MainNavigationScaffold(
                             label = { Text(text = stringResource(destination.labelRes)) },
                             modifier = Modifier.semantics {
                                 stateDescription = if (isSelected) selectedDescription else unselectedDescription
-                            }
+                            }.blindFocusable(
+                                id = "bottom_nav_${destination.name}",
+                                label = stringResource(destination.labelRes),
+                                activateLabel = stringResource(destination.labelRes),
+                                onActivate = {
+                                    if (destination == TopLevelDestination.CAMERA) {
+                                        viewModel.requestOpenCamera(CameraMode.OBJECT_DETECTION)
+                                    }
+                                    navController.navigateToTopLevelDestination(destination)
+                                },
+                                actions = listOf(
+                                    BlindAction(
+                                        label = stringResource(destination.labelRes),
+                                        activateLabel = stringResource(destination.labelRes),
+                                        onActivate = {
+                                            if (destination == TopLevelDestination.CAMERA) {
+                                                viewModel.requestOpenCamera(CameraMode.OBJECT_DETECTION)
+                                            }
+                                            navController.navigateToTopLevelDestination(destination)
+                                        }
+                                    )
+                                )
+                            )
                         )
                     }
                 }

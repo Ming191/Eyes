@@ -23,6 +23,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.example.eyes.R
+import com.example.eyes.ui.blind.BlindAction
+import com.example.eyes.ui.blind.blindFocusable
 import com.example.eyes.ui.theme.EyesTheme
 
 @Composable
@@ -43,7 +45,20 @@ fun HomeActionCard(
             .semantics(mergeDescendants = true) {
                 contentDescription = action.accessibilityLabel
                 role = Role.Button
-            },
+            }
+            .blindFocusable(
+                id = "home_action_${action.type.name}",
+                label = action.accessibilityLabel,
+                activateLabel = openLabel,
+                onActivate = onClick,
+                actions = listOf(
+                    BlindAction(
+                        label = openLabel,
+                        activateLabel = openLabel,
+                        onActivate = onClick
+                    )
+                )
+            ),
         color = MaterialTheme.colorScheme.surface,
         shape = MaterialTheme.shapes.medium,
         tonalElevation = 2.dp,
@@ -86,13 +101,14 @@ fun HomeActionCard(
 @Composable
 private fun HomeActionCardPreview() {
     EyesTheme(dynamicColor = false) {
+        val title = stringResource(R.string.home_action_read_quick_title)
         HomeActionCard(
             action = HomeAction(
                 type = HomeActionType.ReadTextQuick,
-                title = "Đọc văn bản nhanh",
-                description = "Dùng camera để đọc nhanh bằng ML Kit.",
-                supportingLabel = "Chế độ OCR nhanh",
-                accessibilityLabel = "Đọc văn bản nhanh. Dùng camera để đọc nhãn, biển báo hoặc tài liệu ngắn bằng OCR nhanh."
+                title = title,
+                description = stringResource(R.string.home_action_read_quick_description),
+                supportingLabel = stringResource(R.string.home_action_read_quick_supporting),
+                accessibilityLabel = stringResource(R.string.home_action_read_quick_accessibility)
             ),
             onClick = {}
         )

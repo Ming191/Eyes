@@ -35,40 +35,9 @@ data class HomeAction(
 
 @Immutable
 data class HomeUiState(
-    val welcomeTitle: String = "Hỗ trợ đọc văn bản rõ ràng và ngắn gọn",
-    val welcomeSummary: String = "Chọn một chế độ để đọc văn bản, ra lệnh bằng giọng nói hoặc tinh chỉnh phản hồi.",
-    val actions: List<HomeAction> = defaultHomeActions()
-)
-
-private fun defaultHomeActions(): List<HomeAction> = listOf(
-    HomeAction(
-        type = HomeActionType.ReadTextQuick,
-        title = "Đọc văn bản nhanh",
-        description = "Dùng camera để đọc nhanh bằng ML Kit.",
-        supportingLabel = "Chế độ OCR nhanh",
-        accessibilityLabel = "Đọc văn bản nhanh. Dùng camera để đọc nhãn, biển báo hoặc tài liệu ngắn bằng OCR nhanh."
-    ),
-    HomeAction(
-        type = HomeActionType.ReadTextAccuracy,
-        title = "Đọc văn bản chính xác",
-        description = "Dùng camera để đọc chính xác hơn bằng GPT-4o.",
-        supportingLabel = "Chế độ OCR chính xác",
-        accessibilityLabel = "Đọc văn bản chính xác. Dùng camera để đọc tài liệu với độ chính xác cao hơn bằng GPT-4o."
-    ),
-    HomeAction(
-        type = HomeActionType.Voice,
-        title = "Ra lệnh bằng giọng nói",
-        description = "Nói một câu lệnh để mở chế độ đọc, mô tả hoặc nhận diện tiền.",
-        supportingLabel = "Hỗ trợ tiếng Việt",
-        accessibilityLabel = "Ra lệnh bằng giọng nói. Nói một câu lệnh để chọn chế độ phù hợp."
-    ),
-    HomeAction(
-        type = HomeActionType.Settings,
-        title = "Tinh chỉnh phản hồi",
-        description = "Điều chỉnh tốc độ đọc và độ nhạy cảnh báo để phù hợp với môi trường hiện tại.",
-        supportingLabel = "Âm thanh và rung",
-        accessibilityLabel = "Tinh chỉnh phản hồi. Điều chỉnh tốc độ đọc và độ nhạy cảnh báo."
-    )
+    val welcomeTitle: String = "",
+    val welcomeSummary: String = "",
+    val actions: List<HomeAction> = emptyList()
 )
 
 class HomeViewModel(
@@ -78,13 +47,13 @@ class HomeViewModel(
     private val announcementController: AnnouncementController? = null
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(HomeUiState())
-    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
-
     private var hasSpokenGreeting = false
     private var appLanguage: AppLanguage = AppLanguage.VI
     private var isAppLanguageLoaded = false
     private var pendingGreeting = false
+
+    private val _uiState = MutableStateFlow(context.localizedFor(appLanguage).homeUiStateFromResources())
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
         dataStoreManager?.let { store ->

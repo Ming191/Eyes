@@ -17,6 +17,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.example.eyes.R
 import com.example.eyes.ui.theme.EyesTheme
 
 @Composable
@@ -84,11 +86,11 @@ fun SettingSliderCard(
 private fun SettingSliderCardPreview() {
     EyesTheme(dynamicColor = false) {
         SettingSliderCard(
-            title = "Tốc độ đọc",
-            summary = "Điều chỉnh nhịp đọc để dễ nghe trong môi trường đông người.",
+            title = stringResource(R.string.settings_tts_speed_title),
+            summary = stringResource(R.string.settings_tts_speed_summary),
             valueLabel = "1.25x",
-            contentDescription = "Thanh trượt tốc độ đọc 1.25 lần",
-            sliderStateDescription = "Giá trị hiện tại 1.25 lần",
+            contentDescription = stringResource(R.string.settings_tts_speed_slider_description, "1.25"),
+            sliderStateDescription = stringResource(R.string.settings_slider_state_description, "1.25"),
             value = 1.25f,
             valueRange = 0.5f..2.0f,
             onValueChange = {}

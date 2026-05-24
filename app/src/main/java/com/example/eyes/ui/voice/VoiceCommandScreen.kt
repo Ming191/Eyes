@@ -373,7 +373,7 @@ private fun VoiceCommandScreenPreview() {
         VoiceCommandContent(
             state = VoiceCommandUiState(
                 sttState = SttState.Idle,
-                finalText = "đọc giúp tôi",
+                finalText = stringResource(R.string.voice_preview_final_text),
                 lastCommand = VoiceCommand.ReadText
             ),
             onMicTap = {},

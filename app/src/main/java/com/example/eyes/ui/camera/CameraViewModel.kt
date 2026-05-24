@@ -24,6 +24,7 @@ import com.example.eyes.ocr.MlKitOcrGuidanceAnalyzer
 import com.example.eyes.ocr.OcrEngine
 import com.example.eyes.ocr.OcrGuidanceEvaluator
 import com.example.eyes.ocr.OcrGuidanceStatus
+import com.example.eyes.ocr.OcrGuidanceText
 import com.example.eyes.ocr.OcrMode
 import com.example.eyes.ocr.OcrPostProcessor
 import com.example.eyes.ocr.OcrResult
@@ -58,14 +59,14 @@ data class CameraUiState(
     val ocrCurrentIndex: Int = 0,
     val ocrCapturedBitmap: Bitmap? = null,
     val ocrGuidanceStatus: OcrGuidanceStatus = OcrGuidanceStatus.SEARCHING,
-    val ocrGuidanceMessage: String = "Hãy hướng camera vào vùng văn bản.",
+    val ocrGuidanceMessage: String = "",
     val isOcrReadyToCapture: Boolean = false,
     val ocrGuidanceBounds: OcrTextBounds? = null,
-    val title: String = "Chế độ đọc văn bản",
-    val summary: String = "Đưa camera vào vùng văn bản, chạm hai lần để chụp và đọc.",
-    val statusMessage: String = "Đang chờ khung hình tiếp theo",
-    val lastAnnouncement: String = "Chưa có cảnh báo mới",
-    val debugMetrics: String = "Debug: đang chờ dữ liệu",
+    val title: String = "",
+    val summary: String = "",
+    val statusMessage: String = "",
+    val lastAnnouncement: String = "",
+    val debugMetrics: String = "",
     val isDescribingScene: Boolean = false,
     val isStatusCardVisible: Boolean = true,
     val objectDetections: List<DetectionOverlayItem> = emptyList(),
@@ -79,13 +80,10 @@ data class CameraUiState(
 }
 
 @Immutable
-enum class CameraMode(
-    val labelVi: String,
-    val descriptionVi: String
-) {
-    OCR("Đọc văn bản", "đọc văn bản OCR"),
-    OBJECT_DETECTION("Nhận diện vật thể", "nhận diện vật thể"),
-    CURRENCY("Nhận diện tiền", "nhận diện mệnh giá tiền")
+enum class CameraMode {
+    OCR,
+    OBJECT_DETECTION,
+    CURRENCY
 }
 
 @Immutable
@@ -435,7 +433,7 @@ class CameraViewModel(
                 replaceLatestFrame(bitmap)
                 val frame = ocrGuidanceAnalyzer.analyze(bitmap)
                 val stableCount = updateOcrGuidanceStability(frame.textBounds)
-                val evaluation = OcrGuidanceEvaluator.evaluate(frame, stableCount, appLanguage.get())
+                val evaluation = OcrGuidanceEvaluator.evaluate(frame, stableCount, cameraText.ocrGuidanceText())
                 val currentState = _uiState.value
                 if (
                     currentState.activeMode != CameraMode.OCR ||
@@ -1234,6 +1232,17 @@ class CameraViewModel(
         val switchedToOcrModeTemplate: String,
         val switchedToQuickMode: String,
         val switchedToAccurateMode: String,
+        val ocrGuidanceTooDark: String,
+        val ocrGuidanceTooBright: String,
+        val ocrGuidanceMoveCloser: String,
+        val ocrGuidanceMoveBack: String,
+        val ocrGuidanceTextClipped: String,
+        val ocrGuidanceMoveLeft: String,
+        val ocrGuidanceMoveRight: String,
+        val ocrGuidanceMoveUp: String,
+        val ocrGuidanceMoveDown: String,
+        val ocrGuidanceReady: String,
+        val ocrGuidanceHoldSteady: String,
         val gptFallbackStatusTemplate: String,
         val capturedParagraphsTemplate: String,
         val ocrSentencePositionTemplate: String,
@@ -1338,6 +1347,21 @@ class CameraViewModel(
             switchedToAccurateMode
         }
 
+        fun ocrGuidanceText(): OcrGuidanceText = OcrGuidanceText(
+            searching = ocrGuidanceSearch,
+            tooDark = ocrGuidanceTooDark,
+            tooBright = ocrGuidanceTooBright,
+            moveCloser = ocrGuidanceMoveCloser,
+            moveBack = ocrGuidanceMoveBack,
+            textClipped = ocrGuidanceTextClipped,
+            moveLeft = ocrGuidanceMoveLeft,
+            moveRight = ocrGuidanceMoveRight,
+            moveUp = ocrGuidanceMoveUp,
+            moveDown = ocrGuidanceMoveDown,
+            ready = ocrGuidanceReady,
+            holdSteady = ocrGuidanceHoldSteady
+        )
+
         fun gptFallbackStatus(count: Int): String = gptFallbackStatusTemplate.format(count)
 
         fun capturedParagraphs(count: Int): String = capturedParagraphsTemplate.format(count)
@@ -1413,6 +1437,17 @@ class CameraViewModel(
                     switchedToOcrModeTemplate = resources.getString(R.string.camera_vm_switched_to_ocr_mode_template),
                     switchedToQuickMode = resources.getString(R.string.camera_vm_switched_to_quick_mode),
                     switchedToAccurateMode = resources.getString(R.string.camera_vm_switched_to_accurate_mode),
+                    ocrGuidanceTooDark = resources.getString(R.string.ocr_guidance_too_dark),
+                    ocrGuidanceTooBright = resources.getString(R.string.ocr_guidance_too_bright),
+                    ocrGuidanceMoveCloser = resources.getString(R.string.ocr_guidance_move_closer),
+                    ocrGuidanceMoveBack = resources.getString(R.string.ocr_guidance_move_back),
+                    ocrGuidanceTextClipped = resources.getString(R.string.ocr_guidance_text_clipped),
+                    ocrGuidanceMoveLeft = resources.getString(R.string.ocr_guidance_move_left),
+                    ocrGuidanceMoveRight = resources.getString(R.string.ocr_guidance_move_right),
+                    ocrGuidanceMoveUp = resources.getString(R.string.ocr_guidance_move_up),
+                    ocrGuidanceMoveDown = resources.getString(R.string.ocr_guidance_move_down),
+                    ocrGuidanceReady = resources.getString(R.string.ocr_guidance_ready),
+                    ocrGuidanceHoldSteady = resources.getString(R.string.ocr_guidance_hold_steady),
                     gptFallbackStatusTemplate = resources.getString(R.string.camera_vm_gpt_fallback_status_template),
                     capturedParagraphsTemplate = resources.getString(R.string.camera_vm_captured_paragraphs_template),
                     ocrSentencePositionTemplate = resources.getString(R.string.camera_vm_ocr_sentence_position_template),
