@@ -2,7 +2,6 @@ package com.example.eyes.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Tune
 import androidx.annotation.StringRes
@@ -18,9 +17,6 @@ data object HomeRoute
 
 @Serializable
 data object CameraRoute
-
-@Serializable
-data object MapRoute
 
 @Serializable
 data object SettingsRoute
@@ -42,11 +38,6 @@ enum class TopLevelDestination(
         titleRes = R.string.nav_title_camera,
         labelRes = R.string.nav_label_camera,
         icon = Icons.Rounded.PhotoCamera
-    ),
-    MAP(
-        titleRes = R.string.nav_title_map,
-        labelRes = R.string.nav_label_map,
-        icon = Icons.Rounded.Map
     ),
     SETTINGS(
         titleRes = R.string.nav_title_settings,

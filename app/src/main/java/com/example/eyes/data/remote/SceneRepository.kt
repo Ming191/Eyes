@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
-import com.example.eyes.ai.Detection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -21,19 +20,14 @@ class SceneRepository(
 
     /**
      * Provides a scene description by uploading the given bitmap to the remote API and
-     * falling back to a locally built description derived from detections when no network
-     * is available or the API returns no meaningful text.
+     * falling back to a generic retry prompt when no network is available or the API returns no meaningful text.
      *
      * @param bitmap The scene image to upload.
-     * @param detections Detection results used to construct the offline fallback description.
-     * @return The API-provided description trimmed of surrounding whitespace if non-blank, otherwise the offline fallback description.
+     * @return The API-provided description trimmed of surrounding whitespace if non-blank, otherwise a fallback retry prompt.
      */
-    suspend fun describeScene(
-        bitmap: Bitmap,
-        detections: List<Detection>
-    ): String = withContext(Dispatchers.IO) {
+    suspend fun describeScene(bitmap: Bitmap): String = withContext(Dispatchers.IO) {
 
-        val fallback = buildOfflineDescription(detections)
+        val fallback = OFFLINE_FALLBACK_DESCRIPTION
 
         if (!isNetworkAvailable()) {
             return@withContext fallback
@@ -62,29 +56,6 @@ class SceneRepository(
             Log.e("SceneDescriber", "Describe failed", e)
             fallback
         }
-    }
-
-    /**
-     * Constructs a Vietnamese offline description of the scene from detection results.
-     *
-     * Uses up to the three highest-confidence detections to produce a short sentence
-     * describing which objects are located in which zones. If no detections are
-     * available, returns a message asking the user to hold the phone steady and try again.
-     *
-     * @param detections List of detection results; at most the three highest-confidence items are included in the description.
-     * @return A Vietnamese description string: either a retry prompt when no detections exist, or a sentence beginning with "Phía trước có ..." listing detected objects and their zones.
-     */
-    fun buildOfflineDescription(detections: List<Detection>): String {
-        if (detections.isEmpty()) {
-            return "Tôi chưa phát hiện vật cản rõ ràng. Bạn hãy giữ điện thoại ổn định và thử lại."
-        }
-
-        val parts = detections
-            .sortedByDescending { it.confidence }
-            .take(3)
-            .map { detection -> "${detection.labelVi} phía ${detection.zone.labelVi}" }
-
-        return "Phía trước có ${parts.joinToString(", ")}."
     }
 
     /**
@@ -132,5 +103,6 @@ class SceneRepository(
 
     private companion object {
         private val JPEG_MEDIA_TYPE = "image/jpeg".toMediaType()
+        private const val OFFLINE_FALLBACK_DESCRIPTION = "Chưa thể mô tả khung hình. Hãy thử lại khi có mạng."
     }
 }

@@ -26,7 +26,6 @@ import kotlinx.coroutines.launch
  */
 sealed interface VoiceNavigationTarget {
     data object Camera : VoiceNavigationTarget
-    data object Map : VoiceNavigationTarget
     data object Home : VoiceNavigationTarget   // for Stop command
 }
 
@@ -173,16 +172,6 @@ class VoiceCommandViewModel(
                     navigateAfterSpeech(VoiceNavigationTarget.Camera)
                 }
 
-                VoiceCommand.DetectObstacle -> {
-                    speakAndRemember(voiceText.detectObstacle)
-                    navigateAfterSpeech(VoiceNavigationTarget.Camera)
-                }
-
-                is VoiceCommand.Navigate -> {
-                    speakAndRemember(voiceText.navigate(command.destination))
-                    navigateAfterSpeech(VoiceNavigationTarget.Map)
-                }
-
                 VoiceCommand.Repeat -> {
                     if (lastSpokenText.isBlank()) {
                     speechOutput.speakAndAwait(appLanguage.voiceText.nothingToRepeat, appLanguage.ttsLocale)
@@ -241,12 +230,10 @@ class VoiceCommandViewModel(
             val readText: String,
             val describeScene: String,
             val recognizeCurrency: String,
-            val detectObstacle: String,
             val nothingToRepeat: String,
             val stopped: String,
             val help: String,
-            val unknown: String,
-            val navigate: (String) -> String
+            val unknown: String
         )
 
         private val AppLanguage.voiceText: VoiceText
@@ -255,23 +242,19 @@ class VoiceCommandViewModel(
                     readText = "Mở chế độ đọc văn bản.",
                     describeScene = "Mở chế độ mô tả khung cảnh.",
                     recognizeCurrency = "Mở chế độ nhận diện tiền.",
-                    detectObstacle = "Mở chế độ phát hiện vật cản.",
                     nothingToRepeat = "Chưa có câu nào để đọc lại.",
                     stopped = "Đã dừng.",
-                    help = "Bạn có thể nói: đọc giúp tôi để đọc văn bản. Trước mặt có gì để mô tả khung cảnh. Tờ tiền này bao nhiêu để nhận diện tiền. Có vật cản không để phát hiện vật cản. Đi đến tên địa điểm để dẫn đường. Đọc lại để nghe lại. Dừng để dừng và về trang chủ.",
-                    unknown = "Chưa nhận được lệnh. Hãy nói lại rõ hơn.",
-                    navigate = { destination -> "Chuẩn bị dẫn đường đến $destination." }
+                    help = "Bạn có thể nói: đọc giúp tôi để đọc văn bản. Trước mặt có gì để mô tả khung cảnh. Tờ tiền này bao nhiêu để nhận diện tiền. Đọc lại để nghe lại. Dừng để dừng và về trang chủ.",
+                    unknown = "Chưa nhận được lệnh. Hãy nói lại rõ hơn."
                 )
                 AppLanguage.EN -> VoiceText(
                     readText = "Opening read text mode.",
                     describeScene = "Opening scene description mode.",
                     recognizeCurrency = "Opening currency recognition mode.",
-                    detectObstacle = "Opening obstacle detection mode.",
                     nothingToRepeat = "There is nothing to repeat yet.",
                     stopped = "Stopped.",
-                    help = "You can say: read for me to read text. What is in front to describe the scene. How much is this bill to recognize money. Is there an obstacle to detect obstacles. Go to place name to navigate. Repeat to hear again. Stop to stop and return home.",
-                    unknown = "I did not get that command. Please speak more clearly.",
-                    navigate = { destination -> "Preparing navigation to $destination." }
+                    help = "You can say: read for me to read text. What is in front to describe the scene. How much is this bill to recognize money. Repeat to hear again. Stop to stop and return home.",
+                    unknown = "I did not get that command. Please speak more clearly."
                 )
             }
     }

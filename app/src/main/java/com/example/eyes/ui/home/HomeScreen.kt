@@ -30,10 +30,8 @@ import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun HomeScreen(
-    onOpenCamera: () -> Unit,
     onOpenOcrQuick: () -> Unit,
     onOpenOcrAccuracy: () -> Unit,
-    onOpenMap: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenVoice: () -> Unit,
     viewModel: HomeViewModel = koinViewModel()
@@ -48,10 +46,8 @@ fun HomeScreen(
         uiState = uiState,
         onActionSelected = { action ->
             when (action) {
-                HomeActionType.ScanAround -> onOpenCamera()
                 HomeActionType.ReadTextQuick -> onOpenOcrQuick()
                 HomeActionType.ReadTextAccuracy -> onOpenOcrAccuracy()
-                HomeActionType.Navigate -> onOpenMap()
                 HomeActionType.Voice -> onOpenVoice()
                 HomeActionType.Settings -> onOpenSettings()
             }

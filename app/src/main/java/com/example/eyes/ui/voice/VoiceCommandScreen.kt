@@ -54,7 +54,6 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun VoiceCommandScreen(
     onNavigateToCamera: () -> Unit,
-    onNavigateToMap: () -> Unit,
     onNavigateBackHome: () -> Unit,
     viewModel: VoiceCommandViewModel = koinViewModel()
 ) {
@@ -88,7 +87,6 @@ fun VoiceCommandScreen(
         viewModel.navigation.collect { target ->
             when (target) {
                 VoiceNavigationTarget.Camera -> onNavigateToCamera()
-                VoiceNavigationTarget.Map -> onNavigateToMap()
                 VoiceNavigationTarget.Home -> onNavigateBackHome()
             }
         }
@@ -321,8 +319,6 @@ private fun AvailableCommandsCard(expanded: Boolean) {
             CommandLine(stringResource(R.string.voice_command_read_example), stringResource(R.string.voice_command_read_action))
             CommandLine(stringResource(R.string.voice_command_scene_example), stringResource(R.string.voice_command_scene_action))
             CommandLine(stringResource(R.string.voice_command_money_example), stringResource(R.string.voice_command_money_action))
-            CommandLine(stringResource(R.string.voice_command_obstacle_example), stringResource(R.string.voice_command_obstacle_action))
-            CommandLine(stringResource(R.string.voice_command_navigate_example), stringResource(R.string.voice_command_navigate_action))
             CommandLine(stringResource(R.string.voice_command_repeat_example), stringResource(R.string.voice_command_repeat_action))
             CommandLine(stringResource(R.string.voice_command_stop_example), stringResource(R.string.voice_command_stop_action))
             CommandLine(stringResource(R.string.voice_command_help_example), stringResource(R.string.voice_command_help_action))
@@ -364,8 +360,6 @@ private fun commandLabelFor(command: VoiceCommand): String = when (command) {
     VoiceCommand.ReadText -> stringResource(R.string.voice_label_read_text)
     VoiceCommand.DescribeScene -> stringResource(R.string.voice_label_describe_scene)
     VoiceCommand.RecognizeCurrency -> stringResource(R.string.voice_label_recognize_currency)
-    VoiceCommand.DetectObstacle -> stringResource(R.string.voice_label_detect_obstacle)
-    is VoiceCommand.Navigate -> stringResource(R.string.voice_label_navigate, command.destination)
     VoiceCommand.Repeat -> stringResource(R.string.voice_label_repeat)
     VoiceCommand.Stop -> stringResource(R.string.voice_label_stop)
     VoiceCommand.Help -> stringResource(R.string.voice_label_help)

@@ -105,18 +105,15 @@ class DataStoreManager(private val context: Context) {
          *   REPEAT
          *   STOP
          *   HELP
-         *   NAVIGATE:<destination>
          *   UNKNOWN
          */
         fun encodeVoiceCommand(command: VoiceCommand): String = when (command) {
             VoiceCommand.ReadText -> "READ_TEXT"
             VoiceCommand.DescribeScene -> "DESCRIBE_SCENE"
             VoiceCommand.RecognizeCurrency -> "RECOGNIZE_CURRENCY"
-            VoiceCommand.DetectObstacle -> "DETECT_OBSTACLE"
             VoiceCommand.Repeat -> "REPEAT"
             VoiceCommand.Stop -> "STOP"
             VoiceCommand.Help -> "HELP"
-            is VoiceCommand.Navigate -> "NAVIGATE:${command.destination}"
             is VoiceCommand.Unknown -> "UNKNOWN"
         }
 
@@ -124,11 +121,9 @@ class DataStoreManager(private val context: Context) {
             value == "READ_TEXT" -> VoiceCommand.ReadText
             value == "DESCRIBE_SCENE" -> VoiceCommand.DescribeScene
             value == "RECOGNIZE_CURRENCY" -> VoiceCommand.RecognizeCurrency
-            value == "DETECT_OBSTACLE" -> VoiceCommand.DetectObstacle
             value == "REPEAT" -> VoiceCommand.Repeat
             value == "STOP" -> VoiceCommand.Stop
             value == "HELP" -> VoiceCommand.Help
-            value.startsWith("NAVIGATE:") -> VoiceCommand.Navigate(value.removePrefix("NAVIGATE:"))
             else -> VoiceCommand.Unknown("")
         }
     }

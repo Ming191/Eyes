@@ -88,11 +88,11 @@ private fun HomeActionCardPreview() {
     EyesTheme(dynamicColor = false) {
         HomeActionCard(
             action = HomeAction(
-                type = HomeActionType.ScanAround,
-                title = "Xem xung quanh",
-                description = "Mở camera để nhận biết vật cản và lối đi gần bạn.",
-                supportingLabel = "Quét liên tục bằng giọng nói",
-                accessibilityLabel = "Xem xung quanh. Mở camera để nhận biết vật cản và lối đi gần bạn."
+                type = HomeActionType.ReadTextQuick,
+                title = "Đọc văn bản nhanh",
+                description = "Dùng camera để đọc nhanh bằng ML Kit.",
+                supportingLabel = "Chế độ OCR nhanh",
+                accessibilityLabel = "Đọc văn bản nhanh. Dùng camera để đọc nhãn, biển báo hoặc tài liệu ngắn bằng OCR nhanh."
             ),
             onClick = {}
         )

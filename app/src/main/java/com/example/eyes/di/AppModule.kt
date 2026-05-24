@@ -3,8 +3,6 @@ package com.example.eyes.di
 import android.content.Context
 import android.media.AudioManager
 import com.example.eyes.BuildConfig
-import com.example.eyes.ai.MiDasDepthEstimator
-import com.example.eyes.ai.YoloDetector
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.domain.voice.CommandParser
@@ -48,8 +46,6 @@ val appModule = module {
     factory<OcrEngine>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
     factory { MlKitOcrGuidanceAnalyzer() }
     factory<OcrTranslator> { GptTranslationEngine() }
-    factory { YoloDetector(androidContext()) }
-    single { MiDasDepthEstimator(androidContext()) }
     single {
         OkHttpClient.Builder()
             .connectTimeout(8, TimeUnit.SECONDS)
@@ -70,8 +66,6 @@ val appModule = module {
     viewModel { HomeViewModel(androidContext(), get(), get()) }
     viewModel {
         CameraViewModel(
-            yoloDetector = get(),
-            miDasDepthEstimator = get(),
             quickOcrEngine = get(named("quick-ocr")),
             accuracyOcrEngine = get(named("accuracy-ocr")),
             ocrGuidanceAnalyzer = get(),
