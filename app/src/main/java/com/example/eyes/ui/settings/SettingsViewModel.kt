@@ -107,7 +107,7 @@ class SettingsViewModel(
         announcementController.announce(
             text = text,
             priority = SpeechOutput.Priority.HIGH,
-            category = AnnouncementCategory.Guidance,
+            category = AnnouncementCategory.SystemFeedback,
             locale = state.appLanguage.ttsLocale
         )
         hapticService.confirm()

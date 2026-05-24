@@ -314,6 +314,7 @@ class TtsService(context: Context) : SpeechOutput {
             }
 
             if (inFlightUtteranceIds.isEmpty()) {
+                _currentSpokenText.value = null
                 abandonAudioFocusLocked()
             }
         }

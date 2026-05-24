@@ -88,12 +88,12 @@ class AppNavViewModel(
             TopLevelDestination.CAMERA -> R.string.voice_guide_camera_intro
             TopLevelDestination.SETTINGS -> R.string.voice_guide_settings_intro
         }
-        speechOutput.stop()
         announcementController.announce(
             text = context.localizedFor(appLanguage).getString(textRes),
             priority = SpeechOutput.Priority.HIGH,
             category = AnnouncementCategory.Navigation,
-            locale = appLanguage.ttsLocale
+            locale = appLanguage.ttsLocale,
+            interruptCurrent = true
         )
     }
 }

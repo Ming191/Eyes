@@ -24,8 +24,9 @@ interface AnnouncementController {
         text: String,
         priority: SpeechOutput.Priority = SpeechOutput.Priority.NORMAL,
         category: AnnouncementCategory = AnnouncementCategory.Guidance,
-        locale: Locale? = null
-    )
+        locale: Locale? = null,
+        interruptCurrent: Boolean = false
+    ): Boolean
 
     suspend fun announceAndAwait(
         text: String,
@@ -43,7 +44,7 @@ class DefaultAnnouncementController(
     private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) : AnnouncementController {
     override val voiceGuideEnabled: StateFlow<Boolean> = voiceGuideEnabledFlow
-        .stateIn(scope, SharingStarted.Eagerly, true)
+        .stateIn(scope, SharingStarted.Eagerly, false)
 
     private var lastText: String? = null
     private var lastSpokenAtMs: Long = 0L
@@ -52,15 +53,20 @@ class DefaultAnnouncementController(
         text: String,
         priority: SpeechOutput.Priority,
         category: AnnouncementCategory,
-        locale: Locale?
-    ) {
-        if (!shouldSpeak(text, priority, category)) return
+        locale: Locale?,
+        interruptCurrent: Boolean
+    ): Boolean {
+        if (!shouldSpeak(text, category)) return false
         remember(text)
+        if (interruptCurrent) {
+            speechOutput.stop()
+        }
         if (locale == null) {
             speechOutput.speak(text, priority)
         } else {
             speechOutput.speak(text, priority, locale)
         }
+        return true
     }
 
     override suspend fun announceAndAwait(
@@ -69,7 +75,7 @@ class DefaultAnnouncementController(
         category: AnnouncementCategory,
         locale: Locale?
     ) {
-        if (!shouldSpeak(text, priority, category)) return
+        if (!shouldSpeak(text, category)) return
         remember(text)
         if (locale == null) {
             speechOutput.speakAndAwait(text, priority)
@@ -80,7 +86,6 @@ class DefaultAnnouncementController(
 
     private fun shouldSpeak(
         text: String,
-        priority: SpeechOutput.Priority,
         category: AnnouncementCategory
     ): Boolean {
         if (text.isBlank()) return false
