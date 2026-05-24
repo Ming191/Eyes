@@ -3,6 +3,7 @@
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.RectF
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
@@ -27,6 +28,8 @@ import com.example.eyes.ocr.OcrPostProcessor
 import com.example.eyes.ocr.OcrResult
 import com.example.eyes.ocr.OcrTextBounds
 import com.example.eyes.ocr.OcrTranslator
+import com.example.eyes.objectdetection.YoloExecutorchDetector
+import com.example.eyes.objectdetection.localizedText
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
 import kotlinx.coroutines.CancellationException
@@ -45,7 +48,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 @Immutable
 data class CameraUiState(
-    val activeMode: CameraMode = CameraMode.OCR,
+    val activeMode: CameraMode = CameraMode.OBJECT_DETECTION,
     val ocrMode: OcrMode = OcrMode.QUICK,
     val ocrTranslateToVietnamese: Boolean = false,
     val canTranslateCurrentOcrDocument: Boolean = false,
@@ -63,7 +66,8 @@ data class CameraUiState(
     val lastAnnouncement: String = "Chưa có cảnh báo mới",
     val debugMetrics: String = "Debug: đang chờ dữ liệu",
     val isDescribingScene: Boolean = false,
-    val isStatusCardVisible: Boolean = true
+    val isStatusCardVisible: Boolean = true,
+    val objectDetections: List<DetectionOverlayItem> = emptyList()
 ) {
     val isOcrDocumentMode: Boolean get() = ocrSentences.isNotEmpty()
     val currentOcrSentence: String get() = ocrSentences.getOrElse(ocrCurrentIndex) { "" }
@@ -76,8 +80,20 @@ enum class CameraMode(
     val labelVi: String,
     val descriptionVi: String
 ) {
-    OCR("Đọc văn bản", "đọc văn bản OCR")
+    OCR("Đọc văn bản", "đọc văn bản OCR"),
+    OBJECT_DETECTION("Nhận diện vật thể", "nhận diện vật thể")
 }
+
+@Immutable
+data class DetectionOverlayItem(
+    val label: String,
+    val confidence: Float,
+    val positionText: String,
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float
+)
 
 private data class OcrRecognitionOutcome(
     val result: Result<OcrResult>,
@@ -94,6 +110,7 @@ class CameraViewModel(
     private val hapticService: HapticService,
     private val dataStoreManager: DataStoreManager,
     private val sceneRepository: SceneRepository,
+    private val objectDetector: YoloExecutorchDetector,
     private val audioManager: AudioManager,
     private val context: Context
 ) : ViewModel() {
@@ -102,9 +119,13 @@ class CameraViewModel(
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
     private val isProcessingOcrGuidance = AtomicBoolean(false)
+    private val isProcessingObjectDetection = AtomicBoolean(false)
     private val lastOcrSwipeAtMs = AtomicReference(0L)
     private val lastOcrGuidanceAtMs = AtomicLong(0L)
     private val lastOcrGuidanceSpeechAtMs = AtomicLong(0L)
+    private val lastObjectDetectionAtMs = AtomicLong(0L)
+    private val lastObjectAnnouncementAtMs = AtomicLong(0L)
+    private val lastObjectAnnouncement = AtomicReference("")
 
     private val currentOcrMode = MutableStateFlow(OcrMode.QUICK)
 
@@ -164,6 +185,35 @@ class CameraViewModel(
                 dataStoreManager.clearLastVoiceCommand()
             }
         }
+        warmUpObjectDetectionModel()
+    }
+
+    private fun warmUpObjectDetectionModel() {
+        viewModelScope.launch(Dispatchers.Default) {
+            runCatching { objectDetector.inspectOutputShape() }
+                .onSuccess { outputs ->
+                    val message = cameraText.objectDetectionWarmupDone
+                    Log.i(TAG, "Object detection warmup done: $outputs")
+                    _uiState.update {
+                        it.copy(
+                            statusMessage = message,
+                            debugMetrics = outputs.joinToString(prefix = "YOLO: ") { output ->
+                                "#${output.index} ${output.shape} ${output.dtype} n=${output.elementCount}"
+                            }
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    val message = cameraText.objectDetectionWarmupFailed
+                    Log.e(TAG, "Object detection warmup failed", error)
+                    _uiState.update {
+                        it.copy(
+                            statusMessage = message,
+                            debugMetrics = "YOLO: ${error.message ?: error::class.java.simpleName}"
+                        )
+                    }
+                }
+        }
     }
 
     private fun applyVoiceCameraCommand(
@@ -187,13 +237,47 @@ class CameraViewModel(
                 ocrGuidanceStatus = OcrGuidanceStatus.SEARCHING,
                 ocrGuidanceMessage = cameraText.ocrGuidanceSearch,
                 isOcrReadyToCapture = false,
-                ocrGuidanceBounds = null
+                ocrGuidanceBounds = null,
+                objectDetections = emptyList()
             )
         }
     }
 
     fun processFrame(imageProxy: ImageProxy) {
-        processOcrGuidanceImageProxy(imageProxy)
+        when (_uiState.value.activeMode) {
+            CameraMode.OCR -> processOcrGuidanceImageProxy(imageProxy)
+            CameraMode.OBJECT_DETECTION -> processObjectDetectionImageProxy(imageProxy)
+        }
+    }
+
+    private fun processObjectDetectionImageProxy(imageProxy: ImageProxy) {
+        val now = System.currentTimeMillis()
+        if (now - lastObjectDetectionAtMs.get() < OBJECT_DETECTION_INTERVAL_MS) {
+            imageProxy.close()
+            return
+        }
+        if (!isProcessingObjectDetection.compareAndSet(false, true)) {
+            imageProxy.close()
+            return
+        }
+        lastObjectDetectionAtMs.set(now)
+
+        viewModelScope.launch(Dispatchers.Default) {
+            var bitmap: Bitmap? = null
+            try {
+                bitmap = imageProxy.toBitmapWithRotation()
+                replaceLatestFrame(bitmap)
+                processObjectDetection(bitmap)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Object detection frame failed", e)
+            } finally {
+                recycleBitmapIfNeeded(bitmap)
+                imageProxy.close()
+                isProcessingObjectDetection.set(false)
+            }
+        }
     }
 
     private fun processOcrGuidanceImageProxy(imageProxy: ImageProxy) {
@@ -218,6 +302,7 @@ class CameraViewModel(
             var bitmap: Bitmap? = null
             try {
                 bitmap = imageProxy.toBitmapWithRotation()
+                replaceLatestFrame(bitmap)
                 val frame = ocrGuidanceAnalyzer.analyze(bitmap)
                 val stableCount = updateOcrGuidanceStability(frame.textBounds)
                 val evaluation = OcrGuidanceEvaluator.evaluate(frame, stableCount, appLanguage.get())
@@ -251,6 +336,73 @@ class CameraViewModel(
                 isProcessingOcrGuidance.set(false)
             }
         }
+    }
+
+    private suspend fun processObjectDetection(bitmap: Bitmap) {
+        runCatching { objectDetector.detect(bitmap) }
+            .onSuccess { detections ->
+                val overlayItems = detections.map { detection ->
+                    detection.toOverlayItem(bitmap.width, bitmap.height)
+                }
+                Log.i(TAG, "Object detection frame: ${overlayItems.size} detections")
+                val announcement = if (overlayItems.isNotEmpty()) {
+                    overlayItems.joinToString(separator = ". ") { item ->
+                        cameraText.objectDetectionAnnouncement(item.label, item.positionText)
+                    }
+                } else {
+                    cameraText.objectDetectionNoObjects
+                }
+                maybeSpeakObjectDetection(announcement, overlayItems.isNotEmpty())
+                _uiState.update {
+                    it.copy(
+                        objectDetections = overlayItems,
+                        lastAnnouncement = announcement,
+                        debugMetrics = cameraText.objectDetectionDebug(overlayItems.size)
+                    )
+                }
+            }
+            .onFailure { error ->
+                Log.e(TAG, "Object detection failed", error)
+                _uiState.update {
+                    it.copy(debugMetrics = "YOLO detect: ${error.message ?: error::class.java.simpleName}")
+                }
+            }
+    }
+
+    private fun maybeSpeakObjectDetection(
+        announcement: String,
+        hasObjects: Boolean
+    ) {
+        if (!hasObjects) return
+        val now = System.currentTimeMillis()
+        val previous = lastObjectAnnouncement.get()
+        if (announcement == previous && now - lastObjectAnnouncementAtMs.get() < OBJECT_ANNOUNCEMENT_REPEAT_MS) return
+        if (announcement != previous && now - lastObjectAnnouncementAtMs.get() < OBJECT_ANNOUNCEMENT_INTERVAL_MS) return
+
+        lastObjectAnnouncement.set(announcement)
+        lastObjectAnnouncementAtMs.set(now)
+        Log.i(TAG, "Object detection TTS: $announcement")
+        ttsService.speak(
+            text = announcement,
+            priority = TtsService.Priority.NORMAL,
+            locale = appLanguage.get().ttsLocale
+        )
+    }
+
+    private fun com.example.eyes.objectdetection.Detection.toOverlayItem(
+        frameWidth: Int,
+        frameHeight: Int
+    ): DetectionOverlayItem {
+        val box: RectF = boundingBox
+        return DetectionOverlayItem(
+            label = label,
+            confidence = confidence,
+            positionText = position.localizedText(context, appLanguage.get()),
+            left = box.left / frameWidth,
+            top = box.top / frameHeight,
+            right = box.right / frameWidth,
+            bottom = box.bottom / frameHeight
+        )
     }
 
     fun processCapturedOcrImage(imageProxy: ImageProxy) {
@@ -392,7 +544,32 @@ class CameraViewModel(
                         ocrGuidanceMessage = cameraText.ocrGuidanceSearch,
                         isOcrReadyToCapture = false,
                         ocrGuidanceBounds = null,
+                        objectDetections = emptyList(),
                         debugMetrics = cameraText.ocrDebugWaiting
+                    )
+                }
+            }
+            CameraMode.OBJECT_DETECTION -> {
+                hapticService.confirm()
+                if (!isHeadsetConnected()) {
+                    ttsService.speak(cameraText.switchedToObjectDetectionMode, TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
+                }
+                _uiState.update {
+                    it.copy(
+                        activeMode = CameraMode.OBJECT_DETECTION,
+                        title = cameraText.objectDetectionTitle,
+                        summary = cameraText.objectDetectionSummary,
+                        statusMessage = cameraText.objectDetectionStatus,
+                        lastAnnouncement = cameraText.switchedToObjectDetectionMode,
+                        isOcrScanning = false,
+                        ocrSentences = emptyList(),
+                        ocrCurrentIndex = 0,
+                        canTranslateCurrentOcrDocument = false,
+                        ocrCapturedBitmap = null,
+                        ocrGuidanceBounds = null,
+                        isOcrReadyToCapture = false,
+                        objectDetections = emptyList(),
+                        debugMetrics = cameraText.objectDetectionDebug(0)
                     )
                 }
             }
@@ -739,6 +916,12 @@ class CameraViewModel(
         if (bitmap != null && !bitmap.isRecycled) bitmap.recycle()
     }
 
+    private fun replaceLatestFrame(bitmap: Bitmap) {
+        val copy = bitmap.copy(Bitmap.Config.ARGB_8888, false)
+        val previous = latestFrame.getAndSet(copy)
+        recycleBitmapIfNeeded(previous)
+    }
+
     @SuppressLint("ObsoleteSdkInt")
     private fun isHeadsetConnected(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -806,19 +989,30 @@ class CameraViewModel(
         val switchedToAccurateMode: String,
         val gptFallbackStatusTemplate: String,
         val capturedParagraphsTemplate: String,
-        val ocrSentencePositionTemplate: String
+        val ocrSentencePositionTemplate: String,
+        val objectDetectionWarmupDone: String,
+        val objectDetectionWarmupFailed: String,
+        val objectDetectionAnnouncementTemplate: String,
+        val objectDetectionNoObjects: String,
+        val objectDetectionDebugTemplate: String,
+        val objectDetectionTitle: String,
+        val objectDetectionSummary: String,
+        val objectDetectionStatus: String,
+        val switchedToObjectDetectionMode: String
     ) {
         fun initialUiState(): CameraUiState = CameraUiState(
+            activeMode = CameraMode.OBJECT_DETECTION,
             ocrGuidanceMessage = ocrGuidanceSearch,
-            title = ocrTitle,
-            summary = ocrSummary,
-            statusMessage = initialStatus,
+            title = objectDetectionTitle,
+            summary = objectDetectionSummary,
+            statusMessage = objectDetectionStatus,
             lastAnnouncement = initialAnnouncement,
             debugMetrics = initialDebug
         )
 
         fun translateTitle(value: String, target: CameraText): String = when (value) {
             ocrTitle -> target.ocrTitle
+            objectDetectionTitle -> target.objectDetectionTitle
             sceneDescriptionTitle -> target.sceneDescriptionTitle
             currencyTitle -> target.currencyTitle
             else -> value
@@ -826,6 +1020,7 @@ class CameraViewModel(
 
         fun translateSummary(value: String, target: CameraText): String = when (value) {
             ocrSummary -> target.ocrSummary
+            objectDetectionSummary -> target.objectDetectionSummary
             sceneDescriptionSummary -> target.sceneDescriptionSummary
             currencySummary -> target.currencySummary
             else -> value
@@ -866,6 +1061,10 @@ class CameraViewModel(
             sceneDescriptionFailed -> target.sceneDescriptionFailed
             noTextDetectedTryAgain -> target.noTextDetectedTryAgain
             updatingOcrReading -> target.updatingOcrReading
+            objectDetectionWarmupDone -> target.objectDetectionWarmupDone
+            objectDetectionWarmupFailed -> target.objectDetectionWarmupFailed
+            objectDetectionStatus -> target.objectDetectionStatus
+            switchedToObjectDetectionMode -> target.switchedToObjectDetectionMode
             else -> value
         }
 
@@ -892,6 +1091,11 @@ class CameraViewModel(
 
         fun ocrSentencePosition(index: Int, total: Int, sentence: String): String =
             ocrSentencePositionTemplate.format(index, total, sentence)
+
+        fun objectDetectionAnnouncement(label: String, position: String): String =
+            objectDetectionAnnouncementTemplate.format(label, position)
+
+        fun objectDetectionDebug(count: Int): String = objectDetectionDebugTemplate.format(count)
 
         companion object {
             fun from(context: Context, language: AppLanguage): CameraText {
@@ -947,7 +1151,16 @@ class CameraViewModel(
                     switchedToAccurateMode = resources.getString(R.string.camera_vm_switched_to_accurate_mode),
                     gptFallbackStatusTemplate = resources.getString(R.string.camera_vm_gpt_fallback_status_template),
                     capturedParagraphsTemplate = resources.getString(R.string.camera_vm_captured_paragraphs_template),
-                    ocrSentencePositionTemplate = resources.getString(R.string.camera_vm_ocr_sentence_position_template)
+                    ocrSentencePositionTemplate = resources.getString(R.string.camera_vm_ocr_sentence_position_template),
+                    objectDetectionWarmupDone = resources.getString(R.string.camera_vm_object_detection_warmup_done),
+                    objectDetectionWarmupFailed = resources.getString(R.string.camera_vm_object_detection_warmup_failed),
+                    objectDetectionAnnouncementTemplate = resources.getString(R.string.camera_vm_object_detection_announcement_template),
+                    objectDetectionNoObjects = resources.getString(R.string.camera_vm_object_detection_no_objects),
+                    objectDetectionDebugTemplate = resources.getString(R.string.camera_vm_object_detection_debug_template),
+                    objectDetectionTitle = resources.getString(R.string.camera_vm_object_detection_title),
+                    objectDetectionSummary = resources.getString(R.string.camera_vm_object_detection_summary),
+                    objectDetectionStatus = resources.getString(R.string.camera_vm_object_detection_status),
+                    switchedToObjectDetectionMode = resources.getString(R.string.camera_vm_switched_to_object_detection_mode)
                 )
             }
         }
@@ -960,6 +1173,9 @@ class CameraViewModel(
         private const val OCR_SWIPE_DEBOUNCE_MS = 320L
         private const val OCR_GUIDANCE_INTERVAL_MS = 700L
         private const val OCR_GUIDANCE_SPEECH_INTERVAL_MS = 4_000L
+        private const val OBJECT_DETECTION_INTERVAL_MS = 1_000L
+        private const val OBJECT_ANNOUNCEMENT_INTERVAL_MS = 3_000L
+        private const val OBJECT_ANNOUNCEMENT_REPEAT_MS = 6_000L
         private const val OCR_GUIDANCE_STABLE_CENTER_DELTA = 0.12f
         private const val OCR_GUIDANCE_STABLE_AREA_DELTA = 0.15f
         private val VIETNAMESE_LOCALE: Locale = Locale.Builder().setLanguage("vi").setRegion("VN").build()

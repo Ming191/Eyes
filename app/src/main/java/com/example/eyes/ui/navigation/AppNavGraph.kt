@@ -31,6 +31,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.eyes.R
+import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.camera.CameraScreen
 import com.example.eyes.ui.home.HomeScreen
 import com.example.eyes.ocr.OcrMode
@@ -131,7 +132,12 @@ private fun MainNavigationScaffold(
 
                         NavigationBarItem(
                             selected = isSelected,
-                            onClick = { navController.navigateToTopLevelDestination(destination) },
+                            onClick = {
+                                if (destination == TopLevelDestination.CAMERA) {
+                                    viewModel.requestOpenCamera(CameraMode.OBJECT_DETECTION)
+                                }
+                                navController.navigateToTopLevelDestination(destination)
+                            },
                             icon = {
                                 Icon(
                                     imageVector = destination.icon,

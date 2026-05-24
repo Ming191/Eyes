@@ -168,6 +168,9 @@
     <string name="camera_hide_status_description">Ẩn bảng trạng thái camera</string>
     <string name="camera_mode_ocr_label">Đọc văn bản</string>
     <string name="camera_mode_ocr_description">đọc văn bản OCR</string>
+    <string name="camera_mode_object_detection_label">Vật thể</string>
+    <string name="camera_mode_object_detection_description">nhận diện vật thể</string>
+    <string name="camera_mode_selector_description">Chọn chế độ camera</string>
     <string name="camera_ocr_guidance_ready_description">Vùng văn bản đã sẵn sàng để chụp</string>
     <string name="camera_ocr_guidance_frame_description">Khung gợi ý vùng văn bản OCR</string>
 
@@ -223,4 +226,22 @@
     <string name="camera_vm_gpt_fallback_status_template">GPT-4o lỗi, đã fallback OCR nhanh. %1$d đoạn.</string>
     <string name="camera_vm_captured_paragraphs_template">Đã chụp. %1$d đoạn văn.</string>
     <string name="camera_vm_ocr_sentence_position_template">%1$d trên %2$d. %3$s</string>
+    <string name="object_detection_position_top_left">góc trên bên trái</string>
+    <string name="object_detection_position_top_center">phía trên chính giữa</string>
+    <string name="object_detection_position_top_right">góc trên bên phải</string>
+    <string name="object_detection_position_center_left">bên trái</string>
+    <string name="object_detection_position_center">chính giữa</string>
+    <string name="object_detection_position_center_right">bên phải</string>
+    <string name="object_detection_position_bottom_left">góc dưới bên trái</string>
+    <string name="object_detection_position_bottom_center">phía dưới chính giữa</string>
+    <string name="object_detection_position_bottom_right">góc dưới bên phải</string>
+    <string name="camera_vm_object_detection_warmup_done">Model nhận diện vật thể đã sẵn sàng.</string>
+    <string name="camera_vm_object_detection_warmup_failed">Không thể khởi động model nhận diện vật thể.</string>
+    <string name="camera_vm_object_detection_announcement_template">%1$s ở %2$s</string>
+    <string name="camera_vm_object_detection_no_objects">Chưa phát hiện vật thể rõ ràng.</string>
+    <string name="camera_vm_object_detection_debug_template">YOLO: %1$d vật thể</string>
+    <string name="camera_vm_object_detection_title">Chế độ nhận diện vật thể</string>
+    <string name="camera_vm_object_detection_summary">Hướng camera vào không gian phía trước để hiển thị vật thể và vị trí.</string>
+    <string name="camera_vm_object_detection_status">Đang nhận diện vật thể</string>
+    <string name="camera_vm_switched_to_object_detection_mode">Đã chuyển sang chế độ nhận diện vật thể.</string>
 </resources>

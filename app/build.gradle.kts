@@ -135,6 +135,7 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp)
+    implementation(libs.executorch.android)
     testImplementation(libs.junit)
     testImplementation(platform(libs.koin.bom))
     testImplementation(libs.koin.test)
