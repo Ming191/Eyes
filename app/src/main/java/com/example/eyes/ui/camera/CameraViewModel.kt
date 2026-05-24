@@ -68,7 +68,9 @@ data class CameraUiState(
     val debugMetrics: String = "Debug: đang chờ dữ liệu",
     val isDescribingScene: Boolean = false,
     val isStatusCardVisible: Boolean = true,
-    val objectDetections: List<DetectionOverlayItem> = emptyList()
+    val objectDetections: List<DetectionOverlayItem> = emptyList(),
+    val currencyDisplay: String = "",
+    val currencyConfidence: Float = 0f
 ) {
     val isOcrDocumentMode: Boolean get() = ocrSentences.isNotEmpty()
     val currentOcrSentence: String get() = ocrSentences.getOrElse(ocrCurrentIndex) { "" }
@@ -82,7 +84,8 @@ enum class CameraMode(
     val descriptionVi: String
 ) {
     OCR("Đọc văn bản", "đọc văn bản OCR"),
-    OBJECT_DETECTION("Nhận diện vật thể", "nhận diện vật thể")
+    OBJECT_DETECTION("Nhận diện vật thể", "nhận diện vật thể"),
+    CURRENCY("Nhận diện tiền", "nhận diện mệnh giá tiền")
 }
 
 @Immutable
@@ -122,12 +125,15 @@ class CameraViewModel(
 
     private val isProcessingOcrGuidance = AtomicBoolean(false)
     private val isProcessingObjectDetection = AtomicBoolean(false)
+    private val isProcessingCurrency = AtomicBoolean(false)
     private val lastOcrSwipeAtMs = AtomicReference(0L)
     private val lastOcrGuidanceAtMs = AtomicLong(0L)
     private val lastOcrGuidanceSpeechAtMs = AtomicLong(0L)
     private val lastObjectDetectionAtMs = AtomicLong(0L)
+    private val lastCurrencyInferenceAtMs = AtomicLong(0L)
     private val lastObjectAnnouncementAtMs = AtomicLong(0L)
     private val lastObjectAnnouncement = AtomicReference("")
+    private val lastCurrencyAnnouncement = AtomicReference("")
 
     private val currentOcrMode = MutableStateFlow(OcrMode.QUICK)
 
@@ -224,6 +230,77 @@ class CameraViewModel(
         }
     }
 
+    private fun getCurrencyAnalyzer(): CurrencyAnalyzer? {
+        currencyAnalyzer?.let { return it }
+        return try {
+            CurrencyAnalyzer(context, ::onCurrencyResult).also { analyzer ->
+                currencyAnalyzer = analyzer
+            }
+        } catch (error: Throwable) {
+            Log.e(TAG, "Currency model load failed", error)
+            val message = cameraText.currencyModelLoadError
+            _uiState.update {
+                it.copy(
+                    statusMessage = message,
+                    lastAnnouncement = message,
+                    currencyDisplay = "",
+                    currencyConfidence = 0f
+                )
+            }
+            null
+        }
+    }
+
+    private fun onCurrencyResult(label: String, confidence: Float) {
+        if (_uiState.value.activeMode != CameraMode.CURRENCY) return
+        val safeConfidence = confidence.coerceIn(0f, 1f)
+
+        if (label == CurrencyAnalyzer.EMPTY_LABEL) {
+            val hadResult = _uiState.value.currencyDisplay.isNotEmpty()
+            if (hadResult) {
+                resetCurrencyAnnouncementDebounce()
+                currencyAnalyzer?.resetBuffer()
+            }
+            _uiState.update { state ->
+                if (state.activeMode != CameraMode.CURRENCY) {
+                    state
+                } else {
+                    state.copy(
+                        currencyDisplay = "",
+                        currencyConfidence = 0f,
+                        statusMessage = cameraText.currencyInstruction,
+                        lastAnnouncement = cameraText.currencyInstruction
+                    )
+                }
+            }
+            return
+        }
+
+        val display = currencyDisplay(label)
+        val spoken = currencySpoken(label)
+        val confidencePercent = String.format(Locale.getDefault(), "%.0f%%", safeConfidence * 100f)
+
+        if (lastCurrencyAnnouncement.get() != label) {
+            lastCurrencyAnnouncement.set(label)
+            hapticService.confirm()
+            ttsService.speak(spoken, TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
+        }
+
+        _uiState.update { state ->
+            if (state.activeMode != CameraMode.CURRENCY) {
+                state
+            } else {
+                state.copy(
+                    currencyDisplay = display,
+                    currencyConfidence = safeConfidence,
+                    statusMessage = cameraText.currencyDetectedStatus(display, confidencePercent),
+                    lastAnnouncement = spoken,
+                    debugMetrics = cameraText.currencyDebug(confidencePercent)
+                )
+            }
+        }
+    }
+
     private fun applyVoiceCameraCommand(
         mode: CameraMode,
         title: String = cameraText.ocrTitle,
@@ -231,6 +308,7 @@ class CameraViewModel(
         statusMessage: String
     ) {
         resetObjectAnnouncementDebounce()
+        resetCurrencyAnnouncementDebounce()
         _uiState.update {
             it.copy(
                 activeMode = mode,
@@ -247,7 +325,9 @@ class CameraViewModel(
                 ocrGuidanceMessage = cameraText.ocrGuidanceSearch,
                 isOcrReadyToCapture = false,
                 ocrGuidanceBounds = null,
-                objectDetections = emptyList()
+                objectDetections = emptyList(),
+                currencyDisplay = "",
+                currencyConfidence = 0f
             )
         }
     }
@@ -256,6 +336,47 @@ class CameraViewModel(
         when (_uiState.value.activeMode) {
             CameraMode.OCR -> processOcrGuidanceImageProxy(imageProxy)
             CameraMode.OBJECT_DETECTION -> processObjectDetectionImageProxy(imageProxy)
+            CameraMode.CURRENCY -> processCurrencyImageProxy(imageProxy)
+        }
+    }
+
+    private fun processCurrencyImageProxy(imageProxy: ImageProxy) {
+        val now = System.currentTimeMillis()
+        if (now - lastCurrencyInferenceAtMs.get() < CURRENCY_INFERENCE_INTERVAL_MS) {
+            imageProxy.close()
+            return
+        }
+        if (!isProcessingCurrency.compareAndSet(false, true)) {
+            imageProxy.close()
+            return
+        }
+        lastCurrencyInferenceAtMs.set(now)
+
+        val analyzer = getCurrencyAnalyzer()
+        if (analyzer == null) {
+            imageProxy.close()
+            _uiState.update {
+                it.copy(
+                    statusMessage = cameraText.currencyModelInitError,
+                    lastAnnouncement = cameraText.currencyModelInitError,
+                    currencyDisplay = "",
+                    currencyConfidence = 0f
+                )
+            }
+            isProcessingCurrency.set(false)
+            return
+        }
+
+        viewModelScope.launch(Dispatchers.Default) {
+            try {
+                analyzer.analyze(imageProxy)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                Log.e(TAG, "Currency frame failed", error)
+            } finally {
+                isProcessingCurrency.set(false)
+            }
         }
     }
 
@@ -398,6 +519,10 @@ class CameraViewModel(
         lastObjectAnnouncementAtMs.set(0L)
     }
 
+    private fun resetCurrencyAnnouncementDebounce() {
+        lastCurrencyAnnouncement.set("")
+    }
+
     private fun maybeSpeakObjectDetection(
         announcement: String,
         hasObjects: Boolean
@@ -438,6 +563,38 @@ class CameraViewModel(
     private fun localizedObjectDetectionLabel(classId: Int, fallback: String): String {
         val labels = context.localizedFor(appLanguage.get()).resources.getStringArray(R.array.object_detection_coco_labels)
         return labels.getOrNull(classId) ?: fallback
+    }
+
+    private fun currencyDisplay(label: String): String {
+        val resources = context.localizedFor(appLanguage.get()).resources
+        return when (label) {
+            "1000" -> resources.getString(R.string.currency_display_1000)
+            "2000" -> resources.getString(R.string.currency_display_2000)
+            "5000" -> resources.getString(R.string.currency_display_5000)
+            "10000" -> resources.getString(R.string.currency_display_10000)
+            "20000" -> resources.getString(R.string.currency_display_20000)
+            "50000" -> resources.getString(R.string.currency_display_50000)
+            "100000" -> resources.getString(R.string.currency_display_100000)
+            "200000" -> resources.getString(R.string.currency_display_200000)
+            "500000" -> resources.getString(R.string.currency_display_500000)
+            else -> label
+        }
+    }
+
+    private fun currencySpoken(label: String): String {
+        val resources = context.localizedFor(appLanguage.get()).resources
+        return when (label) {
+            "1000" -> resources.getString(R.string.currency_spoken_1000)
+            "2000" -> resources.getString(R.string.currency_spoken_2000)
+            "5000" -> resources.getString(R.string.currency_spoken_5000)
+            "10000" -> resources.getString(R.string.currency_spoken_10000)
+            "20000" -> resources.getString(R.string.currency_spoken_20000)
+            "50000" -> resources.getString(R.string.currency_spoken_50000)
+            "100000" -> resources.getString(R.string.currency_spoken_100000)
+            "200000" -> resources.getString(R.string.currency_spoken_200000)
+            "500000" -> resources.getString(R.string.currency_spoken_500000)
+            else -> label
+        }
     }
 
     fun processCapturedOcrImage(imageProxy: ImageProxy) {
@@ -559,6 +716,7 @@ class CameraViewModel(
         }
         resetOcrGuidanceTracking()
         resetObjectAnnouncementDebounce()
+        resetCurrencyAnnouncementDebounce()
         when (mode) {
             CameraMode.OCR -> {
                 hapticService.confirm()
@@ -584,10 +742,13 @@ class CameraViewModel(
                         isOcrReadyToCapture = false,
                         ocrGuidanceBounds = null,
                         objectDetections = emptyList(),
-                        debugMetrics = cameraText.ocrDebugWaiting
+                        debugMetrics = cameraText.ocrDebugWaiting,
+                        currencyDisplay = "",
+                        currencyConfidence = 0f
                     )
                 }
             }
+
             CameraMode.OBJECT_DETECTION -> {
                 hapticService.confirm()
                 if (!isHeadsetConnected()) {
@@ -608,7 +769,37 @@ class CameraViewModel(
                         ocrGuidanceBounds = null,
                         isOcrReadyToCapture = false,
                         objectDetections = emptyList(),
-                        debugMetrics = cameraText.objectDetectionDebug(0)
+                        debugMetrics = cameraText.objectDetectionDebug(0),
+                        currencyDisplay = "",
+                        currencyConfidence = 0f
+                    )
+                }
+            }
+
+            CameraMode.CURRENCY -> {
+                currencyAnalyzer?.resetBuffer()
+                hapticService.confirm()
+                if (!isHeadsetConnected()) {
+                    ttsService.speak(cameraText.switchedToCurrencyMode, TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
+                }
+                _uiState.update {
+                    it.copy(
+                        activeMode = CameraMode.CURRENCY,
+                        title = cameraText.currencyTitle,
+                        summary = cameraText.currencySummary,
+                        statusMessage = cameraText.currencyInstruction,
+                        lastAnnouncement = cameraText.switchedToCurrencyMode,
+                        isOcrScanning = false,
+                        ocrSentences = emptyList(),
+                        ocrCurrentIndex = 0,
+                        canTranslateCurrentOcrDocument = false,
+                        ocrCapturedBitmap = null,
+                        ocrGuidanceBounds = null,
+                        isOcrReadyToCapture = false,
+                        objectDetections = emptyList(),
+                        currencyDisplay = "",
+                        currencyConfidence = 0f,
+                        debugMetrics = cameraText.currencyDebugWaiting
                     )
                 }
             }
@@ -1057,7 +1248,8 @@ class CameraViewModel(
         val objectDetectionTitle: String,
         val objectDetectionSummary: String,
         val objectDetectionStatus: String,
-        val switchedToObjectDetectionMode: String
+        val switchedToObjectDetectionMode: String,
+        val switchedToCurrencyMode: String
     ) {
         fun initialUiState(): CameraUiState = CameraUiState(
             activeMode = CameraMode.OBJECT_DETECTION,
@@ -1128,6 +1320,7 @@ class CameraViewModel(
             objectDetectionWarmupFailed -> target.objectDetectionWarmupFailed
             objectDetectionStatus -> target.objectDetectionStatus
             switchedToObjectDetectionMode -> target.switchedToObjectDetectionMode
+            switchedToCurrencyMode -> target.switchedToCurrencyMode
             else -> value
         }
 
@@ -1159,6 +1352,11 @@ class CameraViewModel(
             objectDetectionAnnouncementTemplate.format(label, position)
 
         fun objectDetectionDebug(count: Int): String = objectDetectionDebugTemplate.format(count)
+
+        fun currencyDetectedStatus(display: String, confidence: String): String =
+            currencyDetectedStatusTemplate.format(display, confidence)
+
+        fun currencyDebug(confidence: String): String = currencyDebugTemplate.format(confidence)
 
         companion object {
             fun from(context: Context, language: AppLanguage): CameraText {
@@ -1229,7 +1427,8 @@ class CameraViewModel(
                     objectDetectionTitle = resources.getString(R.string.camera_vm_object_detection_title),
                     objectDetectionSummary = resources.getString(R.string.camera_vm_object_detection_summary),
                     objectDetectionStatus = resources.getString(R.string.camera_vm_object_detection_status),
-                    switchedToObjectDetectionMode = resources.getString(R.string.camera_vm_switched_to_object_detection_mode)
+                    switchedToObjectDetectionMode = resources.getString(R.string.camera_vm_switched_to_object_detection_mode),
+                    switchedToCurrencyMode = resources.getString(R.string.camera_vm_switched_to_currency_mode)
                 )
             }
         }
@@ -1243,6 +1442,7 @@ class CameraViewModel(
         private const val OCR_GUIDANCE_INTERVAL_MS = 700L
         private const val OCR_GUIDANCE_SPEECH_INTERVAL_MS = 4_000L
         private const val OBJECT_DETECTION_INTERVAL_MS = 1_000L
+        private const val CURRENCY_INFERENCE_INTERVAL_MS = 450L
         private const val OBJECT_ANNOUNCEMENT_INTERVAL_MS = 3_000L
         private const val OBJECT_ANNOUNCEMENT_REPEAT_MS = 6_000L
         private const val OCR_GUIDANCE_STABLE_CENTER_DELTA = 0.12f

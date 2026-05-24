@@ -176,6 +176,15 @@ fun CameraScreen(
                 modifier = Modifier.fillMaxSize()
             )
         }
+        if (uiState.activeMode == CameraMode.CURRENCY) {
+            CurrencyResultOverlay(
+                display = uiState.currencyDisplay,
+                confidence = uiState.currencyConfidence,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 16.dp, vertical = 212.dp)
+            )
+        }
         uiState.ocrCapturedBitmap?.let { capturedBitmap ->
             Image(
                 bitmap = capturedBitmap.asImageBitmap(),
@@ -501,10 +510,12 @@ private fun CameraStatusPanel(
 private fun CameraMode.localizedLabel(): String = when (this) {
     CameraMode.OCR -> stringResource(R.string.camera_mode_ocr_label)
     CameraMode.OBJECT_DETECTION -> stringResource(R.string.camera_mode_object_detection_label)
+    CameraMode.CURRENCY -> stringResource(R.string.camera_mode_currency_label)
 }
 
 @Composable
 private fun CameraMode.localizedDescription(): String = when (this) {
     CameraMode.OCR -> stringResource(R.string.camera_mode_ocr_description)
     CameraMode.OBJECT_DETECTION -> stringResource(R.string.camera_mode_object_detection_description)
+    CameraMode.CURRENCY -> stringResource(R.string.camera_mode_currency_description)
 }
