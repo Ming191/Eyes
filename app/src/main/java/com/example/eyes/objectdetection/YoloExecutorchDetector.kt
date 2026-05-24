@@ -11,7 +11,7 @@ class YoloExecutorchDetector(
     private val modelLoader: YoloExecutorchModelLoader,
     private val inputSize: Int = DEFAULT_INPUT_SIZE,
     private val preprocessor: YoloPreprocessor = YoloPreprocessor(inputSize),
-    private val postprocessor: YoloPostprocessor = YoloPostprocessor()
+    private val postprocessor: YoloPostprocessor = YoloPostprocessor(inputSize = inputSize)
 ) : ObjectDetector {
 
     suspend fun inspectOutputShape(): List<YoloOutputInfo> = withContext(Dispatchers.Default) {
@@ -36,17 +36,27 @@ class YoloExecutorchDetector(
 
     override suspend fun detect(bitmap: Bitmap): List<Detection> {
         return withContext(Dispatchers.Default) {
-            val input = preprocessor.preprocess(bitmap)
-            val inputTensor = Tensor.fromBlob(
-                input,
-                longArrayOf(1L, CHANNELS.toLong(), inputSize.toLong(), inputSize.toLong())
-            )
-            val output = modelLoader.load().forward(EValue.from(inputTensor))[0].toTensor().getDataAsFloatArray()
-            postprocessor.postprocess(
-                output = output,
-                frameWidth = bitmap.width,
-                frameHeight = bitmap.height
-            )
+            try {
+                val input = preprocessor.preprocess(bitmap)
+                val inputTensor = Tensor.fromBlob(
+                    input,
+                    longArrayOf(1L, CHANNELS.toLong(), inputSize.toLong(), inputSize.toLong())
+                )
+                val outputs = modelLoader.load().forward(EValue.from(inputTensor))
+                if (outputs.isEmpty()) {
+                    Log.e(TAG, "YOLO ExecuTorch forward returned no outputs")
+                    return@withContext emptyList()
+                }
+                val output = outputs[0].toTensor().getDataAsFloatArray()
+                postprocessor.postprocess(
+                    output = output,
+                    frameWidth = bitmap.width,
+                    frameHeight = bitmap.height
+                )
+            } catch (throwable: Throwable) {
+                Log.e(TAG, "YOLO ExecuTorch detection failed: ${throwable.message}", throwable)
+                emptyList()
+            }
         }
     }
 

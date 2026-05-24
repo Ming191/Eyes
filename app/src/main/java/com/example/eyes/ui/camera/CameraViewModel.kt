@@ -395,7 +395,7 @@ class CameraViewModel(
     ): DetectionOverlayItem {
         val box: RectF = boundingBox
         return DetectionOverlayItem(
-            label = label,
+            label = localizedObjectDetectionLabel(classId, label),
             confidence = confidence,
             positionText = position.localizedText(context, appLanguage.get()),
             left = box.left / frameWidth,
@@ -403,6 +403,11 @@ class CameraViewModel(
             right = box.right / frameWidth,
             bottom = box.bottom / frameHeight
         )
+    }
+
+    private fun localizedObjectDetectionLabel(classId: Int, fallback: String): String {
+        val labels = context.resources.getStringArray(R.array.object_detection_coco_labels)
+        return labels.getOrNull(classId) ?: fallback
     }
 
     fun processCapturedOcrImage(imageProxy: ImageProxy) {

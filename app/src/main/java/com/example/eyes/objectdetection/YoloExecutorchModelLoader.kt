@@ -1,5 +1,6 @@
 package com.example.eyes.objectdetection
 
+import android.util.Log
 import org.pytorch.executorch.Module
 
 class YoloExecutorchModelLoader(
@@ -11,8 +12,19 @@ class YoloExecutorchModelLoader(
 
     fun load(): Module {
         module?.let { return it }
-        return synchronized(this) {
-            module ?: Module.load(assetCopier.copyModelToFilesDir().absolutePath).also { module = it }
+        try {
+            return synchronized(this) {
+                module ?: Module.load(assetCopier.copyModelToFilesDir().absolutePath).also { loadedModule ->
+                    module = loadedModule
+                }
+            }
+        } catch (throwable: Throwable) {
+            Log.e(TAG, "Failed to load YOLO ExecuTorch model: ${throwable.message}", throwable)
+            throw IllegalStateException("Failed to load YOLO ExecuTorch model", throwable)
         }
+    }
+
+    private companion object {
+        private const val TAG = "YoloExecutorchModelLoader"
     }
 }

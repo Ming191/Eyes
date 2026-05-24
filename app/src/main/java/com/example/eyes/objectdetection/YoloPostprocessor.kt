@@ -5,19 +5,23 @@ import kotlin.math.max
 import kotlin.math.min
 
 class YoloPostprocessor(
+    private val inputSize: Int = YoloExecutorchDetector.DEFAULT_INPUT_SIZE,
     private val gridPositionMapper: GridPositionMapper = GridPositionMapper(),
-    private val labels: List<String> = YoloModelMetadata.cocoLabels,
+    private val labels: List<String> = YoloModelMetadata.cocoLabelKeys,
     private val confidenceThreshold: Float = 0.60f,
     private val iouThreshold: Float = 0.45f,
     private val maxDetections: Int = 8
 ) {
+
+    private val classCount = labels.size
+    private val outputChannels = BOX_CHANNELS + classCount
 
     fun postprocess(
         output: FloatArray,
         frameWidth: Int,
         frameHeight: Int
     ): List<Detection> {
-        val candidates = output.size / OUTPUT_CHANNELS
+        val candidates = output.size / outputChannels
         val rawDetections = buildList {
             for (candidate in 0 until candidates) {
                 var bestClassId = -1
@@ -31,10 +35,10 @@ class YoloPostprocessor(
                 }
                 if (bestScore < confidenceThreshold || bestClassId < 0) continue
 
-                val centerX = output[candidate] / INPUT_SIZE * frameWidth
-                val centerY = output[candidates + candidate] / INPUT_SIZE * frameHeight
-                val width = output[candidates * 2 + candidate] / INPUT_SIZE * frameWidth
-                val height = output[candidates * 3 + candidate] / INPUT_SIZE * frameHeight
+                val centerX = output[candidate] / inputSize * frameWidth
+                val centerY = output[candidates + candidate] / inputSize * frameHeight
+                val width = output[candidates * 2 + candidate] / inputSize * frameWidth
+                val height = output[candidates * 3 + candidate] / inputSize * frameHeight
                 val box = RectF(
                     (centerX - width / 2f).coerceIn(0f, frameWidth.toFloat()),
                     (centerY - height / 2f).coerceIn(0f, frameHeight.toFloat()),
@@ -79,8 +83,6 @@ class YoloPostprocessor(
     }
 
     private companion object {
-        private const val INPUT_SIZE = YoloExecutorchDetector.DEFAULT_INPUT_SIZE.toFloat()
         private const val BOX_CHANNELS = 4
-        private const val OUTPUT_CHANNELS = 84
     }
 }

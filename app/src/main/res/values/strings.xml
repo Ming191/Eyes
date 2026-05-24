@@ -244,4 +244,14 @@
     <string name="camera_vm_object_detection_summary">Hướng camera vào không gian phía trước để hiển thị vật thể và vị trí.</string>
     <string name="camera_vm_object_detection_status">Đang nhận diện vật thể</string>
     <string name="camera_vm_switched_to_object_detection_mode">Đã chuyển sang chế độ nhận diện vật thể.</string>
+    <string-array name="object_detection_coco_labels">
+        <item>người</item><item>xe đạp</item><item>ô tô</item><item>xe máy</item><item>máy bay</item><item>xe buýt</item><item>tàu hỏa</item><item>xe tải</item><item>thuyền</item><item>đèn giao thông</item>
+        <item>trụ cứu hỏa</item><item>biển dừng</item><item>đồng hồ đỗ xe</item><item>ghế dài</item><item>chim</item><item>mèo</item><item>chó</item><item>ngựa</item><item>cừu</item><item>bò</item>
+        <item>voi</item><item>gấu</item><item>ngựa vằn</item><item>hươu cao cổ</item><item>ba lô</item><item>ô</item><item>túi xách</item><item>cà vạt</item><item>vali</item><item>đĩa ném</item>
+        <item>ván trượt tuyết</item><item>ván trượt tuyết</item><item>bóng thể thao</item><item>diều</item><item>gậy bóng chày</item><item>găng bóng chày</item><item>ván trượt</item><item>ván lướt sóng</item><item>vợt tennis</item><item>chai</item>
+        <item>ly rượu</item><item>cốc</item><item>nĩa</item><item>dao</item><item>thìa</item><item>bát</item><item>chuối</item><item>táo</item><item>bánh kẹp</item><item>cam</item>
+        <item>bông cải xanh</item><item>cà rốt</item><item>xúc xích kẹp</item><item>pizza</item><item>bánh vòng</item><item>bánh ngọt</item><item>ghế</item><item>ghế sofa</item><item>chậu cây</item><item>giường</item>
+        <item>bàn ăn</item><item>bồn cầu</item><item>tivi</item><item>laptop</item><item>chuột máy tính</item><item>điều khiển</item><item>bàn phím</item><item>điện thoại</item><item>lò vi sóng</item><item>lò nướng</item>
+        <item>máy nướng bánh</item><item>bồn rửa</item><item>tủ lạnh</item><item>sách</item><item>đồng hồ</item><item>bình hoa</item><item>kéo</item><item>gấu bông</item><item>máy sấy tóc</item><item>bàn chải đánh răng</item>
+    </string-array>
 </resources>

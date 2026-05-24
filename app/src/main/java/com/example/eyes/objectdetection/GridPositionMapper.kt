@@ -8,21 +8,33 @@ class GridPositionMapper {
         boundingBox: RectF,
         frameWidth: Int,
         frameHeight: Int
+    ): DetectionPosition = mapCenter(
+        centerX = boundingBox.centerX(),
+        centerY = boundingBox.centerY(),
+        frameWidth = frameWidth,
+        frameHeight = frameHeight
+    )
+
+    fun mapCenter(
+        centerX: Float,
+        centerY: Float,
+        frameWidth: Int,
+        frameHeight: Int
     ): DetectionPosition {
         require(frameWidth > 0) { "frameWidth must be positive" }
         require(frameHeight > 0) { "frameHeight must be positive" }
 
-        val centerX = boundingBox.centerX().coerceIn(0f, frameWidth.toFloat())
-        val centerY = boundingBox.centerY().coerceIn(0f, frameHeight.toFloat())
+        val clampedCenterX = centerX.coerceIn(0f, frameWidth.toFloat())
+        val clampedCenterY = centerY.coerceIn(0f, frameHeight.toFloat())
 
         val column = when {
-            centerX < frameWidth / 3f -> Column.LEFT
-            centerX < frameWidth * 2f / 3f -> Column.CENTER
+            clampedCenterX < frameWidth / 3f -> Column.LEFT
+            clampedCenterX < frameWidth * 2f / 3f -> Column.CENTER
             else -> Column.RIGHT
         }
         val row = when {
-            centerY < frameHeight / 3f -> Row.TOP
-            centerY < frameHeight * 2f / 3f -> Row.CENTER
+            clampedCenterY < frameHeight / 3f -> Row.TOP
+            clampedCenterY < frameHeight * 2f / 3f -> Row.CENTER
             else -> Row.BOTTOM
         }
 
