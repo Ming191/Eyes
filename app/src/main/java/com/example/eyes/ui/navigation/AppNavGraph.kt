@@ -63,7 +63,11 @@ fun AppNavGraph(
     BlindGestureLayer(
         speechOutput = speechOutput,
         localeProvider = { uiState.appLanguage.ttsLocale },
-        noActionsLabel = stringResource(R.string.blind_gesture_no_actions)
+        noActionsLabel = stringResource(R.string.blind_gesture_no_actions),
+        scrollForwardLabel = stringResource(R.string.blind_scroll_forward),
+        scrollBackwardLabel = stringResource(R.string.blind_scroll_backward),
+        scrollEndLabel = stringResource(R.string.blind_scroll_end),
+        scrollStartLabel = stringResource(R.string.blind_scroll_start)
     ) {
         when {
             uiState.isLoading -> LoadingScreen()

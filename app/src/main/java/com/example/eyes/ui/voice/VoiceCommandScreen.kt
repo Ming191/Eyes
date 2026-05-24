@@ -48,6 +48,7 @@ import com.example.eyes.R
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.system.SttErrorReason
 import com.example.eyes.system.SttState
+import com.example.eyes.ui.blind.blindScrollable
 import com.example.eyes.ui.blind.blindFocusable
 import com.example.eyes.ui.theme.EyesTheme
 import org.koin.androidx.compose.koinViewModel
@@ -118,6 +119,7 @@ private fun VoiceCommandContent(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(scrollState)
+            .blindScrollable("voice_content", scrollState)
             .padding(20.dp)
             .semantics { contentDescription = screenDescription },
         verticalArrangement = Arrangement.spacedBy(16.dp),

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import com.example.eyes.R
+import com.example.eyes.ui.blind.blindLazyScrollable
 import com.example.eyes.ui.theme.EyesTheme
 import org.koin.androidx.compose.koinViewModel
 
@@ -61,16 +63,19 @@ fun HomeContent(
     onActionSelected: (HomeActionType) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val listState = rememberLazyListState()
     val screenDescription = stringResource(R.string.home_screen_description)
     val shortcutsTitle = stringResource(R.string.home_shortcuts_title)
     val safetyTipTitle = stringResource(R.string.home_safety_tip_title)
     val safetyTipBody = stringResource(R.string.home_safety_tip_body)
     val safetyTipDescription = stringResource(R.string.home_safety_tip_description)
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .semantics { contentDescription = screenDescription },
+            .semantics { contentDescription = screenDescription }
+            .blindLazyScrollable("home_content", listState),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {

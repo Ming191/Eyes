@@ -33,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.R
 import com.example.eyes.i18n.AppLanguage
 import com.example.eyes.ui.blind.BlindAction
+import com.example.eyes.ui.blind.blindScrollable
 import com.example.eyes.ui.blind.blindFocusable
 import com.example.eyes.ui.theme.EyesTheme
 import org.koin.androidx.compose.koinViewModel
@@ -61,6 +62,7 @@ fun SettingsScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
+            .blindScrollable("settings_content", scrollState)
             .padding(16.dp)
             .semantics { contentDescription = screenDescription },
         verticalArrangement = Arrangement.spacedBy(16.dp)

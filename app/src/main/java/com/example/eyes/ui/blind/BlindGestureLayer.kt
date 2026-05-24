@@ -11,6 +11,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -25,17 +26,27 @@ import kotlin.math.abs
 import kotlinx.coroutines.withTimeoutOrNull
 
 val LocalBlindFocusManager = compositionLocalOf<BlindFocusManager?> { null }
+val LocalBlindScrollManager = compositionLocalOf<BlindScrollManager?> { null }
 
 @Composable
 fun BlindGestureLayer(
     speechOutput: SpeechOutput,
     localeProvider: () -> java.util.Locale? = { null },
     noActionsLabel: String,
+    scrollForwardLabel: String,
+    scrollBackwardLabel: String,
+    scrollEndLabel: String,
+    scrollStartLabel: String,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
     val currentLocaleProvider = rememberUpdatedState(localeProvider)
     val currentNoActionsLabel = rememberUpdatedState(noActionsLabel)
+    val currentScrollForwardLabel = rememberUpdatedState(scrollForwardLabel)
+    val currentScrollBackwardLabel = rememberUpdatedState(scrollBackwardLabel)
+    val currentScrollEndLabel = rememberUpdatedState(scrollEndLabel)
+    val currentScrollStartLabel = rememberUpdatedState(scrollStartLabel)
+    val coroutineScope = rememberCoroutineScope()
     val manager = remember(speechOutput) {
         BlindFocusManager(
             speechOutput = speechOutput,
@@ -43,9 +54,23 @@ fun BlindGestureLayer(
             noActionsLabelProvider = { currentNoActionsLabel.value }
         )
     }
+    val scrollManager = remember(speechOutput) {
+        BlindScrollManager(
+            speechOutput = speechOutput,
+            coroutineScope = coroutineScope,
+            localeProvider = { currentLocaleProvider.value() },
+            scrollForwardLabelProvider = { currentScrollForwardLabel.value },
+            scrollBackwardLabelProvider = { currentScrollBackwardLabel.value },
+            scrollEndLabelProvider = { currentScrollEndLabel.value },
+            scrollStartLabelProvider = { currentScrollStartLabel.value }
+        )
+    }
     val viewConfiguration = LocalViewConfiguration.current
 
-    CompositionLocalProvider(LocalBlindFocusManager provides manager) {
+    CompositionLocalProvider(
+        LocalBlindFocusManager provides manager,
+        LocalBlindScrollManager provides scrollManager
+    ) {
         Box(
             modifier = modifier
                 .fillMaxSize()
@@ -59,6 +84,14 @@ fun BlindGestureLayer(
                         val longPressTimeout = viewConfiguration.longPressTimeoutMillis
                         val doubleTapTimeout = viewConfiguration.doubleTapTimeoutMillis
                         val swipeThreshold = viewConfiguration.touchSlop * 6f
+
+                        val secondPointer = withTimeoutOrNull(140L) {
+                            waitForSecondPointerOrUp(pass = PointerEventPass.Initial)
+                        }
+                        if (secondPointer == true) {
+                            handleTwoFingerVerticalScroll(scrollManager, swipeThreshold)
+                            return@awaitEachGesture
+                        }
 
                         val longPressChange = withTimeoutOrNull(longPressTimeout) {
                             waitForUpOrCancellation(pass = PointerEventPass.Initial)
@@ -96,6 +129,45 @@ fun BlindGestureLayer(
             content()
             FocusBoundsOverlay(manager = manager)
         }
+    }
+}
+
+private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.waitForSecondPointerOrUp(
+    pass: PointerEventPass
+): Boolean {
+    while (true) {
+        val event = awaitPointerEvent(pass = pass)
+        event.changes.forEach { it.consume() }
+        if (event.changes.count { it.pressed } >= 2) return true
+        if (event.changes.all { !it.pressed }) return false
+    }
+}
+
+private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.handleTwoFingerVerticalScroll(
+    scrollManager: BlindScrollManager,
+    threshold: Float
+) {
+    var startY: Float? = null
+    var endY: Float? = null
+
+    while (true) {
+        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+        event.changes.forEach { it.consume() }
+        val pressed = event.changes.filter { it.pressed }
+        if (pressed.size < 2) break
+
+        val centroidY = pressed.map { it.position.y }.average().toFloat()
+        if (startY == null) startY = centroidY
+        endY = centroidY
+    }
+
+    val deltaY = (endY ?: return) - (startY ?: return)
+    if (abs(deltaY) <= threshold) return
+
+    if (deltaY < 0) {
+        scrollManager.scrollForward()
+    } else {
+        scrollManager.scrollBackward()
     }
 }
 

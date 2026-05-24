@@ -32,6 +32,10 @@
     <string name="blind_gesture_no_actions">No secondary actions</string>
     <string name="blind_action_increase">Increase</string>
     <string name="blind_action_decrease">Decrease</string>
+    <string name="blind_scroll_forward">Scrolled down</string>
+    <string name="blind_scroll_backward">Scrolled up</string>
+    <string name="blind_scroll_end">End of content</string>
+    <string name="blind_scroll_start">Start of content</string>
     <string name="voice_response_read_text">Opening read text mode.</string>
     <string name="voice_response_describe_scene">Opening scene description.</string>
     <string name="voice_response_recognize_currency">Opening currency recognition.</string>

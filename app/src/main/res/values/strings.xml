@@ -40,6 +40,10 @@
     <string name="blind_gesture_no_actions">Không có hành động phụ</string>
     <string name="blind_action_increase">Tăng</string>
     <string name="blind_action_decrease">Giảm</string>
+    <string name="blind_scroll_forward">Đã cuộn xuống</string>
+    <string name="blind_scroll_backward">Đã cuộn lên</string>
+    <string name="blind_scroll_end">Hết nội dung</string>
+    <string name="blind_scroll_start">Đầu nội dung</string>
     <string name="voice_response_read_text">Mở chế độ đọc văn bản.</string>
     <string name="voice_response_describe_scene">Mở mô tả khung cảnh.</string>
     <string name="voice_response_recognize_currency">Mở nhận diện tiền.</string>

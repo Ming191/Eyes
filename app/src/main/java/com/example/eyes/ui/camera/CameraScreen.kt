@@ -57,6 +57,7 @@ import com.example.eyes.R
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.ocr.OcrMode
 import com.example.eyes.ui.blind.BlindAction
+import com.example.eyes.ui.blind.blindScrollable
 import com.example.eyes.ui.blind.blindFocusable
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -483,6 +484,7 @@ private fun CameraStatusPanel(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val statusScrollState = rememberScrollState()
     val panelDescription = stringResource(R.string.camera_status_panel_description)
     val titleRowDescription = stringResource(R.string.camera_status_title_row_description)
     val hideStatusDescription = stringResource(R.string.camera_hide_status_description)
@@ -510,7 +512,8 @@ private fun CameraStatusPanel(
         Column(
             modifier = Modifier
                 .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(statusScrollState)
+                .blindScrollable("camera_status_panel_scroll", statusScrollState),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             androidx.compose.foundation.layout.Row(
