@@ -168,6 +168,9 @@
     <string name="camera_hide_status_description">Hide camera status panel</string>
     <string name="camera_mode_ocr_label">Read text</string>
     <string name="camera_mode_ocr_description">OCR text reading</string>
+    <string name="camera_mode_object_detection_label">Objects</string>
+    <string name="camera_mode_object_detection_description">object detection</string>
+    <string name="camera_mode_selector_description">Select camera mode</string>
     <string name="camera_ocr_guidance_ready_description">Text area ready for capture</string>
     <string name="camera_ocr_guidance_frame_description">OCR text area guidance frame</string>
 
@@ -223,4 +226,32 @@
     <string name="camera_vm_gpt_fallback_status_template">GPT-4o failed, fell back to quick OCR. %1$d sections.</string>
     <string name="camera_vm_captured_paragraphs_template">Captured. %1$d paragraphs.</string>
     <string name="camera_vm_ocr_sentence_position_template">%1$d of %2$d. %3$s</string>
+    <string name="object_detection_position_top_left">top left</string>
+    <string name="object_detection_position_top_center">top center</string>
+    <string name="object_detection_position_top_right">top right</string>
+    <string name="object_detection_position_center_left">left</string>
+    <string name="object_detection_position_center">center</string>
+    <string name="object_detection_position_center_right">right</string>
+    <string name="object_detection_position_bottom_left">bottom left</string>
+    <string name="object_detection_position_bottom_center">bottom center</string>
+    <string name="object_detection_position_bottom_right">bottom right</string>
+    <string name="camera_vm_object_detection_warmup_done">Object detection model is ready.</string>
+    <string name="camera_vm_object_detection_warmup_failed">Could not start object detection model.</string>
+    <string name="camera_vm_object_detection_announcement_template">%1$s at %2$s</string>
+    <string name="camera_vm_object_detection_no_objects">No clear objects detected.</string>
+    <string name="camera_vm_object_detection_debug_template">YOLO: %1$d objects</string>
+    <string name="camera_vm_object_detection_title">Object detection mode</string>
+    <string name="camera_vm_object_detection_summary">Point camera at space ahead to show objects and positions.</string>
+    <string name="camera_vm_object_detection_status">Detecting objects</string>
+    <string name="camera_vm_switched_to_object_detection_mode">Switched to object detection mode.</string>
+    <string-array name="object_detection_coco_labels">
+        <item>person</item><item>bicycle</item><item>car</item><item>motorcycle</item><item>airplane</item><item>bus</item><item>train</item><item>truck</item><item>boat</item><item>traffic light</item>
+        <item>fire hydrant</item><item>stop sign</item><item>parking meter</item><item>bench</item><item>bird</item><item>cat</item><item>dog</item><item>horse</item><item>sheep</item><item>cow</item>
+        <item>elephant</item><item>bear</item><item>zebra</item><item>giraffe</item><item>backpack</item><item>umbrella</item><item>handbag</item><item>tie</item><item>suitcase</item><item>frisbee</item>
+        <item>skis</item><item>snowboard</item><item>sports ball</item><item>kite</item><item>baseball bat</item><item>baseball glove</item><item>skateboard</item><item>surfboard</item><item>tennis racket</item><item>bottle</item>
+        <item>wine glass</item><item>cup</item><item>fork</item><item>knife</item><item>spoon</item><item>bowl</item><item>banana</item><item>apple</item><item>sandwich</item><item>orange</item>
+        <item>broccoli</item><item>carrot</item><item>hot dog</item><item>pizza</item><item>donut</item><item>cake</item><item>chair</item><item>couch</item><item>potted plant</item><item>bed</item>
+        <item>dining table</item><item>toilet</item><item>tv</item><item>laptop</item><item>mouse</item><item>remote</item><item>keyboard</item><item>cell phone</item><item>microwave</item><item>oven</item>
+        <item>toaster</item><item>sink</item><item>refrigerator</item><item>book</item><item>clock</item><item>vase</item><item>scissors</item><item>teddy bear</item><item>hair drier</item><item>toothbrush</item>
+    </string-array>
 </resources>

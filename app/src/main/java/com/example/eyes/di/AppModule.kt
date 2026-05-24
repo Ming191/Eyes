@@ -14,6 +14,10 @@ import com.example.eyes.ocr.OcrEngine
 import com.example.eyes.ocr.OcrTranslator
 import com.example.eyes.data.remote.SceneApi
 import com.example.eyes.data.remote.SceneRepository
+import com.example.eyes.objectdetection.ExecutorchModelAssetCopier
+import com.example.eyes.objectdetection.ObjectDetector
+import com.example.eyes.objectdetection.YoloExecutorchDetector
+import com.example.eyes.objectdetection.YoloExecutorchModelLoader
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.SpeechOutput
 import com.example.eyes.system.SttService
@@ -46,6 +50,10 @@ val appModule = module {
     factory<OcrEngine>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
     factory { MlKitOcrGuidanceAnalyzer() }
     factory<OcrTranslator> { GptTranslationEngine() }
+    single { ExecutorchModelAssetCopier(androidContext()) }
+    single { YoloExecutorchModelLoader(get()) }
+    single { YoloExecutorchDetector(get()) }
+    single<ObjectDetector> { get<YoloExecutorchDetector>() }
     single {
         OkHttpClient.Builder()
             .connectTimeout(8, TimeUnit.SECONDS)
@@ -74,6 +82,7 @@ val appModule = module {
             hapticService = get(),
             dataStoreManager = get(),
             sceneRepository = get(),
+            objectDetector = get(),
             audioManager = get(),
             context = androidContext()
         )
