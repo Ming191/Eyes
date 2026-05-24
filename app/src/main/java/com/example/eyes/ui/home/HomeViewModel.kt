@@ -1,4 +1,4 @@
-package com.example.eyes.ui.home
+﻿package com.example.eyes.ui.home
 
 import android.content.Context
 import androidx.compose.runtime.Immutable
@@ -6,8 +6,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.R
 import com.example.eyes.data.DataStoreManager
+import com.example.eyes.i18n.AndroidLocalizedTextProvider
 import com.example.eyes.i18n.AppLanguage
-import com.example.eyes.i18n.localizedFor
+import com.example.eyes.i18n.LocalizedTextProvider
 import com.example.eyes.system.SpeechOutput
 import com.example.eyes.voiceguide.AnnouncementCategory
 import com.example.eyes.voiceguide.AnnouncementController
@@ -35,50 +36,31 @@ data class HomeAction(
 
 @Immutable
 data class HomeUiState(
-    val welcomeTitle: String = "Hỗ trợ đọc văn bản rõ ràng và ngắn gọn",
-    val welcomeSummary: String = "Chọn một chế độ để đọc văn bản, ra lệnh bằng giọng nói hoặc tinh chỉnh phản hồi.",
-    val actions: List<HomeAction> = defaultHomeActions()
-)
-
-private fun defaultHomeActions(): List<HomeAction> = listOf(
-    HomeAction(
-        type = HomeActionType.ReadTextQuick,
-        title = "Đọc văn bản nhanh",
-        description = "Dùng camera để đọc nhanh bằng ML Kit.",
-        supportingLabel = "Chế độ OCR nhanh",
-        accessibilityLabel = "Đọc văn bản nhanh. Dùng camera để đọc nhãn, biển báo hoặc tài liệu ngắn bằng OCR nhanh."
-    ),
-    HomeAction(
-        type = HomeActionType.ReadTextAccuracy,
-        title = "Đọc văn bản chính xác",
-        description = "Dùng camera để đọc chính xác hơn bằng GPT-4o.",
-        supportingLabel = "Chế độ OCR chính xác",
-        accessibilityLabel = "Đọc văn bản chính xác. Dùng camera để đọc tài liệu với độ chính xác cao hơn bằng GPT-4o."
-    ),
-    HomeAction(
-        type = HomeActionType.Voice,
-        title = "Ra lệnh bằng giọng nói",
-        description = "Nói một câu lệnh để mở chế độ đọc, mô tả hoặc nhận diện tiền.",
-        supportingLabel = "Hỗ trợ tiếng Việt",
-        accessibilityLabel = "Ra lệnh bằng giọng nói. Nói một câu lệnh để chọn chế độ phù hợp."
-    ),
-    HomeAction(
-        type = HomeActionType.Settings,
-        title = "Tinh chỉnh phản hồi",
-        description = "Điều chỉnh tốc độ đọc và độ nhạy cảnh báo để phù hợp với môi trường hiện tại.",
-        supportingLabel = "Âm thanh và rung",
-        accessibilityLabel = "Tinh chỉnh phản hồi. Điều chỉnh tốc độ đọc và độ nhạy cảnh báo."
-    )
+    val welcomeTitle: String = "",
+    val welcomeSummary: String = "",
+    val actions: List<HomeAction> = emptyList()
 )
 
 class HomeViewModel(
-    private val context: Context,
+    private val localizedTextProvider: LocalizedTextProvider,
     private val tts: SpeechOutput,
     private val dataStoreManager: DataStoreManager? = null,
     private val announcementController: AnnouncementController? = null
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(HomeUiState())
+    constructor(
+        context: Context,
+        tts: SpeechOutput,
+        dataStoreManager: DataStoreManager? = null,
+        announcementController: AnnouncementController? = null
+    ) : this(
+        localizedTextProvider = AndroidLocalizedTextProvider(context),
+        tts = tts,
+        dataStoreManager = dataStoreManager,
+        announcementController = announcementController
+    )
+
+    private val _uiState = MutableStateFlow(homeUiStateFor(AppLanguage.VI))
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private var hasSpokenGreeting = false
@@ -92,7 +74,7 @@ class HomeViewModel(
                 store.appLanguageFlow.collect { language ->
                     appLanguage = language
                     isAppLanguageLoaded = true
-                    _uiState.update { language.homeUiState }
+                    _uiState.update { homeUiStateFor(language) }
                     if (pendingGreeting) {
                         pendingGreeting = false
                         speakGreetingIfNeeded()
@@ -113,7 +95,7 @@ class HomeViewModel(
     private fun speakGreetingIfNeeded() {
         if (hasSpokenGreeting) return
         hasSpokenGreeting = true
-        val text = context.localizedFor(appLanguage).getString(R.string.home_greeting)
+        val text = localizedTextProvider.getString(R.string.home_greeting, appLanguage)
         announcementController?.announce(
             text = text,
             priority = SpeechOutput.Priority.NORMAL,
@@ -122,8 +104,8 @@ class HomeViewModel(
         ) ?: tts.speak(text, appLanguage.ttsLocale)
     }
 
-    private val AppLanguage.homeUiState: HomeUiState
-        get() = context.localizedFor(this).homeUiStateFromResources()
+    private fun homeUiStateFor(language: AppLanguage): HomeUiState =
+        localizedTextProvider.localizedContext(language).homeUiStateFromResources()
 
     private fun Context.homeUiStateFromResources(): HomeUiState = HomeUiState(
         welcomeTitle = getString(R.string.home_welcome_title),

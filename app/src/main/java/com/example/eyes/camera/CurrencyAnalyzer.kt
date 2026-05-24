@@ -61,6 +61,14 @@ class CurrencyAnalyzer(
         }
     }
 
+    fun analyze(bitmap: Bitmap) {
+        try {
+            processSingleCapture(bitmap)
+        } catch (_: Throwable) {
+            onResult(EMPTY_LABEL, 0f)
+        }
+    }
+
     fun resetBuffer() {
         frameWindow.clear()
     }
@@ -68,6 +76,27 @@ class CurrencyAnalyzer(
     fun close() {
         yoloInterpreter.close()
         classifierInterpreter.close()
+    }
+
+    private fun processSingleCapture(bitmap: Bitmap) {
+        val box = detectWithYolo(bitmap) ?: run {
+            onResult(EMPTY_LABEL, 0f)
+            return
+        }
+
+        val cropped = cropBitmap(bitmap, box) ?: run {
+            onResult(EMPTY_LABEL, 0f)
+            return
+        }
+
+        val (label, confidence) = classifyWithEfficientNet(cropped)
+        cropped.recycle()
+
+        if (confidence >= CLASSIFIER_CONFIDENCE_THRESHOLD) {
+            onResult(label, confidence)
+        } else {
+            onResult(EMPTY_LABEL, 0f)
+        }
     }
 
     private fun processFrame(bitmap: Bitmap) {

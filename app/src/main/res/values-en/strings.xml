@@ -19,6 +19,14 @@
     <string name="settings_auto_translate_description">Automatically translate English to Vietnamese during OCR</string>
     <string name="settings_auto_translate_label">Auto translate EN -> VI during OCR</string>
     <string name="settings_auto_translate_switch_description">Toggle automatic English to Vietnamese translation during OCR</string>
+    <string name="settings_voice_guide_description">In-app voice guide</string>
+    <string name="settings_voice_guide_label">Voice guide</string>
+    <string name="settings_voice_guide_summary">The app reads main screens, statuses, and important guidance without requiring system TalkBack.</string>
+    <string name="settings_voice_guide_switch_description">Turn in-app voice guide on or off</string>
+    <string name="settings_voice_guide_state_on">On</string>
+    <string name="settings_voice_guide_state_off">Off</string>
+    <string name="settings_voice_guide_enabled_announcement">Voice guide is on.</string>
+    <string name="settings_voice_guide_disabled_announcement">Voice guide is off. Safety alerts will still be spoken.</string>
     <string name="settings_preview_button_description">Button to preview feedback with current speech and haptic settings</string>
     <string name="settings_preview_button_label">Preview feedback</string>
     <string name="home_screen_description">Quick support home screen</string>
@@ -79,7 +87,7 @@
     <string name="voice_command_stop_action">stop and return home</string>
     <string name="voice_command_help_example">Help</string>
     <string name="voice_command_help_action">hear command list</string>
-    <string name="voice_command_line_text">• "%1$s" — %2$s</string>
+    <string name="voice_command_line_text">* "%1$s" - %2$s</string>
     <string name="voice_command_line_description">Command: %1$s. Action: %2$s</string>
     <string name="voice_status_idle">Ready</string>
     <string name="voice_status_listening">Listening...</string>
@@ -96,7 +104,14 @@
     <string name="voice_label_repeat">Repeat</string>
     <string name="voice_label_stop">Stop</string>
     <string name="voice_label_help">Help</string>
-    <string name="voice_label_unknown">Unknown — "%1$s"</string>
+    <string name="voice_label_unknown">Unknown - "%1$s"</string>
+    <string name="voice_vm_read_text_ack">Opening read text mode.</string>
+    <string name="voice_vm_describe_scene_ack">Opening scene description mode.</string>
+    <string name="voice_vm_recognize_currency_ack">Opening currency recognition mode.</string>
+    <string name="voice_vm_nothing_to_repeat">There is nothing to repeat yet.</string>
+    <string name="voice_vm_stopped_ack">Stopped.</string>
+    <string name="voice_vm_help_text">You can say: read for me to read text. What is in front to describe the scene. How much is this bill to recognize money. Repeat to hear again. Stop to stop and return home.</string>
+    <string name="voice_vm_unknown_command">I did not get that command. Please speak more clearly.</string>
     <string name="onboarding_page_permissions_title">Grant essential permissions</string>
     <string name="onboarding_page_permissions_summary">Camera and microphone help the app read text, describe frames, and receive voice commands.</string>
     <string name="onboarding_page_permissions_description">Step one. Grant essential permissions for camera, microphone, and location.</string>
@@ -148,12 +163,15 @@
     <string name="nav_bottom_bar_description">Main navigation bar</string>
     <string name="nav_selected_description">Selected</string>
     <string name="nav_unselected_description">Not selected</string>
-    <string name="camera_screen_description">Camera screen in %1$s mode. Long press to describe surroundings.</string>
-    <string name="camera_describe_scene_description">Describe surroundings</string>
-    <string name="camera_captured_ocr_description">Captured OCR image</string>
+    <string name="voice_guide_home_intro">Home.</string>
+    <string name="voice_guide_camera_intro">Camera.</string>
+    <string name="voice_guide_settings_intro">Settings.</string>
+    <string name="voice_guide_subtitle_description">Spoken text subtitle: %1$s</string>
+    <string name="camera_screen_description">Camera screen in %1$s mode.</string>
+    <string name="camera_captured_ocr_description">Captured image</string>
     <string name="camera_analyzing_image">Analyzing image...</string>
     <string name="camera_ocr_swipe_hint">Swipe left or right to change sentence</string>
-    <string name="camera_capture_another_description">Capture another OCR image</string>
+    <string name="camera_capture_another_description">Capture another image</string>
     <string name="camera_capture_another_text">Capture another image</string>
     <string name="camera_show_status_description">Show camera status panel</string>
     <string name="camera_ocr_mode_selector_description">Select OCR mode</string>
@@ -168,6 +186,8 @@
     <string name="camera_hide_status_description">Hide camera status panel</string>
     <string name="camera_mode_ocr_label">Read text</string>
     <string name="camera_mode_ocr_description">OCR text reading</string>
+    <string name="camera_mode_scene_description_label">Describe image</string>
+    <string name="camera_mode_scene_description_description">describe scene from a captured image</string>
     <string name="camera_mode_object_detection_label">Objects</string>
     <string name="camera_mode_object_detection_description">object detection</string>
     <string name="camera_mode_currency_label">Money</string>
@@ -200,9 +220,28 @@
     <string name="currency_spoken_100000">one hundred thousand dong</string>
     <string name="currency_spoken_200000">two hundred thousand dong</string>
     <string name="currency_spoken_500000">five hundred thousand dong</string>
+    <string name="scene_description_offline_fallback">Cannot describe the frame yet. Please try again when network is available.</string>
+
+    
+    <string name="scene_description_error_api_key_missing">OpenAI API key is missing. Please check your .env setup.</string>
+    <string name="scene_description_error_unauthorized">OpenAI access is unauthorized. Please verify API key and model permission.</string>
+    <string name="scene_description_error_quota">OpenAI quota exceeded or rate limited. Please try again later.</string>
+    <string name="scene_description_error_timeout">OpenAI response timed out. Please try again.</string>
+    <string name="scene_description_error_generic">Cannot describe the scene right now. Please try again.</string>
 
     <!-- Camera ViewModel runtime text -->
     <string name="camera_vm_ocr_guidance_search">Point camera at text area.</string>
+    <string name="camera_vm_ocr_guidance_too_dark">Image is too dark. Move text to brighter light.</string>
+    <string name="camera_vm_ocr_guidance_too_bright">Image is too bright. Avoid direct light on paper.</string>
+    <string name="camera_vm_ocr_guidance_move_closer">Text is too small. Move camera closer.</string>
+    <string name="camera_vm_ocr_guidance_move_back">Text is too close. Move camera back slightly.</string>
+    <string name="camera_vm_ocr_guidance_text_clipped">Text is near edge. Widen frame to avoid missing words.</string>
+    <string name="camera_vm_ocr_guidance_move_left">Text is left of center. Move camera left.</string>
+    <string name="camera_vm_ocr_guidance_move_right">Text is right of center. Move camera right.</string>
+    <string name="camera_vm_ocr_guidance_move_up">Text is high in frame. Raise camera slightly.</string>
+    <string name="camera_vm_ocr_guidance_move_down">Text is low in frame. Lower camera slightly.</string>
+    <string name="camera_vm_ocr_guidance_ready">Text is in frame, ready to capture.</string>
+    <string name="camera_vm_ocr_guidance_hold_steady">Text found. Hold camera steady.</string>
     <string name="camera_vm_initial_status">Waiting for next frame</string>
     <string name="camera_vm_initial_announcement">No new alerts</string>
     <string name="camera_vm_initial_debug">Debug: waiting for data</string>
@@ -218,9 +257,11 @@
     <string name="camera_vm_frame_unclear_retrying">Frame unclear, trying again</string>
     <string name="camera_vm_cannot_process_captured_image">Cannot process captured image</string>
     <string name="camera_vm_processing_ocr_image">Processing OCR image</string>
+    <string name="camera_vm_processing_currency_image">Analyzing currency image</string>
     <string name="camera_vm_unknown_reason">unknown reason</string>
     <string name="camera_vm_unknown_error">unknown error</string>
     <string name="camera_vm_cannot_capture_ocr_try_again">Cannot capture OCR image. Try again.</string>
+    <string name="camera_vm_cannot_capture_currency_try_again">Cannot capture currency image. Please try again.</string>
     <string name="camera_vm_image_may_be_unclear_capturing">Image may be unclear, capturing.</string>
     <string name="camera_vm_ready_to_capture_ocr">Ready to capture OCR</string>
     <string name="camera_vm_ready_for_new_capture">Ready to capture new image</string>
@@ -230,7 +271,7 @@
     <string name="camera_vm_ocr_debug_waiting">OCR: waiting for data</string>
     <string name="camera_vm_enabled_english_to_vietnamese_translation">Enabled English to Vietnamese translation while reading.</string>
     <string name="camera_vm_disabled_english_to_vietnamese_translation">Disabled English to Vietnamese translation.</string>
-    <string name="camera_vm_no_frame_to_describe">No frame to describe. Hold camera steady for a few seconds.</string>
+    <string name="camera_vm_cannot_capture_scene_try_again">Cannot capture scene image. Please try again.</string>
     <string name="camera_vm_describing_scene_please_wait">Describing scene, please wait</string>
     <string name="camera_vm_scene_description_done">Scene description done</string>
     <string name="camera_vm_scene_description_failed">Scene description failed, please try again</string>
@@ -272,6 +313,7 @@
     <string name="camera_vm_object_detection_title">Object detection mode</string>
     <string name="camera_vm_object_detection_summary">Point camera at space ahead to show objects and positions.</string>
     <string name="camera_vm_object_detection_status">Detecting objects</string>
+    <string name="camera_vm_switched_to_scene_description_mode">Switched to image description mode.</string>
     <string name="camera_vm_switched_to_object_detection_mode">Switched to object detection mode.</string>
     <string name="camera_vm_switched_to_currency_mode">Switched to currency recognition mode.</string>
     <string-array name="object_detection_coco_labels">

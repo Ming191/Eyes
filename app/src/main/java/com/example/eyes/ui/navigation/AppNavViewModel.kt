@@ -6,8 +6,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.R
+import com.example.eyes.i18n.AndroidLocalizedTextProvider
 import com.example.eyes.i18n.AppLanguage
-import com.example.eyes.i18n.localizedFor
+import com.example.eyes.i18n.LocalizedTextProvider
 import com.example.eyes.ocr.OcrMode
 import com.example.eyes.system.SpeechOutput
 import com.example.eyes.ui.camera.CameraMode
@@ -32,8 +33,20 @@ class AppNavViewModel(
     private val dataStoreManager: DataStoreManager,
     private val speechOutput: SpeechOutput,
     private val announcementController: AnnouncementController,
-    private val context: Context
+    private val localizedTextProvider: LocalizedTextProvider
 ) : ViewModel() {
+    constructor(
+        dataStoreManager: DataStoreManager,
+        speechOutput: SpeechOutput,
+        announcementController: AnnouncementController,
+        context: Context
+    ) : this(
+        dataStoreManager = dataStoreManager,
+        speechOutput = speechOutput,
+        announcementController = announcementController,
+        localizedTextProvider = AndroidLocalizedTextProvider(context)
+    )
+
     private val _requestedCameraMode = MutableStateFlow<CameraMode?>(null)
     val requestedCameraMode: StateFlow<CameraMode?> = _requestedCameraMode.asStateFlow()
     val currentSpokenText = speechOutput.currentSpokenText
@@ -89,7 +102,7 @@ class AppNavViewModel(
             TopLevelDestination.SETTINGS -> R.string.voice_guide_settings_intro
         }
         announcementController.announce(
-            text = context.localizedFor(appLanguage).getString(textRes),
+            text = localizedTextProvider.getString(textRes, appLanguage),
             priority = SpeechOutput.Priority.HIGH,
             category = AnnouncementCategory.Navigation,
             locale = appLanguage.ttsLocale,

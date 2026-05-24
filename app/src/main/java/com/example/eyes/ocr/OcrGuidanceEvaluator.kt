@@ -1,6 +1,4 @@
-package com.example.eyes.ocr
-
-import com.example.eyes.i18n.AppLanguage
+﻿package com.example.eyes.ocr
 
 object OcrGuidanceEvaluator {
     private const val MIN_TEXT_COVERAGE = 0.06f
@@ -11,12 +9,43 @@ object OcrGuidanceEvaluator {
     private const val MAX_LUMINANCE = 0.95f
     private const val REQUIRED_STABLE_FRAMES = 2
 
+    data class OcrGuidanceText(
+        val searching: String,
+        val tooDark: String,
+        val tooBright: String,
+        val moveCloser: String,
+        val moveBack: String,
+        val textClipped: String,
+        val moveLeft: String,
+        val moveRight: String,
+        val moveUp: String,
+        val moveDown: String,
+        val ready: String,
+        val holdSteady: String
+    ) {
+        companion object {
+            val EMPTY = OcrGuidanceText(
+                searching = "",
+                tooDark = "",
+                tooBright = "",
+                moveCloser = "",
+                moveBack = "",
+                textClipped = "",
+                moveLeft = "",
+                moveRight = "",
+                moveUp = "",
+                moveDown = "",
+                ready = "",
+                holdSteady = ""
+            )
+        }
+    }
+
     fun evaluate(
         frame: OcrGuidanceFrame,
         stableFrameCount: Int,
-        language: AppLanguage = AppLanguage.VI
+        text: OcrGuidanceText = OcrGuidanceText.EMPTY
     ): OcrGuidanceEvaluation {
-        val text = OcrGuidanceText.forLanguage(language)
         val bounds = frame.textBounds
             ?: return OcrGuidanceEvaluation(
                 status = OcrGuidanceStatus.SEARCHING,
@@ -118,56 +147,4 @@ object OcrGuidanceEvaluator {
         isReadyToCapture = false,
         textBounds = textBounds
     )
-
-    private data class OcrGuidanceText(
-        val searching: String,
-        val tooDark: String,
-        val tooBright: String,
-        val moveCloser: String,
-        val moveBack: String,
-        val textClipped: String,
-        val moveLeft: String,
-        val moveRight: String,
-        val moveUp: String,
-        val moveDown: String,
-        val ready: String,
-        val holdSteady: String
-    ) {
-        companion object {
-            fun forLanguage(language: AppLanguage): OcrGuidanceText = when (language) {
-                AppLanguage.VI -> VI
-                AppLanguage.EN -> EN
-            }
-
-            private val VI = OcrGuidanceText(
-                    searching = "Chưa thấy văn bản. Hãy hướng camera vào vùng chữ.",
-                    tooDark = "Ảnh hơi tối. Hãy đưa văn bản ra nơi sáng hơn.",
-                    tooBright = "Ảnh quá sáng. Hãy tránh ánh sáng chiếu trực tiếp vào giấy.",
-                    moveCloser = "Văn bản còn nhỏ. Hãy đưa camera lại gần hơn.",
-                    moveBack = "Văn bản quá gần. Hãy đưa camera ra xa một chút.",
-                    textClipped = "Văn bản sát mép khung. Hãy lấy rộng ra để không mất chữ.",
-                    moveLeft = "Văn bản lệch trái. Hãy hướng camera sang trái.",
-                    moveRight = "Văn bản lệch phải. Hãy hướng camera sang phải.",
-                    moveUp = "Văn bản lệch lên trên. Hãy nâng camera lên một chút.",
-                    moveDown = "Văn bản lệch xuống dưới. Hãy hạ camera xuống một chút.",
-                    ready = "Văn bản đã nằm trong khung, sẵn sàng chụp.",
-                    holdSteady = "Đã thấy văn bản. Hãy giữ camera ổn định."
-                )
-
-            private val EN = OcrGuidanceText(
-                searching = "No text found yet. Point camera at text area.",
-                tooDark = "Image is too dark. Move text to brighter light.",
-                tooBright = "Image is too bright. Avoid direct light on paper.",
-                moveCloser = "Text is too small. Move camera closer.",
-                moveBack = "Text is too close. Move camera back slightly.",
-                textClipped = "Text is near edge. Widen frame to avoid missing words.",
-                moveLeft = "Text is left of center. Move camera left.",
-                moveRight = "Text is right of center. Move camera right.",
-                moveUp = "Text is high in frame. Raise camera slightly.",
-                moveDown = "Text is low in frame. Lower camera slightly.",
-                ready = "Text is in frame, ready to capture.",
-                holdSteady = "Text found. Hold camera steady."
-            )
-        }
-    }
 }

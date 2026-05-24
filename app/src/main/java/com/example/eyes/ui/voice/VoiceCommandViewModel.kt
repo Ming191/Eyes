@@ -1,11 +1,13 @@
-package com.example.eyes.ui.voice
+﻿package com.example.eyes.ui.voice
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.eyes.R
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.domain.voice.CommandParser
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.i18n.LocalizedTextProvider
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.SpeechOutput
 import com.example.eyes.system.SttErrorReason
@@ -26,7 +28,7 @@ import kotlinx.coroutines.launch
  */
 sealed interface VoiceNavigationTarget {
     data object Camera : VoiceNavigationTarget
-    data object Home : VoiceNavigationTarget   // for Stop command
+    data object Home : VoiceNavigationTarget // for Stop command
 }
 
 data class VoiceCommandUiState(
@@ -42,13 +44,14 @@ class VoiceCommandViewModel(
     private val commandParser: CommandParser,
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticService,
-    private val dataStoreManager: DataStoreManager
+    private val dataStoreManager: DataStoreManager,
+    private val localizedTextProvider: LocalizedTextProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(VoiceCommandUiState())
     val uiState: StateFlow<VoiceCommandUiState> = _uiState.asStateFlow()
 
-    // One-shot navigation events — collected by the screen and consumed.
+    // One-shot navigation events - collected by the screen and consumed.
     private val _navigation = Channel<VoiceNavigationTarget>(Channel.BUFFERED)
     val navigation = _navigation.receiveAsFlow()
 
@@ -86,7 +89,7 @@ class VoiceCommandViewModel(
     }
 
     /**
-     * Called when the screen is first composed. Does NOT speak a greeting —
+     * Called when the screen is first composed. Does NOT speak a greeting -
      * doing so racing audio focus with the SpeechRecognizer and gets the
      * greeting silently dropped on most devices. The on-screen status text
      * and a haptic confirm convey "we're listening".
@@ -138,7 +141,7 @@ class VoiceCommandViewModel(
                         lastCommand = command
                     )
                 }
-                handleParsedCommand(result.text, command)
+                handleParsedCommand(command)
             }
 
             is SttResult.Error -> {
@@ -151,7 +154,7 @@ class VoiceCommandViewModel(
         }
     }
 
-    private fun handleParsedCommand(rawText: String, command: VoiceCommand) {
+    private fun handleParsedCommand(command: VoiceCommand) {
         viewModelScope.launch {
             // Persist the command so feature screens can pick it up.
             dataStoreManager.setLastVoiceCommand(command)
@@ -174,10 +177,10 @@ class VoiceCommandViewModel(
 
                 VoiceCommand.Repeat -> {
                     if (lastSpokenText.isBlank()) {
-                    speechOutput.speakAndAwait(appLanguage.voiceText.nothingToRepeat, appLanguage.ttsLocale)
-                } else {
-                    speechOutput.speakAndAwait(lastSpokenText, appLanguage.ttsLocale)
-                }
+                        speechOutput.speakAndAwait(voiceText.nothingToRepeat, appLanguage.ttsLocale)
+                    } else {
+                        speechOutput.speakAndAwait(lastSpokenText, appLanguage.ttsLocale)
+                    }
                     restartListeningAfterSpeech()
                 }
 
@@ -213,7 +216,15 @@ class VoiceCommandViewModel(
      * Speak [text] and remember it for the Repeat command.
      */
     private val voiceText: VoiceText
-        get() = appLanguage.voiceText
+        get() = VoiceText(
+            readText = localizedTextProvider.getString(R.string.voice_vm_read_text_ack, appLanguage),
+            describeScene = localizedTextProvider.getString(R.string.voice_vm_describe_scene_ack, appLanguage),
+            recognizeCurrency = localizedTextProvider.getString(R.string.voice_vm_recognize_currency_ack, appLanguage),
+            nothingToRepeat = localizedTextProvider.getString(R.string.voice_vm_nothing_to_repeat, appLanguage),
+            stopped = localizedTextProvider.getString(R.string.voice_vm_stopped_ack, appLanguage),
+            help = localizedTextProvider.getString(R.string.voice_vm_help_text, appLanguage),
+            unknown = localizedTextProvider.getString(R.string.voice_vm_unknown_command, appLanguage)
+        )
 
     private suspend fun speakAndRemember(text: String) {
         lastSpokenText = text
@@ -225,37 +236,13 @@ class VoiceCommandViewModel(
         sttService.release()
     }
 
-    private companion object {
-        private data class VoiceText(
-            val readText: String,
-            val describeScene: String,
-            val recognizeCurrency: String,
-            val nothingToRepeat: String,
-            val stopped: String,
-            val help: String,
-            val unknown: String
-        )
-
-        private val AppLanguage.voiceText: VoiceText
-            get() = when (this) {
-                AppLanguage.VI -> VoiceText(
-                    readText = "Mở chế độ đọc văn bản.",
-                    describeScene = "Mở chế độ mô tả khung cảnh.",
-                    recognizeCurrency = "Mở chế độ nhận diện tiền.",
-                    nothingToRepeat = "Chưa có câu nào để đọc lại.",
-                    stopped = "Đã dừng.",
-                    help = "Bạn có thể nói: đọc giúp tôi để đọc văn bản. Trước mặt có gì để mô tả khung cảnh. Tờ tiền này bao nhiêu để nhận diện tiền. Đọc lại để nghe lại. Dừng để dừng và về trang chủ.",
-                    unknown = "Chưa nhận được lệnh. Hãy nói lại rõ hơn."
-                )
-                AppLanguage.EN -> VoiceText(
-                    readText = "Opening read text mode.",
-                    describeScene = "Opening scene description mode.",
-                    recognizeCurrency = "Opening currency recognition mode.",
-                    nothingToRepeat = "There is nothing to repeat yet.",
-                    stopped = "Stopped.",
-                    help = "You can say: read for me to read text. What is in front to describe the scene. How much is this bill to recognize money. Repeat to hear again. Stop to stop and return home.",
-                    unknown = "I did not get that command. Please speak more clearly."
-                )
-            }
-    }
+    private data class VoiceText(
+        val readText: String,
+        val describeScene: String,
+        val recognizeCurrency: String,
+        val nothingToRepeat: String,
+        val stopped: String,
+        val help: String,
+        val unknown: String
+    )
 }

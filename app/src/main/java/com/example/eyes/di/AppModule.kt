@@ -2,17 +2,19 @@ package com.example.eyes.di
 
 import android.content.Context
 import android.media.AudioManager
-import com.example.eyes.BuildConfig
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.domain.voice.CommandParser
+import com.example.eyes.data.remote.Gpt4oSceneDescriptionEngine
+import com.example.eyes.i18n.AndroidLocalizedTextProvider
+import com.example.eyes.i18n.LocalizedTextProvider
 import com.example.eyes.ocr.Gpt4oOcrEngine
 import com.example.eyes.ocr.GptTranslationEngine
 import com.example.eyes.ocr.MlKitOcrEngine
 import com.example.eyes.ocr.MlKitOcrGuidanceAnalyzer
 import com.example.eyes.ocr.OcrEngine
 import com.example.eyes.ocr.OcrTranslator
-import com.example.eyes.data.remote.SceneApi
+import com.example.eyes.data.remote.SceneDescriptionEngine
 import com.example.eyes.data.remote.SceneRepository
 import com.example.eyes.objectdetection.ExecutorchModelAssetCopier
 import com.example.eyes.objectdetection.ObjectDetector
@@ -32,15 +34,12 @@ import com.example.eyes.voiceguide.AnnouncementController
 import com.example.eyes.voiceguide.ApplicationScope
 import com.example.eyes.voiceguide.DefaultAnnouncementController
 import org.koin.core.qualifier.named
-import okhttp3.OkHttpClient
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
-import java.util.concurrent.TimeUnit
 
 val appModule = module {
+    single<LocalizedTextProvider> { AndroidLocalizedTextProvider(androidContext()) }
     single {
         androidContext().getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
@@ -62,24 +61,24 @@ val appModule = module {
     single { YoloExecutorchModelLoader(get()) }
     single { YoloExecutorchDetector(get()) }
     single<ObjectDetector> { get<YoloExecutorchDetector>() }
-    single {
-        OkHttpClient.Builder()
-            .connectTimeout(8, TimeUnit.SECONDS)
-            .readTimeout(8, TimeUnit.SECONDS)
-            .writeTimeout(8, TimeUnit.SECONDS)
-            .build()
+    single<SceneDescriptionEngine> { Gpt4oSceneDescriptionEngine() }
+    single { SceneRepository(get(), get()) }
+    viewModel {
+        AppNavViewModel(
+            dataStoreManager = get(),
+            speechOutput = get(),
+            announcementController = get(),
+            localizedTextProvider = get()
+        )
     }
-    single {
-        Retrofit.Builder()
-            .baseUrl(BuildConfig.BACKEND_URL)
-            .client(get())
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-            .create(SceneApi::class.java)
+    viewModel {
+        HomeViewModel(
+            localizedTextProvider = get(),
+            tts = get(),
+            dataStoreManager = get(),
+            announcementController = get()
+        )
     }
-    single { SceneRepository(androidContext(), get()) }
-    viewModel { AppNavViewModel(get(), get(), get(), androidContext()) }
-    viewModel { HomeViewModel(androidContext(), get(), get(), get()) }
     viewModel {
         CameraViewModel(
             quickOcrEngine = get(named("quick-ocr")),
@@ -92,9 +91,17 @@ val appModule = module {
             sceneRepository = get(),
             objectDetector = get(),
             audioManager = get(),
-            context = androidContext()
+            localizedTextProvider = get()
         )
     }
-    viewModel { SettingsViewModel(androidContext(), get(), get(), get(), get()) }
-    viewModel { com.example.eyes.ui.voice.VoiceCommandViewModel(get(), get(), get(), get(), get()) }
+    viewModel {
+        SettingsViewModel(
+            localizedTextProvider = get(),
+            dataStoreManager = get(),
+            speechOutput = get(),
+            hapticService = get(),
+            announcementController = get()
+        )
+    }
+    viewModel { com.example.eyes.ui.voice.VoiceCommandViewModel(get(), get(), get(), get(), get(), get()) }
 }

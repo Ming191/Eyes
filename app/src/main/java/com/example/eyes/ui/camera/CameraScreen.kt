@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -37,7 +36,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -46,9 +44,10 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -72,13 +71,21 @@ fun CameraScreen(
         R.string.camera_screen_description,
         uiState.activeMode.localizedDescription()
     )
-    val describeSceneDescription = stringResource(R.string.camera_describe_scene_description)
     val capturedOcrDescription = stringResource(R.string.camera_captured_ocr_description)
     val analyzingImageText = stringResource(R.string.camera_analyzing_image)
     val ocrSwipeHint = stringResource(R.string.camera_ocr_swipe_hint)
     val captureAnotherDescription = stringResource(R.string.camera_capture_another_description)
     val captureAnotherText = stringResource(R.string.camera_capture_another_text)
     val showStatusDescription = stringResource(R.string.camera_show_status_description)
+    val canRetakeOcr = uiState.activeMode == CameraMode.OCR &&
+        uiState.isOcrDocumentMode &&
+        !uiState.isOcrScanning
+    val canRetakeScene = uiState.activeMode == CameraMode.SCENE_DESCRIPTION &&
+        uiState.ocrCapturedBitmap != null &&
+        !uiState.isDescribingScene
+    val canRetakeCurrency = uiState.activeMode == CameraMode.CURRENCY &&
+        uiState.ocrCapturedBitmap != null &&
+        !uiState.isCurrencyScanning
 
     LaunchedEffect(requestedMode) {
         if (requestedMode != null) {
@@ -95,22 +102,53 @@ fun CameraScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .pointerInput(uiState.activeMode, uiState.isOcrDocumentMode, uiState.isOcrScanning) {
+            .pointerInput(
+                uiState.activeMode,
+                uiState.isOcrDocumentMode,
+                uiState.isOcrScanning,
+                uiState.isDescribingScene,
+                uiState.isCurrencyScanning,
+                uiState.ocrCapturedBitmap
+            ) {
                 detectTapGestures(
                     onDoubleTap = {
-                        if (
-                            uiState.activeMode == CameraMode.OCR &&
-                            !uiState.isOcrScanning &&
-                            !uiState.isOcrDocumentMode
-                        ) {
-                            viewModel.onOcrCaptureRequested()
-                            cameraManager.takePictureAfterCenterFocus(
-                                onCaptured = viewModel::processCapturedOcrImage,
-                                onError = { viewModel.onOcrCaptureError() }
-                            )
+                        when (uiState.activeMode) {
+                            CameraMode.OCR -> {
+                                if (!uiState.isOcrScanning &&
+                                    !uiState.isOcrDocumentMode &&
+                                    uiState.ocrCapturedBitmap == null
+                                ) {
+                                    viewModel.onOcrCaptureRequested()
+                                    cameraManager.takePictureAfterCenterFocus(
+                                        onCaptured = viewModel::processCapturedOcrImage,
+                                        onError = { viewModel.onOcrCaptureError() }
+                                    )
+                                }
+                            }
+
+                            CameraMode.SCENE_DESCRIPTION -> {
+                                if (!uiState.isDescribingScene && uiState.ocrCapturedBitmap == null) {
+                                    viewModel.onSceneCaptureRequested()
+                                    cameraManager.takePictureAfterCenterFocus(
+                                        onCaptured = viewModel::processCapturedSceneImage,
+                                        onError = { viewModel.onSceneCaptureError() }
+                                    )
+                                }
+                            }
+
+                            CameraMode.CURRENCY -> {
+                                if (!uiState.isCurrencyScanning && uiState.ocrCapturedBitmap == null) {
+                                    viewModel.onCurrencyCaptureRequested()
+                                    cameraManager.takePictureAfterCenterFocus(
+                                        onCaptured = viewModel::processCapturedCurrencyImage,
+                                        onError = { viewModel.onCurrencyCaptureError() }
+                                    )
+                                }
+                            }
+
+                            CameraMode.OBJECT_DETECTION -> Unit
                         }
-                    },
-                    onLongPress = { viewModel.describeScene() }
+                    }
                 )
             }
             .pointerInput(uiState.activeMode, uiState.isOcrDocumentMode) {
@@ -141,10 +179,6 @@ fun CameraScreen(
             }
             .semantics {
                 contentDescription = screenDescription
-                onLongClick(label = describeSceneDescription) {
-                    viewModel.describeScene()
-                    true
-                }
             },
         contentAlignment = Alignment.Center
     ) {
@@ -176,6 +210,14 @@ fun CameraScreen(
                 modifier = Modifier.fillMaxSize()
             )
         }
+        uiState.ocrCapturedBitmap?.let { capturedBitmap ->
+            Image(
+                bitmap = capturedBitmap.asImageBitmap(),
+                contentDescription = capturedOcrDescription,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
         if (uiState.activeMode == CameraMode.CURRENCY) {
             CurrencyResultOverlay(
                 display = uiState.currencyDisplay,
@@ -183,14 +225,6 @@ fun CameraScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(horizontal = 16.dp, vertical = 212.dp)
-            )
-        }
-        uiState.ocrCapturedBitmap?.let { capturedBitmap ->
-            Image(
-                bitmap = capturedBitmap.asImageBitmap(),
-                contentDescription = capturedOcrDescription,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize()
             )
         }
 
@@ -222,7 +256,7 @@ fun CameraScreen(
             )
         }
 
-        if (uiState.isOcrScanning) {
+        if (uiState.isOcrScanning || uiState.isDescribingScene || uiState.isCurrencyScanning) {
             Surface(
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -264,9 +298,16 @@ fun CameraScreen(
             }
         }
 
-        if (uiState.activeMode == CameraMode.OCR && uiState.isOcrDocumentMode && !uiState.isOcrScanning) {
+        if (canRetakeOcr || canRetakeScene || canRetakeCurrency) {
             Button(
-                onClick = { viewModel.prepareForNextOcrCapture() },
+                onClick = {
+                    when (uiState.activeMode) {
+                        CameraMode.OCR -> viewModel.prepareForNextOcrCapture()
+                        CameraMode.SCENE_DESCRIPTION -> viewModel.prepareForNextSceneCapture()
+                        CameraMode.CURRENCY -> viewModel.prepareForNextCurrencyCapture()
+                        CameraMode.OBJECT_DETECTION -> Unit
+                    }
+                },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .heightIn(min = 88.dp)
@@ -326,12 +367,22 @@ private fun CameraModeSelector(
                     onClick = { onModeSelected(item) },
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
                     modifier = Modifier
+                        .weight(1f)
                         .heightIn(min = 48.dp)
                         .semantics {
                             contentDescription = itemDescription
                             stateDescription = if (selected) selectedDescription else unselectedDescription
                         },
-                    label = { Text(itemLabel) }
+                    icon = {},
+                    label = {
+                        Text(
+                            text = itemLabel,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 )
             }
         }
@@ -373,12 +424,22 @@ private fun OcrEngineModeSelector(
                     onClick = { onModeSelected(item) },
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
                     modifier = Modifier
+                        .weight(1f)
                         .heightIn(min = 48.dp)
                         .semantics {
                             contentDescription = if (item == OcrMode.QUICK) quickDescription else accurateDescription
                             stateDescription = if (selected) selectedDescription else unselectedDescription
                         },
-                    label = { Text(if (item == OcrMode.QUICK) quickLabel else accurateLabel) }
+                    icon = {},
+                    label = {
+                        Text(
+                            text = if (item == OcrMode.QUICK) quickLabel else accurateLabel,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 )
             }
         }
@@ -509,6 +570,7 @@ private fun CameraStatusPanel(
 @Composable
 private fun CameraMode.localizedLabel(): String = when (this) {
     CameraMode.OCR -> stringResource(R.string.camera_mode_ocr_label)
+    CameraMode.SCENE_DESCRIPTION -> stringResource(R.string.camera_mode_scene_description_label)
     CameraMode.OBJECT_DETECTION -> stringResource(R.string.camera_mode_object_detection_label)
     CameraMode.CURRENCY -> stringResource(R.string.camera_mode_currency_label)
 }
@@ -516,6 +578,7 @@ private fun CameraMode.localizedLabel(): String = when (this) {
 @Composable
 private fun CameraMode.localizedDescription(): String = when (this) {
     CameraMode.OCR -> stringResource(R.string.camera_mode_ocr_description)
+    CameraMode.SCENE_DESCRIPTION -> stringResource(R.string.camera_mode_scene_description_description)
     CameraMode.OBJECT_DETECTION -> stringResource(R.string.camera_mode_object_detection_description)
     CameraMode.CURRENCY -> stringResource(R.string.camera_mode_currency_description)
 }
