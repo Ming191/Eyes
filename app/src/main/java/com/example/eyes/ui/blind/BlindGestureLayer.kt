@@ -85,23 +85,21 @@ fun BlindGestureLayer(
                         val doubleTapTimeout = viewConfiguration.doubleTapTimeoutMillis
                         val swipeThreshold = viewConfiguration.touchSlop * 6f
 
-                        val secondPointer = withTimeoutOrNull(140L) {
-                            waitForSecondPointerOrUp(pass = PointerEventPass.Initial)
-                        }
-                        if (secondPointer == true) {
-                            handleTwoFingerVerticalScroll(scrollManager, swipeThreshold)
-                            return@awaitEachGesture
+                        val initialGesture = withTimeoutOrNull(longPressTimeout) {
+                            waitForUpOrSecondPointer(pass = PointerEventPass.Initial)
                         }
 
-                        val longPressChange = withTimeoutOrNull(longPressTimeout) {
-                            waitForUpOrCancellation(pass = PointerEventPass.Initial)
-                        }
-
-                        if (longPressChange == null) {
+                        if (initialGesture == null) {
                             handleExploreByTouch(manager)
                             return@awaitEachGesture
                         }
 
+                        if (initialGesture is InitialGestureResult.SecondPointer) {
+                            handleTwoFingerVerticalScroll(scrollManager, swipeThreshold)
+                            return@awaitEachGesture
+                        }
+
+                        val longPressChange = (initialGesture as InitialGestureResult.Up).change
                         val delta = longPressChange.position - down.position
                         if (abs(delta.x) > abs(delta.y) && abs(delta.x) > swipeThreshold) {
                             if (delta.x > 0) manager.focusNext() else manager.focusPrevious()
@@ -132,14 +130,22 @@ fun BlindGestureLayer(
     }
 }
 
-private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.waitForSecondPointerOrUp(
+private sealed interface InitialGestureResult {
+    data class Up(val change: PointerInputChange) : InitialGestureResult
+    data object SecondPointer : InitialGestureResult
+}
+
+private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.waitForUpOrSecondPointer(
     pass: PointerEventPass
-): Boolean {
+): InitialGestureResult {
     while (true) {
         val event = awaitPointerEvent(pass = pass)
         event.changes.forEach { it.consume() }
-        if (event.changes.count { it.pressed } >= 2) return true
-        if (event.changes.all { !it.pressed }) return false
+        if (event.changes.count { it.pressed } >= 2) return InitialGestureResult.SecondPointer
+        val activeChange = event.changes.firstOrNull()
+        if (event.changes.all { !it.pressed } && activeChange != null) {
+            return InitialGestureResult.Up(activeChange)
+        }
     }
 }
 
