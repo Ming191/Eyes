@@ -170,8 +170,6 @@
     <string name="camera_mode_ocr_description">OCR text reading</string>
     <string name="camera_mode_object_detection_label">Objects</string>
     <string name="camera_mode_object_detection_description">object detection</string>
-    <string name="camera_mode_currency_label">Money</string>
-    <string name="camera_mode_currency_description">currency denomination recognition</string>
     <string name="camera_mode_selector_description">Select camera mode</string>
     <string name="camera_ocr_guidance_ready_description">Text area ready for capture</string>
     <string name="camera_ocr_guidance_frame_description">OCR text area guidance frame</string>
@@ -253,8 +251,6 @@
     <string name="camera_vm_gpt_fallback_status_template">GPT-4o failed, fell back to quick OCR. %1$d sections.</string>
     <string name="camera_vm_captured_paragraphs_template">Captured. %1$d paragraphs.</string>
     <string name="camera_vm_ocr_sentence_position_template">%1$d of %2$d. %3$s</string>
-    <string name="camera_vm_currency_debug_template">CURRENCY: confidence %1$s</string>
-    <string name="camera_vm_currency_debug_waiting">CURRENCY: waiting for a clear banknote</string>
     <string name="object_detection_position_top_left">top left</string>
     <string name="object_detection_position_top_center">top center</string>
     <string name="object_detection_position_top_right">top right</string>
@@ -273,7 +269,6 @@
     <string name="camera_vm_object_detection_summary">Point camera at space ahead to show objects and positions.</string>
     <string name="camera_vm_object_detection_status">Detecting objects</string>
     <string name="camera_vm_switched_to_object_detection_mode">Switched to object detection mode.</string>
-    <string name="camera_vm_switched_to_currency_mode">Switched to currency recognition mode.</string>
     <string-array name="object_detection_coco_labels">
         <item>person</item><item>bicycle</item><item>car</item><item>motorcycle</item><item>airplane</item><item>bus</item><item>train</item><item>truck</item><item>boat</item><item>traffic light</item>
         <item>fire hydrant</item><item>stop sign</item><item>parking meter</item><item>bench</item><item>bird</item><item>cat</item><item>dog</item><item>horse</item><item>sheep</item><item>cow</item>
