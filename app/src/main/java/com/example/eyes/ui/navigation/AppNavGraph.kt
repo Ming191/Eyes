@@ -111,9 +111,12 @@ private fun MainNavigationScaffold(
         val currentSpokenText by viewModel.currentSpokenText.collectAsStateWithLifecycle(initialValue = null)
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentDestination = navBackStackEntry?.destination
-        val currentTopLevelDestination = currentDestination.toTopLevelDestination()
-        LaunchedEffect(currentTopLevelDestination, appLanguage) {
-            viewModel.announceScreen(currentTopLevelDestination, appLanguage)
+        val announcedTopLevelDestination = currentDestination.toTopLevelDestinationOrNull()
+        val currentTopLevelDestination = announcedTopLevelDestination ?: TopLevelDestination.HOME
+        LaunchedEffect(announcedTopLevelDestination, appLanguage) {
+            announcedTopLevelDestination?.let { destination ->
+                viewModel.announceScreen(destination, appLanguage)
+            }
         }
         val currentTitle = stringResource(currentTopLevelDestination.titleRes)
         val scaffoldDescription = stringResource(R.string.nav_scaffold_description)
@@ -278,11 +281,12 @@ private fun NavHostController.navigateToTopLevelDestination(
     }
 }
 
-private fun NavDestination?.toTopLevelDestination(): TopLevelDestination {
+private fun NavDestination?.toTopLevelDestinationOrNull(): TopLevelDestination? {
     return when {
+        this.isInHierarchy(TopLevelDestination.HOME) -> TopLevelDestination.HOME
         this.isInHierarchy(TopLevelDestination.CAMERA) -> TopLevelDestination.CAMERA
         this.isInHierarchy(TopLevelDestination.SETTINGS) -> TopLevelDestination.SETTINGS
-        else -> TopLevelDestination.HOME
+        else -> null
     }
 }
 

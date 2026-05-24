@@ -718,7 +718,10 @@ class CameraViewModel(
     }
 
     private fun maybeAnnounceOcrGuidance(status: OcrGuidanceStatus, message: String) {
-        if (status != OcrGuidanceStatus.READY) return
+        if (status != OcrGuidanceStatus.READY) {
+            lastAnnouncedOcrGuidanceStatus.set(null)
+            return
+        }
 
         val now = System.currentTimeMillis()
         val previousStatus = lastAnnouncedOcrGuidanceStatus.get()

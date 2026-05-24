@@ -80,12 +80,12 @@ class SettingsViewModel(
 
     fun setVoiceGuideEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            dataStoreManager.setVoiceGuideEnabled(enabled)
             val language = uiState.value.appLanguage
-            val text = context.getString(
+            val text = context.localizedFor(language).getString(
                 if (enabled) R.string.settings_voice_guide_enabled_announcement
                 else R.string.settings_voice_guide_disabled_announcement
             )
+            dataStoreManager.setVoiceGuideEnabled(enabled)
             announcementController.announce(
                 text = text,
                 priority = SpeechOutput.Priority.HIGH,
