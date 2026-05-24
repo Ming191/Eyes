@@ -18,10 +18,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import com.example.eyes.R
 import com.example.eyes.ui.theme.EyesTheme
 
@@ -31,13 +31,13 @@ fun HomeActionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val onClickLabel = stringResource(R.string.home_action_open_label, action.title.lowercase())
+    val openLabel = stringResource(R.string.home_action_open_label, action.title.lowercase())
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 112.dp)
             .clickable(
-                onClickLabel = onClickLabel,
+                onClickLabel = openLabel,
                 onClick = onClick
             )
             .semantics(mergeDescendants = true) {
@@ -88,11 +88,11 @@ private fun HomeActionCardPreview() {
     EyesTheme(dynamicColor = false) {
         HomeActionCard(
             action = HomeAction(
-                type = HomeActionType.ScanAround,
-                title = "Xem xung quanh",
-                description = "Mở camera để nhận biết vật cản và lối đi gần bạn.",
-                supportingLabel = "Quét liên tục bằng giọng nói",
-                accessibilityLabel = "Xem xung quanh. Mở camera để nhận biết vật cản và lối đi gần bạn."
+                type = HomeActionType.ReadTextQuick,
+                title = "Đọc văn bản nhanh",
+                description = "Dùng camera để đọc nhanh bằng ML Kit.",
+                supportingLabel = "Chế độ OCR nhanh",
+                accessibilityLabel = "Đọc văn bản nhanh. Dùng camera để đọc nhãn, biển báo hoặc tài liệu ngắn bằng OCR nhanh."
             ),
             onClick = {}
         )

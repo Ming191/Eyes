@@ -28,6 +28,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.example.eyes.R
 import com.example.eyes.ui.permission.PermissionScreen
 import kotlinx.coroutines.launch
 
@@ -43,37 +45,52 @@ fun OnboardingScreen(
 ) {
     val pages = listOf(
         OnboardingPage(
-            title = "Cấp quyền thiết yếu",
-            summary = "Camera, micro và vị trí giúp ứng dụng mô tả lối đi, đọc văn bản và chuẩn bị dẫn đường.",
-            accessibilityLabel = "Bước một. Cấp quyền thiết yếu cho camera, micro và vị trí."
+            title = stringResource(R.string.onboarding_page_permissions_title),
+            summary = stringResource(R.string.onboarding_page_permissions_summary),
+            accessibilityLabel = stringResource(R.string.onboarding_page_permissions_description)
         ),
         OnboardingPage(
-            title = "Làm quen với thao tác",
-            summary = "Vuốt ngang để đổi màn hình, chạm đúp để chọn, và chờ thông báo rung trước khi di chuyển tiếp.",
-            accessibilityLabel = "Bước hai. Làm quen với thao tác vuốt ngang, chạm đúp và phản hồi rung."
+            title = stringResource(R.string.onboarding_page_gestures_title),
+            summary = stringResource(R.string.onboarding_page_gestures_summary),
+            accessibilityLabel = stringResource(R.string.onboarding_page_gestures_description)
         ),
         OnboardingPage(
-            title = "Sẵn sàng bắt đầu",
-            summary = "Trang chủ sẽ đưa bạn tới camera, bản đồ và phần chỉnh tốc độ đọc chỉ bằng vài thao tác lớn, rõ ràng.",
-            accessibilityLabel = "Bước ba. Sẵn sàng bắt đầu với camera, bản đồ và cài đặt phản hồi."
+            title = stringResource(R.string.onboarding_page_ready_title),
+            summary = stringResource(R.string.onboarding_page_ready_summary),
+            accessibilityLabel = stringResource(R.string.onboarding_page_ready_description)
         )
     )
     val pagerState = rememberPagerState(pageCount = { pages.size })
     val coroutineScope = rememberCoroutineScope()
+    val screenDescription = stringResource(R.string.onboarding_screen_description)
+    val heroDescription = stringResource(R.string.onboarding_hero_description)
+    val heroLabel = stringResource(R.string.onboarding_hero_label)
+    val heroTitle = stringResource(R.string.onboarding_hero_title)
+    val heroSummary = stringResource(R.string.onboarding_hero_summary)
+    val pagerDescription = stringResource(R.string.onboarding_pager_description)
+    val pagerStateDescription = stringResource(R.string.onboarding_pager_state_description, pagerState.currentPage + 1, pages.size)
+    val backDescription = stringResource(R.string.onboarding_back_description)
+    val backEnabledDescription = stringResource(R.string.onboarding_back_enabled_description)
+    val backDisabledDescription = stringResource(R.string.onboarding_back_disabled_description)
+    val backText = stringResource(R.string.onboarding_back_text)
+    val startDescription = stringResource(R.string.onboarding_start_description)
+    val nextDescription = stringResource(R.string.onboarding_next_description)
+    val startText = stringResource(R.string.onboarding_start_text)
+    val nextText = stringResource(R.string.onboarding_next_text)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
-            .semantics { contentDescription = "Màn hình giới thiệu và thiết lập ban đầu" },
+            .semantics { contentDescription = screenDescription },
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .semantics {
-                    contentDescription = "Giới thiệu SoundVision. Trợ lý bằng giọng nói dành cho người dùng khiếm thị."
+                    contentDescription = heroDescription
                 },
             shape = MaterialTheme.shapes.large,
             tonalElevation = 2.dp
@@ -92,18 +109,18 @@ fun OnboardingScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Thiết lập nhanh",
+                    text = heroLabel,
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Text(
-                    text = "Chuẩn bị SoundVision theo từng bước ngắn gọn",
+                    text = heroTitle,
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.semantics { heading() }
                 )
                 Text(
-                    text = "Mỗi bước đều dùng nút lớn, nhãn rõ ràng và mô tả bằng tiếng Việt cho TalkBack.",
+                    text = heroSummary,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -116,8 +133,8 @@ fun OnboardingScreen(
                 .weight(1f)
                 .fillMaxWidth()
                 .semantics {
-                    contentDescription = "Khu vực các bước thiết lập ban đầu"
-                    stateDescription = "Đang ở bước ${pagerState.currentPage + 1} trên ${pages.size}"
+                    contentDescription = pagerDescription
+                    stateDescription = pagerStateDescription
                     liveRegion = LiveRegionMode.Polite
                 }
         ) { page ->
@@ -137,7 +154,7 @@ fun OnboardingScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = "Bước ${page + 1}",
+                        text = stringResource(R.string.onboarding_step_label, page + 1),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -175,15 +192,15 @@ fun OnboardingScreen(
                     .weight(1f)
                     .heightIn(min = 56.dp)
                     .semantics {
-                        contentDescription = "Nút quay lại bước trước"
+                        contentDescription = backDescription
                         stateDescription = if (pagerState.currentPage > 0) {
-                            "Có thể bấm"
+                            backEnabledDescription
                         } else {
-                            "Không khả dụng ở bước đầu"
+                            backDisabledDescription
                         }
                     }
             ) {
-                Text("Quay lại")
+                Text(backText)
             }
 
             Button(
@@ -201,14 +218,14 @@ fun OnboardingScreen(
                     .heightIn(min = 88.dp)
                     .semantics {
                         contentDescription = if (pagerState.currentPage == pages.lastIndex) {
-                            "Nút bắt đầu sử dụng ứng dụng"
+                            startDescription
                         } else {
-                            "Nút sang bước tiếp theo"
+                            nextDescription
                         }
                     },
                 colors = ButtonDefaults.buttonColors()
             ) {
-                Text(if (pagerState.currentPage == pages.lastIndex) "Bắt đầu" else "Tiếp tục")
+                Text(if (pagerState.currentPage == pages.lastIndex) startText else nextText)
             }
         }
     }

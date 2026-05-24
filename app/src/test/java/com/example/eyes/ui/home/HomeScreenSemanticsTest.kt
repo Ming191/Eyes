@@ -1,10 +1,14 @@
 package com.example.eyes.ui.home
 
+import android.app.Application
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import com.example.eyes.system.SpeechOutput
 import org.junit.After
@@ -14,8 +18,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.core.context.stopKoin
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
+@Config(application = Application::class)
 class HomeScreenSemanticsTest {
 
     @get:Rule
@@ -32,26 +38,60 @@ class HomeScreenSemanticsTest {
     }
 
     @Test
-    fun xemXungQuanh_hasAccessibleDescription_andClickAction() {
+    fun homeActions_haveAccessibleDescriptions_andClickActions() {
         // GIVEN
-        val viewModel = HomeViewModel(FakeSpeechOutput(), ApplicationProvider.getApplicationContext())
+        val viewModel = HomeViewModel(ApplicationProvider.getApplicationContext(), FakeSpeechOutput())
 
         // WHEN
         composeTestRule.setContent {
             HomeScreen(
-                onOpenCamera = {},
-                onOpenMap = {},
+                onOpenOcrQuick = {},
+                onOpenOcrAccuracy = {},
                 onOpenSettings = {},
+                onOpenVoice = {},
                 viewModel = viewModel
             )
         }
 
         // THEN
-        composeTestRule.onNodeWithText("Look around")
+        composeTestRule.onNodeWithText("Đọc văn bản nhanh")
             .assertIsDisplayed()
 
         composeTestRule.onNodeWithContentDescription(
-            "Open the camera to detect obstacles",
+            "Đọc văn bản nhanh",
+            substring = true
+        )
+            .assertHasClickAction()
+
+        composeTestRule.onNodeWithText("Đọc văn bản chính xác")
+            .assertIsDisplayed()
+
+        composeTestRule.onNodeWithContentDescription(
+            "Đọc văn bản chính xác",
+            substring = true
+        )
+            .assertHasClickAction()
+
+        composeTestRule.onNode(hasScrollAction())
+            .performScrollToNode(hasText("Ra lệnh bằng giọng nói"))
+
+        composeTestRule.onNodeWithText("Ra lệnh bằng giọng nói")
+            .assertIsDisplayed()
+
+        composeTestRule.onNodeWithContentDescription(
+            "Ra lệnh bằng giọng nói",
+            substring = true
+        )
+            .assertHasClickAction()
+
+        composeTestRule.onNode(hasScrollAction())
+            .performScrollToNode(hasText("Tinh chỉnh phản hồi"))
+
+        composeTestRule.onNodeWithText("Tinh chỉnh phản hồi")
+            .assertIsDisplayed()
+
+        composeTestRule.onNodeWithContentDescription(
+            "Tinh chỉnh phản hồi",
             substring = true
         )
             .assertHasClickAction()
@@ -59,5 +99,6 @@ class HomeScreenSemanticsTest {
 
     private class FakeSpeechOutput : SpeechOutput {
         override fun speak(text: String) = Unit
+        override fun speak(text: String, priority: SpeechOutput.Priority) = Unit
     }
 }
