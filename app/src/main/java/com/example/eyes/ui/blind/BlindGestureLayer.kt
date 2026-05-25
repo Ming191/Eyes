@@ -25,6 +25,7 @@ import kotlin.math.abs
 import kotlinx.coroutines.withTimeoutOrNull
 
 val LocalBlindFocusManager = compositionLocalOf<BlindFocusManager?> { null }
+val LocalBlindFocusRouteKey = compositionLocalOf { BlindFocusManager.GLOBAL_ROUTE_KEY }
 
 @Composable
 fun BlindGestureLayer(

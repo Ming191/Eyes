@@ -1,6 +1,7 @@
 package com.example.eyes.ui.home
 
 import androidx.test.core.app.ApplicationProvider
+import android.app.Application
 import com.example.eyes.system.SpeechOutput
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -13,7 +14,7 @@ class HomeViewModelTest {
     @Test
     fun onScreenShown_callsSpeakOnce_withExpectedVietnameseMessage() {
         val fakeSpeechOutput = FakeSpeechOutput()
-        val viewModel = HomeViewModel(ApplicationProvider.getApplicationContext(), fakeSpeechOutput)
+        val viewModel = HomeViewModel(ApplicationProvider.getApplicationContext<Application>(), fakeSpeechOutput)
 
         viewModel.onScreenShown()
         viewModel.onScreenShown()

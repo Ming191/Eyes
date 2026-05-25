@@ -1,0 +1,109 @@
+package com.example.eyes.ui.blind
+
+import androidx.compose.ui.geometry.Rect
+import com.example.eyes.system.SpeechOutput
+import java.util.Locale
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class BlindFocusManagerTest {
+
+    private val speechOutput = FakeSpeechOutput()
+    private val manager = BlindFocusManager(
+        speechOutput = speechOutput,
+        localeProvider = { Locale("vi", "VN") },
+        noActionsLabelProvider = { "Không có hành động" }
+    )
+
+    @Test
+    fun routeChangeFocusesSelectedBottomNavAndSkipsPreviousRouteItems() {
+        // GIVEN
+        manager.registerOrUpdate(item(id = "bottom_nav_HOME", routeKey = BlindFocusManager.GLOBAL_ROUTE_KEY, top = 900f))
+        manager.registerOrUpdate(item(id = "bottom_nav_CAMERA", routeKey = BlindFocusManager.GLOBAL_ROUTE_KEY, top = 900f, left = 100f))
+        manager.registerOrUpdate(item(id = "camera_item", routeKey = CAMERA_ROUTE, top = 10f))
+        manager.registerOrUpdate(item(id = "home_item", routeKey = HOME_ROUTE, top = 10f))
+
+        manager.setActiveRoute(CAMERA_ROUTE)
+        manager.focusItem("camera_item", CAMERA_ROUTE)
+
+        // WHEN
+        manager.setActiveRoute(HOME_ROUTE)
+        manager.focusItem("bottom_nav_HOME")
+
+        // THEN
+        assertEquals(bottomHomeBounds, manager.focusedBounds)
+        assertEquals(listOf("Camera item", "Trang chủ"), speechOutput.spokenTexts)
+    }
+
+    @Test
+    fun focusNextOnlyCyclesGlobalAndActiveRouteItems() {
+        // GIVEN
+        manager.registerOrUpdate(item(id = "bottom_nav_HOME", routeKey = BlindFocusManager.GLOBAL_ROUTE_KEY, top = 900f))
+        manager.registerOrUpdate(item(id = "bottom_nav_CAMERA", routeKey = BlindFocusManager.GLOBAL_ROUTE_KEY, top = 900f, left = 100f))
+        manager.registerOrUpdate(item(id = "camera_item", routeKey = CAMERA_ROUTE, top = 10f))
+        manager.registerOrUpdate(item(id = "settings_item", routeKey = SETTINGS_ROUTE, top = 20f))
+
+        // WHEN
+        manager.setActiveRoute(CAMERA_ROUTE)
+        manager.focusNext()
+        manager.focusNext()
+        manager.focusNext()
+        manager.focusNext()
+
+        // THEN
+        assertEquals(cameraBounds, manager.focusedBounds)
+        assertEquals(
+            listOf("Camera item", "Trang chủ", "Camera", "Camera item"),
+            speechOutput.spokenTexts
+        )
+    }
+
+    private fun item(
+        id: String,
+        routeKey: String,
+        top: Float,
+        left: Float = 0f
+    ): BlindFocusItem {
+        val bounds = Rect(left = left, top = top, right = left + 50f, bottom = top + 50f)
+        val label = when (id) {
+            "bottom_nav_HOME" -> "Trang chủ"
+            "bottom_nav_CAMERA" -> "Camera"
+            "camera_item" -> "Camera item"
+            "home_item" -> "Home item"
+            "settings_item" -> "Settings item"
+            else -> id
+        }
+        return BlindFocusItem(
+            id = id,
+            routeKey = routeKey,
+            label = label,
+            bounds = bounds,
+            onActivate = {}
+        )
+    }
+
+    private class FakeSpeechOutput : SpeechOutput {
+        val spokenTexts = mutableListOf<String>()
+
+        override fun speak(text: String) {
+            spokenTexts += text
+        }
+
+        override fun speak(text: String, priority: SpeechOutput.Priority) {
+            spokenTexts += text
+        }
+
+        override fun speak(text: String, priority: SpeechOutput.Priority, locale: Locale?) {
+            spokenTexts += text
+        }
+    }
+
+    private companion object {
+        const val HOME_ROUTE = "home"
+        const val CAMERA_ROUTE = "camera"
+        const val SETTINGS_ROUTE = "settings"
+
+        val bottomHomeBounds = Rect(left = 0f, top = 900f, right = 50f, bottom = 950f)
+        val cameraBounds = Rect(left = 0f, top = 10f, right = 50f, bottom = 60f)
+    }
+}

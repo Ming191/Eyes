@@ -16,6 +16,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -42,6 +43,8 @@ import com.example.eyes.R
 import com.example.eyes.system.SpeechOutput
 import com.example.eyes.ui.blind.BlindAction
 import com.example.eyes.ui.blind.BlindGestureLayer
+import com.example.eyes.ui.blind.LocalBlindFocusManager
+import com.example.eyes.ui.blind.LocalBlindFocusRouteKey
 import com.example.eyes.ui.blind.blindFocusable
 import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.camera.CameraScreen
@@ -122,11 +125,19 @@ private fun MainNavigationScaffold(
         val currentSpokenText by viewModel.currentSpokenText.collectAsStateWithLifecycle(initialValue = null)
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentDestination = navBackStackEntry?.destination
+        val currentRouteKey = currentDestination?.route ?: "home"
+        val blindFocusManager = LocalBlindFocusManager.current
         val announcedTopLevelDestination = currentDestination.toTopLevelDestinationOrNull()
         val currentTopLevelDestination = announcedTopLevelDestination ?: TopLevelDestination.HOME
         LaunchedEffect(announcedTopLevelDestination, appLanguage) {
             announcedTopLevelDestination?.let { destination ->
                 viewModel.announceScreen(destination, appLanguage)
+            }
+        }
+        LaunchedEffect(currentRouteKey) {
+            blindFocusManager?.setActiveRoute(currentRouteKey)
+            announcedTopLevelDestination?.let { destination ->
+                blindFocusManager?.focusItem("bottom_nav_${destination.name}")
             }
         }
         val currentTitle = stringResource(currentTopLevelDestination.titleRes)
@@ -216,28 +227,34 @@ private fun MainNavigationScaffold(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     composable<HomeRoute> {
-                        HomeScreen(
-                            onOpenOcrQuick = {
-                                viewModel.requestOpenCameraOcr(OcrMode.QUICK)
-                                navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
-                            },
-                            onOpenCameraMode = { mode ->
-                                viewModel.requestOpenCamera(mode)
-                                navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
-                            },
-                            onOpenSettings = {
-                                navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
-                            }
-                        )
+                        CompositionLocalProvider(LocalBlindFocusRouteKey provides HomeRoute::class.qualifiedName.orEmpty()) {
+                            HomeScreen(
+                                onOpenOcrQuick = {
+                                    viewModel.requestOpenCameraOcr(OcrMode.QUICK)
+                                    navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
+                                },
+                                onOpenCameraMode = { mode ->
+                                    viewModel.requestOpenCamera(mode)
+                                    navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
+                                },
+                                onOpenSettings = {
+                                    navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
+                                }
+                            )
+                        }
                     }
                     composable<CameraRoute> {
-                        CameraScreen(
-                            requestedMode = requestedCameraMode,
-                            onRequestedModeConsumed = viewModel::clearRequestedCameraMode
-                        )
+                        CompositionLocalProvider(LocalBlindFocusRouteKey provides CameraRoute::class.qualifiedName.orEmpty()) {
+                            CameraScreen(
+                                requestedMode = requestedCameraMode,
+                                onRequestedModeConsumed = viewModel::clearRequestedCameraMode
+                            )
+                        }
                     }
                     composable<SettingsRoute> {
-                        SettingsScreen()
+                        CompositionLocalProvider(LocalBlindFocusRouteKey provides SettingsRoute::class.qualifiedName.orEmpty()) {
+                            SettingsScreen()
+                        }
                     }
                 }
                 SpeechSubtitle(

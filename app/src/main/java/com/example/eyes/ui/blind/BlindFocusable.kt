@@ -19,12 +19,14 @@ fun Modifier.blindFocusable(
     actions: List<BlindAction> = emptyList()
 ): Modifier = composed {
     val manager = LocalBlindFocusManager.current
+    val routeKey = LocalBlindFocusRouteKey.current
     var bounds by remember { mutableStateOf(Rect.Zero) }
 
-    DisposableEffect(manager, id, label, bounds, onActivate, activateLabel, actions) {
+    DisposableEffect(manager, id, routeKey, label, bounds, onActivate, activateLabel, actions) {
         manager?.registerOrUpdate(
             BlindFocusItem(
                 id = id,
+                routeKey = routeKey,
                 label = label,
                 bounds = bounds,
                 onActivate = onActivate,
@@ -34,7 +36,7 @@ fun Modifier.blindFocusable(
         )
 
         onDispose {
-            manager?.unregister(id)
+            manager?.unregister(id, routeKey)
         }
     }
 
