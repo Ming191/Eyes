@@ -16,6 +16,7 @@ class BlindFocusManager(
 ) {
     private val items = mutableStateListOf<BlindFocusItem>()
     private var focusedIndex = -1
+    private var focusedItemKey: FocusItemKey? = null
     private var selectedActionIndex = -1
     private var lastSpokenItemId: String? = null
     private var activeRouteKey = GLOBAL_ROUTE_KEY
@@ -31,6 +32,10 @@ class BlindFocusManager(
             items.add(item)
         }
         sortItems()
+        if (focusedItemKey == FocusItemKey(item.id, item.routeKey)) {
+            focusedIndex = activeItems().indexOfFirst { it.key == focusedItemKey }
+            updateFocusedBounds()
+        }
     }
 
     fun unregister(id: String, routeKey: String) {
@@ -38,6 +43,10 @@ class BlindFocusManager(
         if (removedIndex < 0) return
 
         items.removeAt(removedIndex)
+        if (focusedItemKey == FocusItemKey(id, routeKey)) {
+            clearFocus()
+            return
+        }
         focusedIndex = focusedIndex.coerceIn(-1, activeItems().lastIndex)
         updateFocusedBounds()
     }
@@ -46,18 +55,14 @@ class BlindFocusManager(
         if (activeRouteKey == routeKey) return
 
         activeRouteKey = routeKey
-        focusedIndex = -1
-        selectedActionIndex = -1
-        focusedBounds = null
-        lastSpokenItemId = null
+        clearFocus()
     }
 
     fun focusItem(id: String, routeKey: String = GLOBAL_ROUTE_KEY) {
         val index = activeItems().indexOfFirst { it.id == id && it.routeKey == routeKey }
         if (index < 0) return
 
-        focusedIndex = index
-        selectedActionIndex = -1
+        setFocus(index)
         updateFocusedBounds()
         speakFocused(force = true)
     }
@@ -65,8 +70,7 @@ class BlindFocusManager(
     fun focusNext() {
         val visibleItems = activeItems()
         if (visibleItems.isEmpty()) return
-        focusedIndex = if (focusedIndex < visibleItems.lastIndex) focusedIndex + 1 else 0
-        selectedActionIndex = -1
+        setFocus(if (focusedIndex < visibleItems.lastIndex) focusedIndex + 1 else 0)
         updateFocusedBounds()
         speakFocused(force = true)
     }
@@ -74,8 +78,7 @@ class BlindFocusManager(
     fun focusPrevious() {
         val visibleItems = activeItems()
         if (visibleItems.isEmpty()) return
-        focusedIndex = if (focusedIndex > 0) focusedIndex - 1 else visibleItems.lastIndex
-        selectedActionIndex = -1
+        setFocus(if (focusedIndex > 0) focusedIndex - 1 else visibleItems.lastIndex)
         updateFocusedBounds()
         speakFocused(force = true)
     }
@@ -119,8 +122,7 @@ class BlindFocusManager(
         val index = activeItems().indexOfFirst { it.bounds.contains(position) }
         if (index < 0 || index == focusedIndex) return
 
-        focusedIndex = index
-        selectedActionIndex = -1
+        setFocus(index)
         updateFocusedBounds()
         speakFocused(force = false)
     }
@@ -135,8 +137,25 @@ class BlindFocusManager(
 
     private fun sortItems() {
         items.sortWith(compareBy<BlindFocusItem> { it.bounds.top }.thenBy { it.bounds.left })
-        focusedIndex = focusedIndex.coerceIn(-1, activeItems().lastIndex)
+        focusedIndex = focusedItemKey?.let { key ->
+            activeItems().indexOfFirst { it.key == key }
+        } ?: -1
         updateFocusedBounds()
+    }
+
+    private fun setFocus(index: Int) {
+        val item = activeItems().getOrNull(index)
+        focusedIndex = if (item == null) -1 else index
+        focusedItemKey = item?.key
+        selectedActionIndex = -1
+    }
+
+    private fun clearFocus() {
+        focusedIndex = -1
+        focusedItemKey = null
+        selectedActionIndex = -1
+        focusedBounds = null
+        lastSpokenItemId = null
     }
 
     private fun updateFocusedBounds() {
@@ -171,4 +190,12 @@ data class BlindFocusItem(
     val onActivate: () -> Unit,
     val activateLabel: String? = null,
     val actions: List<BlindAction> = emptyList()
+) {
+    val key: FocusItemKey
+        get() = FocusItemKey(id = id, routeKey = routeKey)
+}
+
+data class FocusItemKey(
+    val id: String,
+    val routeKey: String
 )

@@ -58,11 +58,53 @@ class BlindFocusManagerTest {
         )
     }
 
+    @Test
+    fun focusedItemSurvivesResortAfterBoundsUpdate() {
+        // GIVEN
+        manager.setActiveRoute(CAMERA_ROUTE)
+        manager.registerOrUpdate(item(id = "camera_mode_OBJECT_DETECTION", routeKey = CAMERA_ROUTE, top = 10f))
+        manager.registerOrUpdate(item(id = "camera_mode_CURRENCY", routeKey = CAMERA_ROUTE, top = 20f))
+        manager.focusItem("camera_mode_OBJECT_DETECTION", CAMERA_ROUTE)
+
+        // WHEN bounds update moves focused item after currency in sorted order.
+        manager.registerOrUpdate(item(id = "camera_mode_OBJECT_DETECTION", routeKey = CAMERA_ROUTE, top = 30f))
+
+        // THEN focus stays on object button, not currency.
+        assertEquals(objectModeMovedBounds, manager.focusedBounds)
+        assertEquals(listOf("Nhận diện vật cản"), speechOutput.spokenTexts)
+    }
+
+    @Test
+    fun activateFocusedKeepsSameItemWhenCallbackUpdatesFocusedItem() {
+        // GIVEN
+        manager.setActiveRoute(CAMERA_ROUTE)
+        manager.registerOrUpdate(
+            item(
+                id = "camera_mode_CURRENCY",
+                routeKey = CAMERA_ROUTE,
+                top = 20f,
+                onActivate = {
+                    manager.registerOrUpdate(item(id = "camera_mode_CURRENCY", routeKey = CAMERA_ROUTE, top = 30f))
+                }
+            )
+        )
+        manager.registerOrUpdate(item(id = "camera_mode_OBJECT_DETECTION", routeKey = CAMERA_ROUTE, top = 10f))
+        manager.focusItem("camera_mode_CURRENCY", CAMERA_ROUTE)
+
+        // WHEN
+        manager.activateFocused()
+
+        // THEN focus stays on money button, not object or home.
+        assertEquals(currencyModeMovedBounds, manager.focusedBounds)
+        assertEquals(listOf("Nhận diện tiền", "Nhận diện tiền"), speechOutput.spokenTexts)
+    }
+
     private fun item(
         id: String,
         routeKey: String,
         top: Float,
-        left: Float = 0f
+        left: Float = 0f,
+        onActivate: () -> Unit = {}
     ): BlindFocusItem {
         val bounds = Rect(left = left, top = top, right = left + 50f, bottom = top + 50f)
         val label = when (id) {
@@ -71,6 +113,8 @@ class BlindFocusManagerTest {
             "camera_item" -> "Camera item"
             "home_item" -> "Home item"
             "settings_item" -> "Settings item"
+            "camera_mode_OBJECT_DETECTION" -> "Nhận diện vật cản"
+            "camera_mode_CURRENCY" -> "Nhận diện tiền"
             else -> id
         }
         return BlindFocusItem(
@@ -78,7 +122,7 @@ class BlindFocusManagerTest {
             routeKey = routeKey,
             label = label,
             bounds = bounds,
-            onActivate = {}
+            onActivate = onActivate
         )
     }
 
@@ -105,5 +149,7 @@ class BlindFocusManagerTest {
 
         val bottomHomeBounds = Rect(left = 0f, top = 900f, right = 50f, bottom = 950f)
         val cameraBounds = Rect(left = 0f, top = 10f, right = 50f, bottom = 60f)
+        val objectModeMovedBounds = Rect(left = 0f, top = 30f, right = 50f, bottom = 80f)
+        val currencyModeMovedBounds = Rect(left = 0f, top = 30f, right = 50f, bottom = 80f)
     }
 }
