@@ -19,8 +19,8 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ObjectDetectionOverlay(
     detections: List<DetectionOverlayItem>,
-    sourceAspectRatio: Float? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    sourceAspectRatio: Float? = null
 ) {
     val description = detections.joinToString { detection ->
         "${detection.label} ${detection.positionText}"

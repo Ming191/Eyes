@@ -3,7 +3,6 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.screenshot)
 }
 
 fun String.escapeForBuildConfig(): String =
@@ -15,17 +14,20 @@ fun loadDotEnv(projectDir: java.io.File): Map<String, String> {
 
     return envFile.readLines()
         .mapNotNull { rawLine ->
-            val line = rawLine.trim()
+            val line = rawLine.trimStart('\uFEFF').trim()
             if (line.isBlank() || line.startsWith("#") || !line.contains("=")) return@mapNotNull null
             val index = line.indexOf("=")
-            val key = line.substring(0, index).trim()
+            val key = line.substring(0, index).trim().trimStart('\uFEFF')
             val value = line.substring(index + 1).trim().trim('"')
             if (key.isBlank()) null else key to value
         }
         .toMap()
 }
 
-val dotEnv = loadDotEnv(projectDir)
+val moduleDotEnv = loadDotEnv(projectDir)
+val rootDotEnv = loadDotEnv(rootProject.projectDir)
+
+fun dotEnvValue(key: String): String? = moduleDotEnv[key] ?: rootDotEnv[key]
 
 fun resolveConfigValue(vararg candidates: String?, fallback: String): String {
     return candidates.firstOrNull { !it.isNullOrBlank() } ?: fallback
@@ -34,33 +36,28 @@ fun resolveConfigValue(vararg candidates: String?, fallback: String): String {
 val openAiApiKey = resolveConfigValue(
     providers.gradleProperty("OPENAI_API_KEY").orNull,
     providers.environmentVariable("OPENAI_API_KEY").orNull,
-    dotEnv["OPENAI_API_KEY"],
+    dotEnvValue("OPENAI_API_KEY"),
     providers.gradleProperty("OPEN_API_KEY").orNull,
     providers.environmentVariable("OPEN_API_KEY").orNull,
-    dotEnv["OPEN_API_KEY"],
+    dotEnvValue("OPEN_API_KEY"),
     fallback = ""
 ).escapeForBuildConfig()
 val openAiBaseUrl = resolveConfigValue(
     providers.gradleProperty("OPENAI_BASE_URL").orNull,
     providers.environmentVariable("OPENAI_BASE_URL").orNull,
-    dotEnv["OPENAI_BASE_URL"],
+    dotEnvValue("OPENAI_BASE_URL"),
     fallback = "https://api.openai.com/v1/responses"
 ).escapeForBuildConfig()
 val openAiOcrModel = resolveConfigValue(
     providers.gradleProperty("OPENAI_OCR_MODEL").orNull,
     providers.environmentVariable("OPENAI_OCR_MODEL").orNull,
-    dotEnv["OPENAI_OCR_MODEL"],
+    dotEnvValue("OPENAI_OCR_MODEL"),
     fallback = "gpt-4o"
 ).escapeForBuildConfig()
 
 android {
     namespace = "com.example.eyes"
     compileSdk = 36
-    experimentalProperties["android.experimental.enableScreenshotTest"] = true
-    val rawBackendUrl = (project.findProperty("BACKEND_URL") as? String)
-        ?.takeIf { it.isNotBlank() }
-        ?: "https://example.com/"
-    val backendUrl = if (rawBackendUrl.endsWith("/")) rawBackendUrl else "$rawBackendUrl/"
 
     defaultConfig {
         applicationId = "com.example.eyes"
@@ -71,7 +68,6 @@ android {
         buildConfigField("String", "OPENAI_API_KEY", "\"$openAiApiKey\"")
         buildConfigField("String", "OPENAI_BASE_URL", "\"$openAiBaseUrl\"")
         buildConfigField("String", "OPENAI_OCR_MODEL", "\"$openAiOcrModel\"")
-        buildConfigField("String", "BACKEND_URL", "\"$backendUrl\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -136,23 +132,7 @@ dependencies {
     implementation(libs.tensorflow.lite.support) {
         exclude(group = "org.tensorflow", module = "tensorflow-lite-api")
     }
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.converter.gson)
-    implementation(libs.okhttp)
     implementation(libs.executorch.android)
-    testImplementation(libs.junit)
-    testImplementation(platform(libs.koin.bom))
-    testImplementation(libs.koin.test)
-    testImplementation(libs.robolectric)
-    testImplementation(libs.androidx.core)
-    testImplementation(platform(libs.androidx.compose.bom))
-    testImplementation(libs.androidx.compose.ui.test.junit4)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-    screenshotTestImplementation(libs.androidx.compose.ui.tooling)
-    screenshotTestImplementation(libs.screenshot.validation.api)
 }

@@ -9,10 +9,42 @@ object OcrGuidanceEvaluator {
     private const val MAX_LUMINANCE = 0.95f
     private const val REQUIRED_STABLE_FRAMES = 2
 
+    data class OcrGuidanceText(
+        val searching: String,
+        val tooDark: String,
+        val tooBright: String,
+        val moveCloser: String,
+        val moveBack: String,
+        val textClipped: String,
+        val moveLeft: String,
+        val moveRight: String,
+        val moveUp: String,
+        val moveDown: String,
+        val ready: String,
+        val holdSteady: String
+    ) {
+        companion object {
+            val EMPTY = OcrGuidanceText(
+                searching = "",
+                tooDark = "",
+                tooBright = "",
+                moveCloser = "",
+                moveBack = "",
+                textClipped = "",
+                moveLeft = "",
+                moveRight = "",
+                moveUp = "",
+                moveDown = "",
+                ready = "",
+                holdSteady = ""
+            )
+        }
+    }
+
     fun evaluate(
         frame: OcrGuidanceFrame,
         stableFrameCount: Int,
-        text: OcrGuidanceText = OcrGuidanceText()
+        text: OcrGuidanceText = OcrGuidanceText.EMPTY
     ): OcrGuidanceEvaluation {
         val bounds = frame.textBounds
             ?: return OcrGuidanceEvaluation(
@@ -115,7 +147,6 @@ object OcrGuidanceEvaluator {
         isReadyToCapture = false,
         textBounds = textBounds
     )
-
 }
 
 data class OcrGuidanceText(

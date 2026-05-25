@@ -1,14 +1,14 @@
-package com.example.eyes.ui.voice
+﻿package com.example.eyes.ui.voice
 
 import android.content.Context
-import com.example.eyes.R
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.eyes.R
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.domain.voice.CommandParser
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.i18n.AppLanguage
-import com.example.eyes.i18n.localizedFor
+import com.example.eyes.i18n.LocalizedTextProvider
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.SpeechOutput
 import com.example.eyes.system.SttErrorReason
@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
  */
 sealed interface VoiceNavigationTarget {
     data object Camera : VoiceNavigationTarget
-    data object Home : VoiceNavigationTarget   // for Stop command
+    data object Home : VoiceNavigationTarget // for Stop command
 }
 
 data class VoiceCommandUiState(
@@ -46,13 +46,13 @@ class VoiceCommandViewModel(
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticService,
     private val dataStoreManager: DataStoreManager,
-    private val context: Context
+    private val localizedTextProvider: LocalizedTextProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(VoiceCommandUiState())
     val uiState: StateFlow<VoiceCommandUiState> = _uiState.asStateFlow()
 
-    // One-shot navigation events — collected by the screen and consumed.
+    // One-shot navigation events - collected by the screen and consumed.
     private val _navigation = Channel<VoiceNavigationTarget>(Channel.BUFFERED)
     val navigation = _navigation.receiveAsFlow()
 
@@ -90,7 +90,7 @@ class VoiceCommandViewModel(
     }
 
     /**
-     * Called when the screen is first composed. Does NOT speak a greeting —
+     * Called when the screen is first composed. Does NOT speak a greeting -
      * doing so racing audio focus with the SpeechRecognizer and gets the
      * greeting silently dropped on most devices. The on-screen status text
      * and a haptic confirm convey "we're listening".
@@ -142,7 +142,7 @@ class VoiceCommandViewModel(
                         lastCommand = command
                     )
                 }
-                handleParsedCommand(result.text, command)
+                handleParsedCommand(command)
             }
 
             is SttResult.Error -> {
@@ -155,7 +155,7 @@ class VoiceCommandViewModel(
         }
     }
 
-    private fun handleParsedCommand(rawText: String, command: VoiceCommand) {
+    private fun handleParsedCommand(command: VoiceCommand) {
         viewModelScope.launch {
             // Persist the command so feature screens can pick it up.
             dataStoreManager.setLastVoiceCommand(command)
@@ -217,7 +217,15 @@ class VoiceCommandViewModel(
      * Speak [text] and remember it for the Repeat command.
      */
     private val voiceText: VoiceText
-        get() = context.localizedFor(appLanguage).voiceTextFromResources()
+        get() = VoiceText(
+            readText = localizedTextProvider.getString(R.string.voice_vm_read_text_ack, appLanguage),
+            describeScene = localizedTextProvider.getString(R.string.voice_vm_describe_scene_ack, appLanguage),
+            recognizeCurrency = localizedTextProvider.getString(R.string.voice_vm_recognize_currency_ack, appLanguage),
+            nothingToRepeat = localizedTextProvider.getString(R.string.voice_vm_nothing_to_repeat, appLanguage),
+            stopped = localizedTextProvider.getString(R.string.voice_vm_stopped_ack, appLanguage),
+            help = localizedTextProvider.getString(R.string.voice_vm_help_text, appLanguage),
+            unknown = localizedTextProvider.getString(R.string.voice_vm_unknown_command, appLanguage)
+        )
 
     private suspend fun speakAndRemember(text: String) {
         lastSpokenText = text
@@ -237,15 +245,5 @@ class VoiceCommandViewModel(
         val stopped: String,
         val help: String,
         val unknown: String
-    )
-
-    private fun Context.voiceTextFromResources(): VoiceText = VoiceText(
-        readText = getString(R.string.voice_response_read_text),
-        describeScene = getString(R.string.voice_response_describe_scene),
-        recognizeCurrency = getString(R.string.voice_response_recognize_currency),
-        nothingToRepeat = getString(R.string.voice_response_nothing_to_repeat),
-        stopped = getString(R.string.voice_response_stopped),
-        help = getString(R.string.voice_response_help),
-        unknown = getString(R.string.voice_response_unknown)
     )
 }

@@ -129,6 +129,13 @@
     <string name="voice_label_stop">Dừng</string>
     <string name="voice_label_help">Trợ giúp</string>
     <string name="voice_label_unknown">Chưa rõ — "%1$s"</string>
+    <string name="voice_vm_read_text_ack">Mở chế độ đọc văn bản.</string>
+    <string name="voice_vm_describe_scene_ack">Mở chế độ mô tả khung cảnh.</string>
+    <string name="voice_vm_recognize_currency_ack">Mở chế độ nhận diện tiền.</string>
+    <string name="voice_vm_nothing_to_repeat">Chưa có câu nào để đọc lại.</string>
+    <string name="voice_vm_stopped_ack">Đã dừng.</string>
+    <string name="voice_vm_help_text">Bạn có thể nói: đọc giúp tôi để đọc văn bản. Trước mặt có gì để mô tả khung cảnh. Tờ tiền này bao nhiêu để nhận diện tiền. Đọc lại để nghe lại. Dừng để dừng và về trang chủ.</string>
+    <string name="voice_vm_unknown_command">Chưa nhận được lệnh. Hãy nói lại rõ hơn.</string>
     <string name="onboarding_page_permissions_title">Cấp quyền thiết yếu</string>
     <string name="onboarding_page_permissions_summary">Camera và micro giúp ứng dụng đọc văn bản, mô tả khung hình và nhận lệnh giọng nói.</string>
     <string name="onboarding_page_permissions_description">Bước một. Cấp quyền thiết yếu cho camera, micro và vị trí.</string>
@@ -184,12 +191,11 @@
     <string name="voice_guide_camera_intro">Camera.</string>
     <string name="voice_guide_settings_intro">Cài đặt.</string>
     <string name="voice_guide_subtitle_description">Phụ đề lời đang đọc: %1$s</string>
-    <string name="camera_screen_description">Màn hình camera ở chế độ %1$s. Nhấn giữ để mô tả cảnh xung quanh.</string>
-    <string name="camera_describe_scene_description">Mô tả cảnh xung quanh</string>
-    <string name="camera_captured_ocr_description">Ảnh OCR đã chụp</string>
+    <string name="camera_screen_description">Màn hình camera ở chế độ %1$s.</string>
+    <string name="camera_captured_ocr_description">Ảnh đã chụp</string>
     <string name="camera_analyzing_image">Đang phân tích ảnh...</string>
     <string name="camera_ocr_swipe_hint">Vuốt trái/phải để đổi câu</string>
-    <string name="camera_capture_another_description">Chụp ảnh OCR khác</string>
+    <string name="camera_capture_another_description">Chụp ảnh khác</string>
     <string name="camera_capture_another_text">Chụp ảnh khác</string>
     <string name="camera_show_status_description">Hiện bảng trạng thái camera</string>
     <string name="camera_ocr_mode_selector_description">Chọn chế độ OCR</string>
@@ -204,6 +210,8 @@
     <string name="camera_hide_status_description">Ẩn bảng trạng thái camera</string>
     <string name="camera_mode_ocr_label">Đọc văn bản</string>
     <string name="camera_mode_ocr_description">đọc văn bản OCR</string>
+    <string name="camera_mode_scene_description_label">Mô tả ảnh</string>
+    <string name="camera_mode_scene_description_description">mô tả ảnh từ ảnh chụp</string>
     <string name="camera_mode_object_detection_label">Vật thể</string>
     <string name="camera_mode_object_detection_description">nhận diện vật thể</string>
     <string name="camera_mode_currency_label">Tiền</string>
@@ -236,9 +244,28 @@
     <string name="currency_spoken_100000">một trăm nghìn đồng</string>
     <string name="currency_spoken_200000">hai trăm nghìn đồng</string>
     <string name="currency_spoken_500000">năm trăm nghìn đồng</string>
+    <string name="scene_description_offline_fallback">Chưa thể mô tả khung hình. Hãy thử lại khi có mạng.</string>
+
+    
+    <string name="scene_description_error_api_key_missing">Thiếu cấu hình OpenAI API key. Vui lòng kiểm tra .env.</string>
+    <string name="scene_description_error_unauthorized">Không có quyền truy cập OpenAI. Vui lòng kiểm tra API key hoặc quyền model.</string>
+    <string name="scene_description_error_quota">Đã vượt quota hoặc giới hạn tốc độ OpenAI. Vui lòng thử lại sau.</string>
+    <string name="scene_description_error_timeout">OpenAI phản hồi quá chậm. Vui lòng thử lại.</string>
+    <string name="scene_description_error_generic">Chưa thể mô tả cảnh lúc này. Vui lòng thử lại.</string>
 
     <!-- Camera ViewModel runtime text -->
     <string name="camera_vm_ocr_guidance_search">Hãy hướng camera vào vùng văn bản.</string>
+    <string name="camera_vm_ocr_guidance_too_dark">Ảnh hơi tối. Hãy đưa văn bản ra nơi sáng hơn.</string>
+    <string name="camera_vm_ocr_guidance_too_bright">Ảnh quá sáng. Hãy tránh ánh sáng chiếu trực tiếp vào giấy.</string>
+    <string name="camera_vm_ocr_guidance_move_closer">Văn bản còn nhỏ. Hãy đưa camera lại gần hơn.</string>
+    <string name="camera_vm_ocr_guidance_move_back">Văn bản quá gần. Hãy đưa camera ra xa một chút.</string>
+    <string name="camera_vm_ocr_guidance_text_clipped">Văn bản sát mép khung. Hãy lấy rộng ra để không mất chữ.</string>
+    <string name="camera_vm_ocr_guidance_move_left">Văn bản lệch trái. Hãy hướng camera sang trái.</string>
+    <string name="camera_vm_ocr_guidance_move_right">Văn bản lệch phải. Hãy hướng camera sang phải.</string>
+    <string name="camera_vm_ocr_guidance_move_up">Văn bản lệch lên trên. Hãy nâng camera lên một chút.</string>
+    <string name="camera_vm_ocr_guidance_move_down">Văn bản lệch xuống dưới. Hãy hạ camera xuống một chút.</string>
+    <string name="camera_vm_ocr_guidance_ready">Văn bản đã nằm trong khung, sẵn sàng chụp.</string>
+    <string name="camera_vm_ocr_guidance_hold_steady">Đã thấy văn bản. Hãy giữ camera ổn định.</string>
     <string name="camera_vm_initial_status">Đang chờ khung hình tiếp theo</string>
     <string name="camera_vm_initial_announcement">Chưa có cảnh báo mới</string>
     <string name="camera_vm_initial_debug">Debug: đang chờ dữ liệu</string>
@@ -254,9 +281,11 @@
     <string name="camera_vm_frame_unclear_retrying">Khung hình chưa rõ, đang thử lại</string>
     <string name="camera_vm_cannot_process_captured_image">Không thể xử lý ảnh đã chụp</string>
     <string name="camera_vm_processing_ocr_image">Đang xử lý ảnh OCR</string>
+    <string name="camera_vm_processing_currency_image">Đang phân tích ảnh tiền</string>
     <string name="camera_vm_unknown_reason">không rõ nguyên nhân</string>
     <string name="camera_vm_unknown_error">lỗi không xác định</string>
     <string name="camera_vm_cannot_capture_ocr_try_again">Không thể chụp ảnh OCR. Hãy thử lại.</string>
+    <string name="camera_vm_cannot_capture_currency_try_again">Không thể chụp ảnh tiền. Hãy thử lại.</string>
     <string name="camera_vm_image_may_be_unclear_capturing">Ảnh có thể chưa rõ, đang chụp.</string>
     <string name="camera_vm_ready_to_capture_ocr">Sẵn sàng chụp OCR</string>
     <string name="camera_vm_ready_for_new_capture">Đã sẵn sàng chụp ảnh mới</string>
@@ -266,7 +295,7 @@
     <string name="camera_vm_ocr_debug_waiting">OCR: đang chờ dữ liệu</string>
     <string name="camera_vm_enabled_english_to_vietnamese_translation">Đã bật dịch tiếng Anh sang tiếng Việt khi đọc.</string>
     <string name="camera_vm_disabled_english_to_vietnamese_translation">Đã tắt dịch tiếng Anh sang tiếng Việt.</string>
-    <string name="camera_vm_no_frame_to_describe">Chưa có khung hình để mô tả. Hãy giữ camera ổn định vài giây.</string>
+    <string name="camera_vm_cannot_capture_scene_try_again">Không thể chụp ảnh mô tả. Hãy thử lại.</string>
     <string name="camera_vm_describing_scene_please_wait">Đang mô tả cảnh, vui lòng chờ</string>
     <string name="camera_vm_scene_description_done">Đã mô tả cảnh xong</string>
     <string name="camera_vm_scene_description_failed">Mô tả cảnh thất bại, vui lòng thử lại</string>
@@ -308,6 +337,7 @@
     <string name="camera_vm_object_detection_title">Chế độ nhận diện vật thể</string>
     <string name="camera_vm_object_detection_summary">Hướng camera vào không gian phía trước để hiển thị vật thể và vị trí.</string>
     <string name="camera_vm_object_detection_status">Đang nhận diện vật thể</string>
+    <string name="camera_vm_switched_to_scene_description_mode">Đã chuyển sang chế độ mô tả ảnh.</string>
     <string name="camera_vm_switched_to_object_detection_mode">Đã chuyển sang chế độ nhận diện vật thể.</string>
     <string name="camera_vm_switched_to_currency_mode">Đã chuyển sang chế độ nhận diện tiền.</string>
     <string-array name="object_detection_coco_labels">
