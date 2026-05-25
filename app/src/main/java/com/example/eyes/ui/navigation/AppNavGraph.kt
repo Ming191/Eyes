@@ -222,17 +222,12 @@ private fun MainNavigationScaffold(
                                 viewModel.requestOpenCameraOcr(OcrMode.QUICK)
                                 navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
                             },
-                            onOpenOcrAccuracy = {
-                                viewModel.requestOpenCameraOcr(OcrMode.ACCURACY)
+                            onOpenCameraMode = { mode ->
+                                viewModel.requestOpenCamera(mode)
                                 navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
                             },
                             onOpenSettings = {
                                 navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
-                            },
-                            onOpenVoice = {
-                                navController.navigate(VoiceRoute) {
-                                    launchSingleTop = true
-                                }
                             }
                         )
                     }

@@ -3,25 +3,34 @@ package com.example.eyes.ui.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
 import com.example.eyes.R
 import com.example.eyes.ui.blind.BlindAction
 import com.example.eyes.ui.blind.blindFocusable
@@ -37,7 +46,7 @@ fun HomeActionCard(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 112.dp)
+            .aspectRatio(1f)
             .clickable(
                 onClickLabel = openLabel,
                 onClick = onClick
@@ -60,41 +69,64 @@ fun HomeActionCard(
                 )
             ),
         color = MaterialTheme.colorScheme.surface,
-        shape = MaterialTheme.shapes.medium,
+        shape = MaterialTheme.shapes.large,
         tonalElevation = 2.dp,
         shadowElevation = 1.dp
     ) {
-        Box(
+        Column(
             modifier = Modifier
+                .fillMaxSize()
                 .background(
                     brush = Brush.linearGradient(
                         colors = listOf(
-                            MaterialTheme.colorScheme.surface,
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                         )
                     )
                 )
-                .padding(20.dp)
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = action.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = action.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = action.supportingLabel,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
+            Icon(
+                imageVector = action.icon(),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.fillMaxSize(0.34f)
+            )
+            Text(
+                text = action.compactLabel(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 8.dp)
+            )
         }
     }
+}
+
+private fun HomeAction.icon(): ImageVector = when (type) {
+    HomeActionType.ReadTextQuick,
+    HomeActionType.ReadTextAccuracy,
+    HomeActionType.DescribeScene,
+    HomeActionType.DetectObjects,
+    HomeActionType.RecognizeCurrency -> Icons.Rounded.PhotoCamera
+    HomeActionType.Voice -> Icons.Rounded.Mic
+    HomeActionType.Settings -> Icons.Rounded.Tune
+}
+
+@Composable
+private fun HomeAction.compactLabel(): String = when (type) {
+    HomeActionType.ReadTextQuick -> stringResource(R.string.home_compact_action_ocr_quick)
+    HomeActionType.ReadTextAccuracy -> stringResource(R.string.home_compact_action_ocr_accurate)
+    HomeActionType.DescribeScene -> stringResource(R.string.home_compact_action_describe_scene)
+    HomeActionType.DetectObjects -> stringResource(R.string.home_compact_action_detect_objects)
+    HomeActionType.RecognizeCurrency -> stringResource(R.string.home_compact_action_recognize_currency)
+    HomeActionType.Voice -> title
+    HomeActionType.Settings -> title
 }
 
 @Preview(showBackground = true)

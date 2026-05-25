@@ -8,51 +8,61 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.res.stringResource
 import com.example.eyes.R
+import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.theme.EyesTheme
+import com.example.eyes.ui.voice.VoiceCommandScreen
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun HomeScreen(
     onOpenOcrQuick: () -> Unit,
-    onOpenOcrAccuracy: () -> Unit,
+    onOpenCameraMode: (CameraMode) -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenVoice: () -> Unit,
     viewModel: HomeViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showVoiceCommand by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel) {
         viewModel.onScreenShown()
     }
 
-    HomeContent(
-        uiState = uiState,
-        onActionSelected = { action ->
-            when (action) {
-                HomeActionType.ReadTextQuick -> onOpenOcrQuick()
-                HomeActionType.ReadTextAccuracy -> onOpenOcrAccuracy()
-                HomeActionType.Voice -> onOpenVoice()
-                HomeActionType.Settings -> onOpenSettings()
+    if (showVoiceCommand) {
+        VoiceCommandScreen(
+            onNavigateToCamera = { onOpenCameraMode(CameraMode.OCR) },
+            onNavigateBackHome = { showVoiceCommand = false }
+        )
+    } else {
+        HomeContent(
+            uiState = uiState,
+            onActionSelected = { action ->
+                when (action) {
+                    HomeActionType.ReadTextQuick -> onOpenOcrQuick()
+                    HomeActionType.ReadTextAccuracy -> Unit
+                    HomeActionType.DescribeScene -> onOpenCameraMode(CameraMode.SCENE_DESCRIPTION)
+                    HomeActionType.DetectObjects -> onOpenCameraMode(CameraMode.OBJECT_DETECTION)
+                    HomeActionType.RecognizeCurrency -> onOpenCameraMode(CameraMode.CURRENCY)
+                    HomeActionType.Voice -> showVoiceCommand = true
+                    HomeActionType.Settings -> onOpenSettings()
+                }
             }
-        }
-    )
+        )
+    }
 }
 
 @Composable
@@ -62,126 +72,29 @@ fun HomeContent(
     modifier: Modifier = Modifier
 ) {
     val screenDescription = stringResource(R.string.home_screen_description)
-    val shortcutsTitle = stringResource(R.string.home_shortcuts_title)
-    val safetyTipTitle = stringResource(R.string.home_safety_tip_title)
-    val safetyTipBody = stringResource(R.string.home_safety_tip_body)
-    val safetyTipDescription = stringResource(R.string.home_safety_tip_description)
-    LazyColumn(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .padding(16.dp)
             .semantics { contentDescription = screenDescription },
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item {
-            HomeHeroCard(
-                title = uiState.welcomeTitle,
-                summary = uiState.welcomeSummary
-            )
-        }
-        item {
-            Text(
-                text = shortcutsTitle,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.semantics { heading() }
-            )
-        }
-        item {
-            AdaptiveActionGrid(
-                actions = uiState.actions,
-                onActionSelected = onActionSelected
-            )
-        }
-        item {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics(mergeDescendants = true) {
-                        contentDescription = safetyTipDescription
-                    },
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.secondaryContainer
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = safetyTipTitle,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Text(
-                        text = safetyTipBody,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-            }
-        }
+        CompactActionGrid(
+            actions = uiState.actions,
+            onActionSelected = onActionSelected
+        )
     }
 }
 
 @Composable
-private fun HomeHeroCard(
-    title: String,
-    summary: String,
-    modifier: Modifier = Modifier
-) {
-    val label = stringResource(R.string.home_hero_label)
-    val description = stringResource(R.string.home_hero_description, title, summary)
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .semantics(mergeDescendants = true) {
-                contentDescription = description
-            },
-        shape = MaterialTheme.shapes.large,
-        tonalElevation = 4.dp,
-        shadowElevation = 2.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            MaterialTheme.colorScheme.tertiaryContainer
-                        )
-                    )
-                )
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.semantics { heading() }
-            )
-            Text(
-                text = summary,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
-    }
-}
-
-@Composable
-private fun AdaptiveActionGrid(
+private fun CompactActionGrid(
     actions: List<HomeAction>,
     onActionSelected: (HomeActionType) -> Unit,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        val columnCount = if (maxWidth < 560.dp) 1 else 2
+        val columnCount = if (maxWidth < 600.dp) 2 else 4
         val rows = actions.chunked(columnCount)
 
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

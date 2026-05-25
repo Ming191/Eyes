@@ -80,6 +80,11 @@
     <string name="home_action_settings_description">Adjust speech speed and alert sensitivity for current environment.</string>
     <string name="home_action_settings_supporting">Sound and vibration</string>
     <string name="home_action_settings_accessibility">Adjust feedback. Adjust speech speed and alert sensitivity.</string>
+    <string name="home_compact_action_ocr_quick">Quick OCR</string>
+    <string name="home_compact_action_ocr_accurate">Accurate OCR</string>
+    <string name="home_compact_action_describe_scene">Describe</string>
+    <string name="home_compact_action_detect_objects">Objects</string>
+    <string name="home_compact_action_recognize_currency">Money</string>
     <string name="voice_screen_description">Voice command screen</string>
     <string name="voice_title">Voice command</string>
     <string name="voice_title_description">Title: Voice command</string>
