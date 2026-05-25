@@ -5,6 +5,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import com.example.eyes.system.SpeechOutput
+import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.theme.EyesTheme
 
 @PreviewTest
@@ -15,8 +16,8 @@ fun homeScreenDefaultPreview() {
         HomeScreen(
             onOpenOcrQuick = {},
             onOpenOcrAccuracy = {},
+            onOpenCameraMode = { _: CameraMode -> },
             onOpenSettings = {},
-            onOpenVoice = {},
             viewModel = HomeViewModel(
                 context = LocalContext.current,
                 tts = FakeSpeechOutput()

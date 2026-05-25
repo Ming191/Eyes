@@ -65,7 +65,9 @@ fun AppNavGraph(
     BlindGestureLayer(
         speechOutput = speechOutput,
         localeProvider = { uiState.appLanguage.ttsLocale },
-        noActionsLabel = stringResource(R.string.blind_gesture_no_actions)
+        noActionsLabel = stringResource(R.string.blind_gesture_no_actions),
+        layerDescription = stringResource(R.string.blind_gesture_layer_description),
+        focusOverlayDescription = stringResource(R.string.blind_focus_overlay_description)
     ) {
         when {
             uiState.isLoading -> LoadingScreen()
@@ -125,7 +127,7 @@ private fun MainNavigationScaffold(
         val currentSpokenText by viewModel.currentSpokenText.collectAsStateWithLifecycle(initialValue = null)
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentDestination = navBackStackEntry?.destination
-        val currentRouteKey = currentDestination?.route ?: "home"
+        val currentRouteKey = currentDestination?.route ?: HomeRoute::class.qualifiedName.orEmpty()
         val blindFocusManager = LocalBlindFocusManager.current
         val announcedTopLevelDestination = currentDestination.toTopLevelDestinationOrNull()
         val currentTopLevelDestination = announcedTopLevelDestination ?: TopLevelDestination.HOME
@@ -231,6 +233,10 @@ private fun MainNavigationScaffold(
                             HomeScreen(
                                 onOpenOcrQuick = {
                                     viewModel.requestOpenCameraOcr(OcrMode.QUICK)
+                                    navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
+                                },
+                                onOpenOcrAccuracy = {
+                                    viewModel.requestOpenCameraOcr(OcrMode.ACCURACY)
                                     navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
                                 },
                                 onOpenCameraMode = { mode ->

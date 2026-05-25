@@ -89,6 +89,15 @@ fun CameraScreen(
         uiState.ocrCapturedBitmap != null &&
         !uiState.isCurrencyScanning
 
+    fun prepareNextCaptureForActiveMode() {
+        when (uiState.activeMode) {
+            CameraMode.OCR -> viewModel.prepareForNextOcrCapture()
+            CameraMode.SCENE_DESCRIPTION -> viewModel.prepareForNextSceneCapture()
+            CameraMode.CURRENCY -> viewModel.prepareForNextCurrencyCapture()
+            CameraMode.OBJECT_DETECTION -> Unit
+        }
+    }
+
     fun captureCurrentModeIfReady() {
         when (uiState.activeMode) {
             CameraMode.OCR -> {
@@ -311,14 +320,7 @@ fun CameraScreen(
 
         if (canRetakeOcr || canRetakeScene || canRetakeCurrency) {
             Button(
-                onClick = {
-                    when (uiState.activeMode) {
-                        CameraMode.OCR -> viewModel.prepareForNextOcrCapture()
-                        CameraMode.SCENE_DESCRIPTION -> viewModel.prepareForNextSceneCapture()
-                        CameraMode.CURRENCY -> viewModel.prepareForNextCurrencyCapture()
-                        CameraMode.OBJECT_DETECTION -> Unit
-                    }
-                },
+                onClick = ::prepareNextCaptureForActiveMode,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .heightIn(min = 88.dp)
@@ -327,7 +329,7 @@ fun CameraScreen(
                     .blindFocusable(
                         id = "camera_capture_another",
                         label = captureAnotherDescription,
-                        onActivate = { viewModel.prepareForNextOcrCapture() }
+                        onActivate = ::prepareNextCaptureForActiveMode
                     )
             ) {
                 Text(captureAnotherText)

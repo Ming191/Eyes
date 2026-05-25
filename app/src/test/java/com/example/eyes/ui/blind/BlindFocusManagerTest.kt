@@ -32,7 +32,7 @@ class BlindFocusManagerTest {
 
         // THEN
         assertEquals(bottomHomeBounds, manager.focusedBounds)
-        assertEquals(listOf("Camera item", "Trang chủ"), speechOutput.spokenTexts)
+        assertEquals(listOf("Mục camera", "Trang chủ"), speechOutput.spokenTexts)
     }
 
     @Test
@@ -53,7 +53,7 @@ class BlindFocusManagerTest {
         // THEN
         assertEquals(cameraBounds, manager.focusedBounds)
         assertEquals(
-            listOf("Camera item", "Trang chủ", "Camera", "Camera item"),
+            listOf("Mục camera", "Trang chủ", "Camera", "Mục camera"),
             speechOutput.spokenTexts
         )
     }
@@ -110,9 +110,9 @@ class BlindFocusManagerTest {
         val label = when (id) {
             "bottom_nav_HOME" -> "Trang chủ"
             "bottom_nav_CAMERA" -> "Camera"
-            "camera_item" -> "Camera item"
-            "home_item" -> "Home item"
-            "settings_item" -> "Settings item"
+            "camera_item" -> "Mục camera"
+            "home_item" -> "Mục trang chủ"
+            "settings_item" -> "Mục cài đặt"
             "camera_mode_OBJECT_DETECTION" -> "Nhận diện vật cản"
             "camera_mode_CURRENCY" -> "Nhận diện tiền"
             else -> id

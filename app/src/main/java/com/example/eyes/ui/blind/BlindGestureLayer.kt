@@ -20,6 +20,8 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.example.eyes.system.SpeechOutput
 import kotlin.math.abs
 import kotlinx.coroutines.withTimeoutOrNull
@@ -32,6 +34,8 @@ fun BlindGestureLayer(
     speechOutput: SpeechOutput,
     localeProvider: () -> java.util.Locale? = { null },
     noActionsLabel: String,
+    layerDescription: String,
+    focusOverlayDescription: String,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
@@ -50,6 +54,7 @@ fun BlindGestureLayer(
         Box(
             modifier = modifier
                 .fillMaxSize()
+                .semantics { contentDescription = layerDescription }
                 .pointerInput(manager, viewConfiguration) {
                     awaitEachGesture {
                         val down = awaitFirstDown(
@@ -95,15 +100,25 @@ fun BlindGestureLayer(
                 },
         ) {
             content()
-            FocusBoundsOverlay(manager = manager)
+            FocusBoundsOverlay(
+                manager = manager,
+                description = focusOverlayDescription
+            )
         }
     }
 }
 
 @Composable
-private fun FocusBoundsOverlay(manager: BlindFocusManager) {
+private fun FocusBoundsOverlay(
+    manager: BlindFocusManager,
+    description: String
+) {
     val bounds = manager.focusedBounds ?: return
-    Canvas(modifier = Modifier.fillMaxSize()) {
+    Canvas(
+        modifier = Modifier
+            .fillMaxSize()
+            .semantics { contentDescription = description }
+    ) {
         drawRect(
             color = Color(0xFF00E676),
             topLeft = Offset(bounds.left, bounds.top),

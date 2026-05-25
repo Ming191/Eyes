@@ -41,6 +41,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun HomeScreen(
     onOpenOcrQuick: () -> Unit,
+    onOpenOcrAccuracy: () -> Unit,
     onOpenCameraMode: (CameraMode) -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: HomeViewModel = koinViewModel(),
@@ -68,11 +69,7 @@ fun HomeScreen(
             voiceCommandViewModel.handleRecognitionCancelled()
         }
     }
-
-    fun requestMicrophoneOrStart() {
-        val now = System.currentTimeMillis()
-        if (now - lastVoiceStartAtMs.longValue < 1_500L) return
-        lastVoiceStartAtMs.longValue = now
+    fun startVoiceRecognition() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "vi-VN")
@@ -88,6 +85,27 @@ fun HomeScreen(
         } catch (_: ActivityNotFoundException) {
             voiceCommandViewModel.handleRecognitionUnavailable()
         }
+    }
+
+    val microphonePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            startVoiceRecognition()
+        } else {
+            voiceCommandViewModel.handleRecognitionUnavailable()
+        }
+    }
+
+    fun requestMicrophoneOrStart() {
+        val now = System.currentTimeMillis()
+        if (now - lastVoiceStartAtMs.longValue < 1_500L) return
+        lastVoiceStartAtMs.longValue = now
+        if (!hasRecordAudioPermission()) {
+            microphonePermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        startVoiceRecognition()
     }
 
     LaunchedEffect(viewModel) {
@@ -108,7 +126,7 @@ fun HomeScreen(
         onActionSelected = { action ->
             when (action) {
                 HomeActionType.ReadTextQuick -> onOpenOcrQuick()
-                HomeActionType.ReadTextAccuracy -> Unit
+                HomeActionType.ReadTextAccuracy -> onOpenOcrAccuracy()
                 HomeActionType.DescribeScene -> onOpenCameraMode(CameraMode.SCENE_DESCRIPTION)
                 HomeActionType.DetectObjects -> onOpenCameraMode(CameraMode.OBJECT_DETECTION)
                 HomeActionType.RecognizeCurrency -> onOpenCameraMode(CameraMode.CURRENCY)
