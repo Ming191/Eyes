@@ -1,5 +1,12 @@
 package com.example.eyes.ui.home
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.pm.PackageManager
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -12,20 +19,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.R
+import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.theme.EyesTheme
-import com.example.eyes.ui.voice.VoiceCommandScreen
+import com.example.eyes.ui.voice.VoiceCommandViewModel
+import com.example.eyes.ui.voice.VoiceNavigationTarget
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -33,36 +43,86 @@ fun HomeScreen(
     onOpenOcrQuick: () -> Unit,
     onOpenCameraMode: (CameraMode) -> Unit,
     onOpenSettings: () -> Unit,
-    viewModel: HomeViewModel = koinViewModel()
+    viewModel: HomeViewModel = koinViewModel(),
+    voiceCommandViewModel: VoiceCommandViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showVoiceCommand by remember { mutableStateOf(false) }
+    val lastVoiceStartAtMs = remember { mutableLongStateOf(0L) }
+    val context = LocalContext.current
+    fun hasRecordAudioPermission(): Boolean = ContextCompat.checkSelfPermission(
+        context,
+        android.Manifest.permission.RECORD_AUDIO
+    ) == PackageManager.PERMISSION_GRANTED
+
+    val voiceInputLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val text = result.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
+            ?.trim()
+            .orEmpty()
+        if (result.resultCode == Activity.RESULT_OK && text.isNotBlank()) {
+            voiceCommandViewModel.handleRecognizedText(text)
+        } else {
+            voiceCommandViewModel.handleRecognitionCancelled()
+        }
+    }
+
+    fun requestMicrophoneOrStart() {
+        val now = System.currentTimeMillis()
+        if (now - lastVoiceStartAtMs.longValue < 1_500L) return
+        lastVoiceStartAtMs.longValue = now
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "vi-VN")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "vi-VN")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+        }
+        if (intent.resolveActivity(context.packageManager) == null) {
+            voiceCommandViewModel.handleRecognitionUnavailable()
+            return
+        }
+        try {
+            voiceInputLauncher.launch(intent)
+        } catch (_: ActivityNotFoundException) {
+            voiceCommandViewModel.handleRecognitionUnavailable()
+        }
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.onScreenShown()
     }
 
-    if (showVoiceCommand) {
-        VoiceCommandScreen(
-            onNavigateToCamera = { onOpenCameraMode(CameraMode.OCR) },
-            onNavigateBackHome = { showVoiceCommand = false }
-        )
-    } else {
-        HomeContent(
-            uiState = uiState,
-            onActionSelected = { action ->
-                when (action) {
-                    HomeActionType.ReadTextQuick -> onOpenOcrQuick()
-                    HomeActionType.ReadTextAccuracy -> Unit
-                    HomeActionType.DescribeScene -> onOpenCameraMode(CameraMode.SCENE_DESCRIPTION)
-                    HomeActionType.DetectObjects -> onOpenCameraMode(CameraMode.OBJECT_DETECTION)
-                    HomeActionType.RecognizeCurrency -> onOpenCameraMode(CameraMode.CURRENCY)
-                    HomeActionType.Voice -> showVoiceCommand = true
-                    HomeActionType.Settings -> onOpenSettings()
-                }
+    LaunchedEffect(voiceCommandViewModel) {
+        voiceCommandViewModel.navigation.collect { target ->
+            when (target) {
+                VoiceNavigationTarget.Camera -> onOpenCameraMode(voiceCommandViewModel.uiState.value.lastCommand.cameraMode())
+                VoiceNavigationTarget.Home -> Unit
             }
-        )
+        }
     }
+
+    HomeContent(
+        uiState = uiState,
+        onActionSelected = { action ->
+            when (action) {
+                HomeActionType.ReadTextQuick -> onOpenOcrQuick()
+                HomeActionType.ReadTextAccuracy -> Unit
+                HomeActionType.DescribeScene -> onOpenCameraMode(CameraMode.SCENE_DESCRIPTION)
+                HomeActionType.DetectObjects -> onOpenCameraMode(CameraMode.OBJECT_DETECTION)
+                HomeActionType.RecognizeCurrency -> onOpenCameraMode(CameraMode.CURRENCY)
+                HomeActionType.Voice -> requestMicrophoneOrStart()
+                HomeActionType.Settings -> onOpenSettings()
+            }
+        }
+    )
+}
+
+private fun VoiceCommand?.cameraMode(): CameraMode = when (this) {
+    VoiceCommand.DescribeScene -> CameraMode.SCENE_DESCRIPTION
+    VoiceCommand.RecognizeCurrency -> CameraMode.CURRENCY
+    else -> CameraMode.OCR
 }
 
 @Composable

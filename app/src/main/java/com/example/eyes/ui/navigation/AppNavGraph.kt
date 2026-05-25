@@ -49,7 +49,6 @@ import com.example.eyes.ui.home.HomeScreen
 import com.example.eyes.ocr.OcrMode
 import com.example.eyes.ui.onboarding.OnboardingScreen
 import com.example.eyes.ui.settings.SettingsScreen
-import com.example.eyes.ui.voice.VoiceCommandScreen
 import org.koin.compose.koinInject
 import org.koin.androidx.compose.koinViewModel
 
@@ -239,19 +238,6 @@ private fun MainNavigationScaffold(
                     }
                     composable<SettingsRoute> {
                         SettingsScreen()
-                    }
-                    composable<VoiceRoute> {
-                        VoiceCommandScreen(
-                            onNavigateToCamera = {
-                                navController.navigate(CameraRoute) {
-                                    popUpTo(HomeRoute) { saveState = true }
-                                    launchSingleTop = true
-                                }
-                            },
-                            onNavigateBackHome = {
-                                navController.popBackStack(HomeRoute, inclusive = false)
-                            }
-                        )
                     }
                 }
                 SpeechSubtitle(

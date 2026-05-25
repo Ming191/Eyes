@@ -62,6 +62,9 @@ sealed interface SttErrorReason {
     /** Speech recognition is not available on this device. */
     data object NotAvailable : SttErrorReason
 
+    /** Speech recognizer rejected rapid repeated requests. */
+    data object TooManyRequests : SttErrorReason
+
     /** Any other error from the underlying engine. [code] is the raw Android code. */
     data class Unknown(val code: Int) : SttErrorReason
 }

@@ -182,7 +182,11 @@ class SttService(
         SpeechRecognizer.ERROR_AUDIO,
         SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> SttErrorReason.Audio
 
-        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> SttErrorReason.PermissionDenied
+        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
+            if (hasRecordAudioPermission()) SttErrorReason.Audio else SttErrorReason.PermissionDenied
+        }
+
+        SpeechRecognizer.ERROR_TOO_MANY_REQUESTS -> SttErrorReason.TooManyRequests
 
         else -> SttErrorReason.Unknown(code)
     }
@@ -222,6 +226,8 @@ class SttService(
         override fun onError(error: Int) {
             val reason = mapErrorCode(error)
             Log.w(TAG, "onError code=$error reason=$reason")
+            recognizer?.destroy()
+            recognizer = null
             emitError(reason)
         }
 

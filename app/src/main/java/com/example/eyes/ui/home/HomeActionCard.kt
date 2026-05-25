@@ -9,9 +9,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AttachMoney
+import androidx.compose.material.icons.rounded.ImageSearch
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -110,10 +114,10 @@ fun HomeActionCard(
 
 private fun HomeAction.icon(): ImageVector = when (type) {
     HomeActionType.ReadTextQuick,
-    HomeActionType.ReadTextAccuracy,
-    HomeActionType.DescribeScene,
-    HomeActionType.DetectObjects,
-    HomeActionType.RecognizeCurrency -> Icons.Rounded.PhotoCamera
+    HomeActionType.ReadTextAccuracy -> Icons.Rounded.TextFields
+    HomeActionType.DescribeScene -> Icons.Rounded.ImageSearch
+    HomeActionType.DetectObjects -> Icons.Rounded.Visibility
+    HomeActionType.RecognizeCurrency -> Icons.Rounded.AttachMoney
     HomeActionType.Voice -> Icons.Rounded.Mic
     HomeActionType.Settings -> Icons.Rounded.Tune
 }
