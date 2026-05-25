@@ -20,8 +20,10 @@ interface LocalizedTextProvider {
 }
 
 class AndroidLocalizedTextProvider(
-    override val applicationContext: Context
-) : LocalizedTextProvider
+    context: Context
+) : LocalizedTextProvider {
+    override val applicationContext: Context = context.applicationContext
+}
 
 fun Context.localizedFor(language: AppLanguage): Context {
     val configuration = Configuration(resources.configuration).apply {
