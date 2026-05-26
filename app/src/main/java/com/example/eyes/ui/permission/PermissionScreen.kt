@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,8 +34,12 @@ import com.example.eyes.ui.blind.blindFocusable
 
 private val REQUIRED_PERMISSIONS = listOf(
     Manifest.permission.CAMERA,
-    Manifest.permission.RECORD_AUDIO,
-    Manifest.permission.ACCESS_FINE_LOCATION
+    Manifest.permission.RECORD_AUDIO
+)
+
+private val DISPLAYED_PERMISSIONS = listOf(
+    Manifest.permission.CAMERA,
+    Manifest.permission.RECORD_AUDIO
 )
 
 private fun readPermissionStatuses(
@@ -46,7 +51,9 @@ private fun readPermissionStatuses(
 
 @Composable
 fun PermissionScreen(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showContainer: Boolean = true,
+    onAllPermissionsGrantedChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -57,68 +64,45 @@ fun PermissionScreen(
     val permissionsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
-        // Dùng trực tiếp result từ hệ thống, không gọi lại checkSelfPermission
-        // để tránh double recomposition gây nhấp nháy
         statuses = statuses + result
     }
 
-    val grantedCount = statuses.values.count { it }
+    val grantedCount = listOf(
+        statuses[Manifest.permission.CAMERA] == true,
+        statuses[Manifest.permission.RECORD_AUDIO] == true
+    ).count { it }
     val screenDescription = stringResource(R.string.permission_screen_description)
-    val summaryDescription = stringResource(R.string.permission_summary_description, grantedCount, REQUIRED_PERMISSIONS.size)
-    val summaryText = stringResource(R.string.permission_summary_text, grantedCount, REQUIRED_PERMISSIONS.size)
+    val summaryDescription = stringResource(R.string.permission_summary_description, grantedCount, DISPLAYED_PERMISSIONS.size)
+    val summaryText = stringResource(R.string.permission_summary_text, grantedCount, DISPLAYED_PERMISSIONS.size)
     val cameraLabel = stringResource(R.string.permission_camera_label)
     val microphoneLabel = stringResource(R.string.permission_microphone_label)
-    val locationLabel = stringResource(R.string.permission_location_label)
     val requestDescription = stringResource(R.string.permission_request_description)
     val requestText = stringResource(R.string.permission_request_text)
+    val allPermissionsGranted = grantedCount == DISPLAYED_PERMISSIONS.size
+
+    LaunchedEffect(allPermissionsGranted) {
+        onAllPermissionsGrantedChange(allPermissionsGranted)
+    }
 
     Column(
         modifier = modifier.semantics { contentDescription = screenDescription },
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics(mergeDescendants = true) {
-                    contentDescription = summaryDescription
-                    liveRegion = LiveRegionMode.Polite
-                }
-                .blindFocusable(
-                    id = "permission_summary",
-                    label = summaryDescription,
-                    onActivate = {}
-                ),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = summaryText,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                PermissionLine(
-                    label = cameraLabel,
-                    granted = statuses[Manifest.permission.CAMERA] == true
-                )
-                PermissionLine(
-                    label = microphoneLabel,
-                    granted = statuses[Manifest.permission.RECORD_AUDIO] == true
-                )
-                PermissionLine(
-                    label = locationLabel,
-                    granted = statuses[Manifest.permission.ACCESS_FINE_LOCATION] == true
-                )
-            }
-        }
+        PermissionStatusBlock(
+            showContainer = showContainer,
+            summaryDescription = summaryDescription,
+            summaryText = summaryText,
+            cameraLabel = cameraLabel,
+            cameraGranted = statuses[Manifest.permission.CAMERA] == true,
+            microphoneLabel = microphoneLabel,
+            microphoneGranted = statuses[Manifest.permission.RECORD_AUDIO] == true
+        )
 
         Button(
             onClick = { permissionsLauncher.launch(REQUIRED_PERMISSIONS.toTypedArray()) },
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 88.dp)
+                .heightIn(min = 48.dp)
                 .semantics {
                     contentDescription = requestDescription
                 }
@@ -129,6 +113,57 @@ fun PermissionScreen(
                 )
         ) {
             Text(requestText)
+        }
+    }
+}
+
+@Composable
+private fun PermissionStatusBlock(
+    showContainer: Boolean,
+    summaryDescription: String,
+    summaryText: String,
+    cameraLabel: String,
+    cameraGranted: Boolean,
+    microphoneLabel: String,
+    microphoneGranted: Boolean
+) {
+    val content: @Composable () -> Unit = {
+        Column(
+            modifier = Modifier.padding(if (showContainer) 16.dp else 0.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = summaryText,
+                style = MaterialTheme.typography.titleMedium
+            )
+            PermissionLine(label = cameraLabel, granted = cameraGranted)
+            PermissionLine(label = microphoneLabel, granted = microphoneGranted)
+        }
+    }
+
+    val statusModifier = Modifier
+        .fillMaxWidth()
+        .semantics(mergeDescendants = true) {
+            contentDescription = summaryDescription
+            liveRegion = LiveRegionMode.Polite
+        }
+        .blindFocusable(
+            id = "permission_summary",
+            label = summaryDescription,
+            onActivate = {}
+        )
+
+    if (showContainer) {
+        Surface(
+            modifier = statusModifier,
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceVariant
+        ) {
+            content()
+        }
+    } else {
+        Column(modifier = statusModifier) {
+            content()
         }
     }
 }

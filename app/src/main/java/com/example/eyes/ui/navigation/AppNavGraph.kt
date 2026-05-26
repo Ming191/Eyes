@@ -62,6 +62,7 @@ fun AppNavGraph(
     speechOutput: SpeechOutput = koinInject()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentSpokenText by viewModel.currentSpokenText.collectAsStateWithLifecycle(initialValue = null)
 
     BlindGestureLayer(
         speechOutput = speechOutput,
@@ -74,9 +75,16 @@ fun AppNavGraph(
             uiState.isLoading -> LoadingScreen()
             uiState.onboardingCompleted -> MainNavigationScaffold(
                 viewModel = viewModel,
-                appLanguage = uiState.appLanguage
+                appLanguage = uiState.appLanguage,
+                currentSpokenText = currentSpokenText
             )
-            else -> OnboardingNavHost(onFinish = viewModel::completeOnboarding)
+            else -> OnboardingNavHost(
+                appLanguage = uiState.appLanguage,
+                currentSpokenText = currentSpokenText,
+                speechOutput = speechOutput,
+                onLanguageSelected = viewModel::setAppLanguage,
+                onFinish = viewModel::completeOnboarding
+            )
         }
     }
 }
@@ -96,22 +104,36 @@ private fun LoadingScreen() {
 
 @Composable
 private fun OnboardingNavHost(
+    appLanguage: com.example.eyes.i18n.AppLanguage,
+    currentSpokenText: String?,
+    speechOutput: SpeechOutput,
+    onLanguageSelected: (com.example.eyes.i18n.AppLanguage) -> Unit,
     onFinish: () -> Unit
 ) {
     key("onboarding") {
         val navController = rememberNavController()
         val description = stringResource(R.string.nav_onboarding_description)
 
-        NavHost(
-            navController = navController,
-            startDestination = OnboardingRoute,
-            modifier = Modifier
-                .fillMaxSize()
-                .semantics { contentDescription = description }
-        ) {
-            composable<OnboardingRoute> {
-                OnboardingScreen(onFinish = onFinish)
+        Box(modifier = Modifier.fillMaxSize()) {
+            NavHost(
+                navController = navController,
+                startDestination = OnboardingRoute,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .semantics { contentDescription = description }
+            ) {
+                composable<OnboardingRoute> {
+                    OnboardingScreen(
+                        selectedLanguage = appLanguage,
+                        onLanguageSelected = onLanguageSelected,
+                        onFinish = onFinish
+                    )
+                }
             }
+            SpeechSubtitle(
+                text = currentSpokenText,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
         }
     }
 }
@@ -120,12 +142,12 @@ private fun OnboardingNavHost(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun MainNavigationScaffold(
     viewModel: AppNavViewModel,
-    appLanguage: com.example.eyes.i18n.AppLanguage
+    appLanguage: com.example.eyes.i18n.AppLanguage,
+    currentSpokenText: String?
 ) {
     key("main") {
         val navController = rememberNavController()
         val requestedCameraMode by viewModel.requestedCameraMode.collectAsStateWithLifecycle()
-        val currentSpokenText by viewModel.currentSpokenText.collectAsStateWithLifecycle(initialValue = null)
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentDestination = navBackStackEntry?.destination
         val currentRouteKey = currentDestination?.route ?: HomeRoute::class.qualifiedName.orEmpty()

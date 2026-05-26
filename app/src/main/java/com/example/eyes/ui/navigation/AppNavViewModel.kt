@@ -80,6 +80,12 @@ class AppNavViewModel(
         }
     }
 
+    fun setAppLanguage(language: AppLanguage) {
+        viewModelScope.launch {
+            dataStoreManager.setAppLanguage(language)
+        }
+    }
+
     fun requestOpenCamera(mode: CameraMode) {
         _requestedCameraMode.value = mode
     }

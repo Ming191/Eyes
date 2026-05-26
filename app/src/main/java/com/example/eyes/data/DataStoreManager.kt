@@ -12,6 +12,7 @@ import com.example.eyes.i18n.AppLanguage
 import com.example.eyes.ocr.OcrMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.util.Locale
 
 private val Context.dataStore by preferencesDataStore(name = "user_settings")
 
@@ -58,7 +59,8 @@ class DataStoreManager(private val context: Context) {
         }
 
     val appLanguageFlow: Flow<AppLanguage> = context.dataStore.data.map { preferences: Preferences ->
-        AppLanguage.fromStorageValue(preferences[PreferenceKeys.AppLanguage])
+        preferences[PreferenceKeys.AppLanguage]?.let(AppLanguage::fromStorageValue)
+            ?: AppLanguage.fromLocale(Locale.getDefault())
     }
 
     val voiceGuideEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences: Preferences ->
