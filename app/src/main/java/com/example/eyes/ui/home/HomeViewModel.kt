@@ -24,6 +24,7 @@ enum class HomeActionType {
     DescribeScene,
     DetectObjects,
     RecognizeCurrency,
+    EmergencyCall,
     Voice,
     Settings
 }
@@ -141,6 +142,13 @@ class HomeViewModel(
                 getString(R.string.camera_mode_currency_description),
                 getString(R.string.camera_mode_currency_label),
                 getString(R.string.camera_mode_currency_description)
+            ),
+            HomeAction(
+                HomeActionType.EmergencyCall,
+                getString(R.string.home_action_emergency_title),
+                getString(R.string.home_action_emergency_description),
+                getString(R.string.home_action_emergency_supporting),
+                getString(R.string.home_action_emergency_accessibility)
             ),
             HomeAction(
                 HomeActionType.Voice,

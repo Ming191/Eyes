@@ -48,6 +48,7 @@ import com.example.eyes.ui.blind.LocalBlindFocusRouteKey
 import com.example.eyes.ui.blind.blindFocusable
 import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.camera.CameraScreen
+import com.example.eyes.ui.emergency.EmergencyScreen
 import com.example.eyes.ui.home.HomeScreen
 import com.example.eyes.ocr.OcrMode
 import com.example.eyes.ui.onboarding.OnboardingScreen
@@ -245,6 +246,9 @@ private fun MainNavigationScaffold(
                                 },
                                 onOpenSettings = {
                                     navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
+                                },
+                                onOpenEmergency = {
+                                    navController.navigate(EmergencyRoute)
                                 }
                             )
                         }
@@ -261,6 +265,14 @@ private fun MainNavigationScaffold(
                     composable<SettingsRoute> {
                         CompositionLocalProvider(LocalBlindFocusRouteKey provides SettingsRoute::class.qualifiedName.orEmpty()) {
                             SettingsScreen()
+                        }
+                    }
+                    composable<EmergencyRoute> {
+                        CompositionLocalProvider(LocalBlindFocusRouteKey provides EmergencyRoute::class.qualifiedName.orEmpty()) {
+                            EmergencyScreen(
+                                appLanguage = appLanguage,
+                                onBack = { navController.popBackStack() }
+                            )
                         }
                     }
                 }

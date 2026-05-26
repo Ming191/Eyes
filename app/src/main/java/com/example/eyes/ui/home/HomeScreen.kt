@@ -2,8 +2,8 @@ package com.example.eyes.ui.home
 
 import android.app.Activity
 import android.content.ActivityNotFoundException
-import android.content.pm.PackageManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,6 +32,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.R
 import com.example.eyes.domain.voice.VoiceCommand
+import com.example.eyes.ui.blind.BlindAction
 import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.theme.EyesTheme
 import com.example.eyes.ui.voice.VoiceCommandViewModel
@@ -44,6 +45,7 @@ fun HomeScreen(
     onOpenOcrAccuracy: () -> Unit,
     onOpenCameraMode: (CameraMode) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenEmergency: (String?) -> Unit,
     viewModel: HomeViewModel = koinViewModel(),
     voiceCommandViewModel: VoiceCommandViewModel = koinViewModel()
 ) {
@@ -130,9 +132,13 @@ fun HomeScreen(
                 HomeActionType.DescribeScene -> onOpenCameraMode(CameraMode.SCENE_DESCRIPTION)
                 HomeActionType.DetectObjects -> onOpenCameraMode(CameraMode.OBJECT_DETECTION)
                 HomeActionType.RecognizeCurrency -> onOpenCameraMode(CameraMode.CURRENCY)
+                HomeActionType.EmergencyCall -> onOpenEmergency(null)
                 HomeActionType.Voice -> requestMicrophoneOrStart()
                 HomeActionType.Settings -> onOpenSettings()
             }
+        },
+        onEmergencyNumberSelected = { number ->
+            onOpenEmergency(number)
         }
     )
 }
@@ -147,6 +153,7 @@ private fun VoiceCommand?.cameraMode(): CameraMode = when (this) {
 fun HomeContent(
     uiState: HomeUiState,
     onActionSelected: (HomeActionType) -> Unit,
+    onEmergencyNumberSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val screenDescription = stringResource(R.string.home_screen_description)
@@ -160,7 +167,8 @@ fun HomeContent(
     ) {
         CompactActionGrid(
             actions = uiState.actions,
-            onActionSelected = onActionSelected
+            onActionSelected = onActionSelected,
+            onEmergencyNumberSelected = onEmergencyNumberSelected
         )
     }
 }
@@ -169,6 +177,7 @@ fun HomeContent(
 private fun CompactActionGrid(
     actions: List<HomeAction>,
     onActionSelected: (HomeActionType) -> Unit,
+    onEmergencyNumberSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
@@ -185,6 +194,7 @@ private fun CompactActionGrid(
                         HomeActionCard(
                             action = action,
                             onClick = { onActionSelected(action.type) },
+                            secondaryActions = action.emergencyActions(onEmergencyNumberSelected),
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -197,13 +207,41 @@ private fun CompactActionGrid(
     }
 }
 
+@Composable
+private fun HomeAction.emergencyActions(onEmergencyNumberSelected: (String) -> Unit): List<BlindAction> {
+    if (type != HomeActionType.EmergencyCall) return emptyList()
+    return listOf(
+        BlindAction(
+            label = stringResource(R.string.emergency_police),
+            activateLabel = stringResource(R.string.emergency_open_dialer_113),
+            onActivate = { onEmergencyNumberSelected("113") }
+        ),
+        BlindAction(
+            label = stringResource(R.string.emergency_fire),
+            activateLabel = stringResource(R.string.emergency_open_dialer_114),
+            onActivate = { onEmergencyNumberSelected("114") }
+        ),
+        BlindAction(
+            label = stringResource(R.string.emergency_medical),
+            activateLabel = stringResource(R.string.emergency_open_dialer_115),
+            onActivate = { onEmergencyNumberSelected("115") }
+        ),
+        BlindAction(
+            label = stringResource(R.string.emergency_general),
+            activateLabel = stringResource(R.string.emergency_open_dialer_112),
+            onActivate = { onEmergencyNumberSelected("112") }
+        )
+    )
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun HomeContentPreview() {
     EyesTheme(dynamicColor = false) {
         HomeContent(
             uiState = HomeUiState(),
-            onActionSelected = {}
+            onActionSelected = {},
+            onEmergencyNumberSelected = {}
         )
     }
 }
