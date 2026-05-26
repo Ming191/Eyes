@@ -24,7 +24,7 @@ import com.example.eyes.ui.theme.EyesTheme
 @Composable
 fun SettingSliderCard(
     title: String,
-    summary: String,
+    summary: String? = null,
     valueLabel: String,
     contentDescription: String,
     sliderStateDescription: String,
@@ -52,11 +52,13 @@ fun SettingSliderCard(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
-            Text(
-                text = summary,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (summary != null) {
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Text(
                 text = valueLabel,
                 style = MaterialTheme.typography.labelLarge,

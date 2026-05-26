@@ -16,9 +16,9 @@
     <string name="settings_select_vietnamese">Chọn tiếng Việt</string>
     <string name="settings_select_english">Chọn tiếng Anh</string>
     <string name="settings_preview_feedback_en">Đang phát thử phản hồi. Tốc độ đọc %1$s lần. Độ nhạy cảnh báo %2$d phần trăm.</string>
-    <string name="settings_auto_translate_description">Tự động dịch tiếng Anh sang tiếng Việt khi OCR</string>
-    <string name="settings_auto_translate_label">Tự động dịch EN -> VI khi OCR</string>
-    <string name="settings_auto_translate_switch_description">Bật tắt tự động dịch tiếng Anh sang tiếng Việt khi OCR</string>
+    <string name="settings_auto_translate_description">Dịch EN sang VI khi OCR</string>
+    <string name="settings_auto_translate_label">Dịch EN → VI</string>
+    <string name="settings_auto_translate_switch_description">Bật tắt dịch EN sang VI</string>
     <string name="settings_voice_guide_description">Hướng dẫn bằng giọng nói trong ứng dụng</string>
     <string name="settings_voice_guide_label">Hướng dẫn bằng giọng nói</string>
     <string name="settings_voice_guide_summary">Ứng dụng tự đọc màn hình chính, trạng thái và hướng dẫn quan trọng mà không cần mở TalkBack hệ thống.</string>

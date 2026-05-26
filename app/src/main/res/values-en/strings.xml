@@ -16,9 +16,9 @@
     <string name="settings_select_vietnamese">Select Vietnamese</string>
     <string name="settings_select_english">Select English</string>
     <string name="settings_preview_feedback_en">Playing feedback preview. Speech speed %1$s times. Alert sensitivity %2$d percent.</string>
-    <string name="settings_auto_translate_description">Automatically translate English to Vietnamese during OCR</string>
-    <string name="settings_auto_translate_label">Auto translate EN -> VI during OCR</string>
-    <string name="settings_auto_translate_switch_description">Toggle automatic English to Vietnamese translation during OCR</string>
+    <string name="settings_auto_translate_description">Translate EN to VI during OCR</string>
+    <string name="settings_auto_translate_label">Translate EN → VI</string>
+    <string name="settings_auto_translate_switch_description">Toggle EN to VI translation</string>
     <string name="settings_voice_guide_description">In-app voice guide</string>
     <string name="settings_voice_guide_label">Voice guide</string>
     <string name="settings_voice_guide_summary">The app reads main screens, statuses, and important guidance without requiring system TalkBack.</string>
