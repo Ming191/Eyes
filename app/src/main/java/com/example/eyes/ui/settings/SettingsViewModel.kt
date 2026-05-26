@@ -14,7 +14,8 @@ import kotlinx.coroutines.launch
 data class SettingsUiState(
     val ttsSpeed: Float = 1.0f,
     val alertSensitivity: Float = 0.5f,
-    val autoTranslateEnglishOcrToVietnamese: Boolean = false
+    val autoTranslateEnglishOcrToVietnamese: Boolean = false,
+    val emergencyPhoneNumber: String = DataStoreManager.DEFAULT_EMERGENCY_PHONE_NUMBER
 )
 
 class SettingsViewModel(
@@ -26,12 +27,14 @@ class SettingsViewModel(
     val uiState: StateFlow<SettingsUiState> = combine(
         dataStoreManager.ttsSpeedFlow,
         dataStoreManager.alertSensitivityFlow,
-        dataStoreManager.ocrTranslateToVietnameseFlow
-    ) { ttsSpeed, alertSensitivity, autoTranslate ->
+        dataStoreManager.ocrTranslateToVietnameseFlow,
+        dataStoreManager.emergencyPhoneNumberFlow
+    ) { ttsSpeed, alertSensitivity, autoTranslate, emergencyPhoneNumber ->
         SettingsUiState(
             ttsSpeed = ttsSpeed,
             alertSensitivity = alertSensitivity,
-            autoTranslateEnglishOcrToVietnamese = autoTranslate
+            autoTranslateEnglishOcrToVietnamese = autoTranslate,
+            emergencyPhoneNumber = emergencyPhoneNumber
         )
     }.stateIn(
         scope = viewModelScope,
@@ -56,6 +59,18 @@ class SettingsViewModel(
         viewModelScope.launch {
             dataStoreManager.setOcrTranslateToVietnamese(enabled)
         }
+    }
+
+    fun setEmergencyPhoneNumber(value: String) {
+        viewModelScope.launch {
+            dataStoreManager.setEmergencyPhoneNumber(value)
+        }
+    }
+
+    fun setEmergencyPreset(value: String) {
+        setEmergencyPhoneNumber(value)
+        speechOutput.speak("Đã chọn số khẩn cấp $value.")
+        hapticService.confirm()
     }
 
     fun previewFeedback(state: SettingsUiState) {

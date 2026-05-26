@@ -21,6 +21,7 @@ class DataStoreManager(private val context: Context) {
         val OnboardingCompleted = booleanPreferencesKey("onboarding_completed")
         val OcrMode = stringPreferencesKey("ocr_mode")
         val OcrTranslateToVietnamese = booleanPreferencesKey("ocr_translate_to_vi")
+        val EmergencyPhoneNumber = stringPreferencesKey("emergency_phone_number")
     }
 
     val ttsSpeedFlow: Flow<Float> = context.dataStore.data.map { preferences: Preferences ->
@@ -45,6 +46,10 @@ class DataStoreManager(private val context: Context) {
 
     val ocrTranslateToVietnameseFlow: Flow<Boolean> = context.dataStore.data.map { preferences: Preferences ->
         preferences[PreferenceKeys.OcrTranslateToVietnamese] ?: false
+    }
+
+    val emergencyPhoneNumberFlow: Flow<String> = context.dataStore.data.map { preferences: Preferences ->
+        preferences[PreferenceKeys.EmergencyPhoneNumber] ?: DEFAULT_EMERGENCY_PHONE_NUMBER
     }
 
     suspend fun setTtsSpeed(value: Float) {
@@ -75,5 +80,15 @@ class DataStoreManager(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[PreferenceKeys.OcrTranslateToVietnamese] = enabled
         }
+    }
+
+    suspend fun setEmergencyPhoneNumber(phoneNumber: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferenceKeys.EmergencyPhoneNumber] = phoneNumber.filter { it.isDigit() || it == '+' }
+        }
+    }
+
+    companion object {
+        const val DEFAULT_EMERGENCY_PHONE_NUMBER = "115"
     }
 }

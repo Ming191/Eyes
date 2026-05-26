@@ -10,11 +10,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.semantics.contentDescription
@@ -36,6 +42,8 @@ fun HomeScreen(
     viewModel: HomeViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val emergencyPhoneNumber by viewModel.emergencyPhoneNumber.collectAsStateWithLifecycle()
+    var showEmergencyDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel) {
         viewModel.onScreenShown()
@@ -49,9 +57,68 @@ fun HomeScreen(
                 HomeActionType.ReadTextQuick -> onOpenOcrQuick()
                 HomeActionType.ReadTextAccuracy -> onOpenOcrAccuracy()
                 HomeActionType.Navigate -> onOpenMap()
+                HomeActionType.EmergencyCall -> {
+                    viewModel.announceEmergencyConfirmation(emergencyPhoneNumber)
+                    showEmergencyDialog = true
+                }
                 HomeActionType.Settings -> onOpenSettings()
             }
         }
+    )
+
+    if (showEmergencyDialog) {
+        EmergencyCallDialog(
+            phoneNumber = emergencyPhoneNumber,
+            onDismiss = { showEmergencyDialog = false },
+            onConfirm = {
+                showEmergencyDialog = false
+                viewModel.openEmergencyDialer(emergencyPhoneNumber)
+            }
+        )
+    }
+}
+
+@Composable
+private fun EmergencyCallDialog(
+    phoneNumber: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Gọi khẩn cấp?",
+                modifier = Modifier.semantics { heading() }
+            )
+        },
+        text = {
+            Text(
+                text = "Ứng dụng sẽ mở trình gọi tới số $phoneNumber. Bạn vẫn cần bấm gọi trong trình gọi điện thoại.",
+                modifier = Modifier.semantics {
+                    contentDescription = "Xác nhận gọi khẩn cấp tới số $phoneNumber. Bạn vẫn cần bấm gọi trong trình gọi điện thoại."
+                }
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                modifier = Modifier.semantics {
+                    contentDescription = "Mở trình gọi khẩn cấp tới số $phoneNumber"
+                }
+            ) {
+                Text("Mở trình gọi")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.semantics { contentDescription = "Hủy gọi khẩn cấp" }
+            ) {
+                Text("Hủy")
+            }
+        },
+        modifier = Modifier.semantics { contentDescription = "Hộp thoại xác nhận gọi khẩn cấp" }
     )
 }
 

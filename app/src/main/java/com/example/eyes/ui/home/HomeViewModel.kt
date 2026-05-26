@@ -2,16 +2,21 @@ package com.example.eyes.ui.home
 
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.eyes.data.DataStoreManager
+import com.example.eyes.system.EmergencyCallService
 import com.example.eyes.system.SpeechOutput
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
 enum class HomeActionType {
     ScanAround,
     ReadTextQuick,
     ReadTextAccuracy,
     Navigate,
+    EmergencyCall,
     Settings
 }
 
@@ -61,6 +66,13 @@ private fun defaultHomeActions(): List<HomeAction> = listOf(
         accessibilityLabel = "Đi đến nơi. Mở bản đồ để xem điểm đến và chuẩn bị dẫn đường."
     ),
     HomeAction(
+        type = HomeActionType.EmergencyCall,
+        title = "Gọi khẩn cấp",
+        description = "Mở trình gọi tới số khẩn cấp đã lưu để bạn xác nhận cuộc gọi.",
+        supportingLabel = "Mặc định 115, có thể đổi trong cài đặt",
+        accessibilityLabel = "Gọi khẩn cấp. Mở trình gọi tới số khẩn cấp đã lưu để bạn xác nhận cuộc gọi."
+    ),
+    HomeAction(
         type = HomeActionType.Settings,
         title = "Tinh chỉnh phản hồi",
         description = "Điều chỉnh tốc độ đọc và độ nhạy cảnh báo để phù hợp với môi trường hiện tại.",
@@ -70,11 +82,25 @@ private fun defaultHomeActions(): List<HomeAction> = listOf(
 )
 
 class HomeViewModel(
-    private val tts: SpeechOutput
+    private val tts: SpeechOutput,
+    private val dataStoreManager: DataStoreManager,
+    private val emergencyCallService: EmergencyCallService
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(HomeUiState())
-    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+    val uiState: StateFlow<HomeUiState> = dataStoreManager.emergencyPhoneNumberFlow
+        .map { HomeUiState() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = HomeUiState()
+        )
+
+    val emergencyPhoneNumber: StateFlow<String> = dataStoreManager.emergencyPhoneNumberFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = DataStoreManager.DEFAULT_EMERGENCY_PHONE_NUMBER
+        )
 
     private var hasSpokenGreeting = false
 
@@ -82,5 +108,13 @@ class HomeViewModel(
         if (hasSpokenGreeting) return
         hasSpokenGreeting = true
         tts.speak("Chào mừng. Chọn Xem, Đọc, Đi hoặc Cài đặt để bắt đầu.")
+    }
+
+    fun announceEmergencyConfirmation(phoneNumber: String) {
+        tts.speak("Xác nhận gọi khẩn cấp. Ứng dụng sẽ mở trình gọi tới số $phoneNumber.")
+    }
+
+    fun openEmergencyDialer(phoneNumber: String) {
+        emergencyCallService.openDialer(phoneNumber)
     }
 }

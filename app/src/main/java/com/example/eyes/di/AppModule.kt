@@ -16,6 +16,7 @@ import com.example.eyes.ocr.OcrTranslator
 import com.example.eyes.data.remote.SceneApi
 import com.example.eyes.data.remote.SceneRepository
 import com.example.eyes.system.HapticService
+import com.example.eyes.system.EmergencyCallService
 import com.example.eyes.system.SpeechOutput
 import com.example.eyes.system.TtsService
 import com.example.eyes.ui.camera.CameraViewModel
@@ -38,6 +39,7 @@ val appModule = module {
     single { TtsService(androidContext()) }
     single<SpeechOutput> { get<TtsService>() }
     single { HapticService(androidContext()) }
+    single { EmergencyCallService(androidContext(), get(), get()) }
     single { DataStoreManager(androidContext()) }
     single { CameraManager(androidContext()) }
     factory<OcrEngine>(named("quick-ocr")) { MlKitOcrEngine() }
@@ -63,7 +65,7 @@ val appModule = module {
     }
     single { SceneRepository(androidContext(), get()) }
     viewModel { AppNavViewModel(get(), get()) }
-    viewModel { HomeViewModel(get()) }
+    viewModel { HomeViewModel(get(), get(), get()) }
     viewModel {
         CameraViewModel(
             yoloDetector = get(),

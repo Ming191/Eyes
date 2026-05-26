@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,6 +21,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.ui.theme.EyesTheme
@@ -90,6 +94,12 @@ fun SettingsScreen(
             )
         }
 
+        EmergencyNumberSection(
+            emergencyPhoneNumber = state.emergencyPhoneNumber,
+            onEmergencyPhoneNumberChange = viewModel::setEmergencyPhoneNumber,
+            onPresetSelected = viewModel::setEmergencyPreset
+        )
+
         Button(
             onClick = { viewModel.previewFeedback(state) },
             modifier = Modifier
@@ -101,6 +111,91 @@ fun SettingsScreen(
         ) {
             Text("Nghe thử phản hồi")
         }
+    }
+}
+
+@Composable
+private fun EmergencyNumberSection(
+    emergencyPhoneNumber: String,
+    onEmergencyPhoneNumberChange: (String) -> Unit,
+    onPresetSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = "Khu vực cài đặt số gọi khẩn cấp" },
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "Gọi khẩn cấp",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.semantics { heading() }
+        )
+        Text(
+            text = "Chọn số dùng cho nút gọi khẩn cấp ở trang chủ. Ứng dụng chỉ mở trình gọi, không tự gọi ngay.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.semantics {
+                contentDescription = "Chọn số dùng cho nút gọi khẩn cấp ở trang chủ. Ứng dụng chỉ mở trình gọi, không tự gọi ngay."
+            }
+        )
+        OutlinedTextField(
+            value = emergencyPhoneNumber,
+            onValueChange = onEmergencyPhoneNumberChange,
+            label = { Text("Số khẩn cấp") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 64.dp)
+                .semantics {
+                    contentDescription = "Ô nhập số gọi khẩn cấp hiện tại $emergencyPhoneNumber"
+                }
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = "Các số khẩn cấp nhanh" },
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            EmergencyPresetButton(
+                label = "115 Cấp cứu",
+                number = "115",
+                onPresetSelected = onPresetSelected,
+                modifier = Modifier.weight(1f)
+            )
+            EmergencyPresetButton(
+                label = "113 Công an",
+                number = "113",
+                onPresetSelected = onPresetSelected,
+                modifier = Modifier.weight(1f)
+            )
+            EmergencyPresetButton(
+                label = "114 Cứu hỏa",
+                number = "114",
+                onPresetSelected = onPresetSelected,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmergencyPresetButton(
+    label: String,
+    number: String,
+    onPresetSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedButton(
+        onClick = { onPresetSelected(number) },
+        modifier = modifier
+            .heightIn(min = 56.dp)
+            .semantics { contentDescription = "Chọn $label làm số gọi khẩn cấp" }
+    ) {
+        Text(label)
     }
 }
 
@@ -119,7 +214,8 @@ private fun SettingsScreenContentPreview() {
     val state = SettingsUiState(
         ttsSpeed = 1.1f,
         alertSensitivity = 0.6f,
-        autoTranslateEnglishOcrToVietnamese = true
+        autoTranslateEnglishOcrToVietnamese = true,
+        emergencyPhoneNumber = "115"
     )
 
     Column(
@@ -171,5 +267,10 @@ private fun SettingsScreenContentPreview() {
                 onCheckedChange = {}
             )
         }
+        EmergencyNumberSection(
+            emergencyPhoneNumber = state.emergencyPhoneNumber,
+            onEmergencyPhoneNumberChange = {},
+            onPresetSelected = {}
+        )
     }
 }
