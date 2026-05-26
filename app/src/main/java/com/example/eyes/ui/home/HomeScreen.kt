@@ -45,7 +45,7 @@ fun HomeScreen(
     onOpenOcrAccuracy: () -> Unit,
     onOpenCameraMode: (CameraMode) -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenEmergency: () -> Unit,
+    onOpenEmergency: (String?) -> Unit,
     viewModel: HomeViewModel = koinViewModel(),
     voiceCommandViewModel: VoiceCommandViewModel = koinViewModel()
 ) {
@@ -132,13 +132,13 @@ fun HomeScreen(
                 HomeActionType.DescribeScene -> onOpenCameraMode(CameraMode.SCENE_DESCRIPTION)
                 HomeActionType.DetectObjects -> onOpenCameraMode(CameraMode.OBJECT_DETECTION)
                 HomeActionType.RecognizeCurrency -> onOpenCameraMode(CameraMode.CURRENCY)
-                HomeActionType.EmergencyCall -> onOpenEmergency()
+                HomeActionType.EmergencyCall -> onOpenEmergency(null)
                 HomeActionType.Voice -> requestMicrophoneOrStart()
                 HomeActionType.Settings -> onOpenSettings()
             }
         },
-        onEmergencyNumberSelected = {
-            onOpenEmergency()
+        onEmergencyNumberSelected = { number ->
+            onOpenEmergency(number)
         }
     )
 }
