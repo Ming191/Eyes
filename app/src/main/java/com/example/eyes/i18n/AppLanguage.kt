@@ -14,5 +14,10 @@ enum class AppLanguage(
 
     companion object {
         fun fromStorageValue(value: String?): AppLanguage = entries.firstOrNull { it.storageValue == value } ?: VI
+
+        fun fromLocale(locale: Locale): AppLanguage = when (locale.language.lowercase(Locale.ROOT)) {
+            EN.storageValue -> EN
+            else -> VI
+        }
     }
 }
