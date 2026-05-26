@@ -327,6 +327,7 @@
     <string name="camera_vm_ocr_sentence_position_template">%1$d trên %2$d. %3$s</string>
     <string name="camera_vm_currency_debug_template">TIỀN: độ tin cậy %1$s</string>
     <string name="camera_vm_currency_debug_waiting">TIỀN: đang chờ tờ tiền rõ nét</string>
+    <string name="camera_vm_no_currency_detected">Chưa thấy tiền.</string>
     <string name="object_detection_position_top_left">góc trên bên trái</string>
     <string name="object_detection_position_top_center">phía trên chính giữa</string>
     <string name="object_detection_position_top_right">góc trên bên phải</string>

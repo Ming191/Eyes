@@ -128,11 +128,14 @@ class CameraViewModel(
 
     private val isProcessingOcrGuidance = AtomicBoolean(false)
     private val isProcessingObjectDetection = AtomicBoolean(false)
+    private val isProcessingCurrencyPreview = AtomicBoolean(false)
     private val lastOcrSwipeAtMs = AtomicReference(0L)
     private val lastOcrGuidanceAtMs = AtomicLong(0L)
     private val lastOcrGuidanceSpeechAtMs = AtomicLong(0L)
     private val lastObjectDetectionAtMs = AtomicLong(0L)
+    private val lastCurrencyPreviewAtMs = AtomicLong(0L)
     private val lastObjectAnnouncementAtMs = AtomicLong(0L)
+    private val lastCurrencyNoDetectionAtMs = AtomicLong(0L)
     private val lastObjectAnnouncement = AtomicReference("")
     private val lastCurrencyAnnouncement = AtomicReference("")
 
@@ -269,6 +272,7 @@ class CameraViewModel(
                 resetCurrencyAnnouncementDebounce()
                 currencyAnalyzer?.resetBuffer()
             }
+            maybeSpeakNoCurrencyDetected()
             _uiState.update { state ->
                 if (state.activeMode != CameraMode.CURRENCY) {
                     state
@@ -277,8 +281,8 @@ class CameraViewModel(
                         currencyDisplay = "",
                         currencyConfidence = 0f,
                         isCurrencyScanning = false,
-                        statusMessage = cameraText.currencyInstruction,
-                        lastAnnouncement = cameraText.currencyInstruction
+                        statusMessage = cameraText.noCurrencyDetected,
+                        lastAnnouncement = cameraText.noCurrencyDetected
                     )
                 }
             }
@@ -369,7 +373,35 @@ class CameraViewModel(
     }
 
     private fun processCurrencyPreviewImageProxy(imageProxy: ImageProxy) {
-        imageProxy.close()
+        val now = System.currentTimeMillis()
+        if (now - lastCurrencyPreviewAtMs.get() < CURRENCY_PREVIEW_INTERVAL_MS) {
+            imageProxy.close()
+            return
+        }
+        if (!isProcessingCurrencyPreview.compareAndSet(false, true)) {
+            imageProxy.close()
+            return
+        }
+        lastCurrencyPreviewAtMs.set(now)
+
+        viewModelScope.launch(Dispatchers.Default) {
+            try {
+                val analyzer = getCurrencyAnalyzer()
+                if (analyzer == null) {
+                    imageProxy.close()
+                    return@launch
+                }
+                analyzer.analyze(imageProxy)
+            } catch (error: CancellationException) {
+                imageProxy.close()
+                throw error
+            } catch (error: Throwable) {
+                Log.e(TAG, "Currency preview frame failed", error)
+                imageProxy.close()
+            } finally {
+                isProcessingCurrencyPreview.set(false)
+            }
+        }
     }
 
     private fun processObjectDetectionImageProxy(imageProxy: ImageProxy) {
@@ -517,6 +549,19 @@ class CameraViewModel(
 
     private fun resetCurrencyAnnouncementDebounce() {
         lastCurrencyAnnouncement.set("")
+        lastCurrencyNoDetectionAtMs.set(0L)
+    }
+
+    private fun maybeSpeakNoCurrencyDetected() {
+        val now = System.currentTimeMillis()
+        if (now - lastCurrencyNoDetectionAtMs.get() < CURRENCY_NO_DETECTION_REPEAT_MS) return
+
+        lastCurrencyNoDetectionAtMs.set(now)
+        ttsService.speak(
+            cameraText.noCurrencyDetected,
+            TtsService.Priority.NORMAL,
+            appLanguage.get().ttsLocale
+        )
     }
 
     private fun maybeSpeakObjectDetection(
@@ -895,6 +940,11 @@ class CameraViewModel(
             )
         }
         hapticService.loading()
+        ttsService.speak(
+            cameraText.processingCurrencyImage,
+            TtsService.Priority.NORMAL,
+            appLanguage.get().ttsLocale
+        )
     }
 
     fun processCapturedCurrencyImage(imageProxy: ImageProxy) {
@@ -1362,6 +1412,7 @@ class CameraViewModel(
         val currencyDetectedStatusTemplate: String,
         val currencyDebugTemplate: String,
         val currencyDebugWaiting: String,
+        val noCurrencyDetected: String,
         val waitingForClearTextFrame: String,
         val waitingForSceneFrame: String,
         val waitingForClearMoneyImage: String,
@@ -1585,6 +1636,7 @@ class CameraViewModel(
                     currencyDetectedStatusTemplate = resources.getString(R.string.currency_detected_status),
                     currencyDebugTemplate = resources.getString(R.string.camera_vm_currency_debug_template),
                     currencyDebugWaiting = resources.getString(R.string.camera_vm_currency_debug_waiting),
+                    noCurrencyDetected = resources.getString(R.string.camera_vm_no_currency_detected),
                     waitingForClearTextFrame = resources.getString(R.string.camera_vm_waiting_for_clear_text_frame),
                     waitingForSceneFrame = resources.getString(R.string.camera_vm_waiting_for_scene_frame),
                     waitingForClearMoneyImage = resources.getString(R.string.camera_vm_waiting_for_clear_money_image),
@@ -1650,8 +1702,10 @@ class CameraViewModel(
         private const val OCR_GUIDANCE_INTERVAL_MS = 700L
         private const val OCR_GUIDANCE_SPEECH_INTERVAL_MS = 4_000L
         private const val OBJECT_DETECTION_INTERVAL_MS = 1_000L
+        private const val CURRENCY_PREVIEW_INTERVAL_MS = 1_500L
         private const val OBJECT_ANNOUNCEMENT_INTERVAL_MS = 3_000L
         private const val OBJECT_ANNOUNCEMENT_REPEAT_MS = 6_000L
+        private const val CURRENCY_NO_DETECTION_REPEAT_MS = 10_000L
         private const val OCR_GUIDANCE_STABLE_CENTER_DELTA = 0.12f
         private const val OCR_GUIDANCE_STABLE_AREA_DELTA = 0.15f
         private val VIETNAMESE_LOCALE: Locale = Locale.Builder().setLanguage("vi").setRegion("VN").build()
