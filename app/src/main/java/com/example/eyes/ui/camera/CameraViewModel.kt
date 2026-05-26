@@ -152,9 +152,7 @@ class CameraViewModel(
     init {
         viewModelScope.launch {
             dataStoreManager.appLanguageFlow.collect { language ->
-                val previousText = cameraText
-                appLanguage.set(language)
-                refreshLanguageBoundUiText(previousText, cameraText)
+                setAppLanguage(language)
             }
         }
         viewModelScope.launch {
@@ -196,6 +194,15 @@ class CameraViewModel(
             }
         }
         warmUpObjectDetectionModel()
+    }
+
+    fun setAppLanguage(language: AppLanguage) {
+        val previousLanguage = appLanguage.get()
+        if (previousLanguage == language) return
+
+        val previousText = cameraText
+        appLanguage.set(language)
+        refreshLanguageBoundUiText(previousText, cameraText)
     }
 
     private fun warmUpObjectDetectionModel() {

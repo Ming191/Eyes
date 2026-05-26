@@ -253,6 +253,7 @@ private fun MainNavigationScaffold(
                         CompositionLocalProvider(LocalBlindFocusRouteKey provides CameraRoute::class.qualifiedName.orEmpty()) {
                             CameraScreen(
                                 requestedMode = requestedCameraMode,
+                                appLanguage = appLanguage,
                                 onRequestedModeConsumed = viewModel::clearRequestedCameraMode
                             )
                         }
