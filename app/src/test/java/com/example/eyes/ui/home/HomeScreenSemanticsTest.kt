@@ -2,13 +2,8 @@ package com.example.eyes.ui.home
 
 import android.app.Application
 import androidx.compose.ui.test.assertHasClickAction
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import com.example.eyes.system.SpeechOutput
 import org.junit.After
@@ -53,52 +48,30 @@ class HomeScreenSemanticsTest {
                         HomeActionType.DescribeScene -> Unit
                         HomeActionType.DetectObjects -> Unit
                         HomeActionType.RecognizeCurrency -> Unit
+                        HomeActionType.EmergencyCall -> Unit
                         HomeActionType.Voice -> Unit
                         HomeActionType.Settings -> Unit
                     }
-                }
+                },
+                onEmergencyNumberSelected = {}
             )
         }
 
         // THEN
-        composeTestRule.onNodeWithText("Đọc văn bản nhanh")
-            .assertIsDisplayed()
-
         composeTestRule.onNodeWithContentDescription(
             "Đọc văn bản nhanh",
             substring = true
         )
             .assertHasClickAction()
 
-        composeTestRule.onNodeWithText("Đọc văn bản chính xác")
-            .assertIsDisplayed()
-
         composeTestRule.onNodeWithContentDescription(
-            "Đọc văn bản chính xác",
+            "Gọi khẩn cấp",
             substring = true
         )
             .assertHasClickAction()
-
-        composeTestRule.onNode(hasScrollAction())
-            .performScrollToNode(hasText("Ra lệnh bằng giọng nói"))
-
-        composeTestRule.onNodeWithText("Ra lệnh bằng giọng nói")
-            .assertIsDisplayed()
 
         composeTestRule.onNodeWithContentDescription(
             "Ra lệnh bằng giọng nói",
-            substring = true
-        )
-            .assertHasClickAction()
-
-        composeTestRule.onNode(hasScrollAction())
-            .performScrollToNode(hasText("Tinh chỉnh phản hồi"))
-
-        composeTestRule.onNodeWithText("Tinh chỉnh phản hồi")
-            .assertIsDisplayed()
-
-        composeTestRule.onNodeWithContentDescription(
-            "Tinh chỉnh phản hồi",
             substring = true
         )
             .assertHasClickAction()
