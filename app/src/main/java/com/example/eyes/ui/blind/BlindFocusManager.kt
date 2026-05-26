@@ -119,7 +119,13 @@ class BlindFocusManager(
     }
 
     fun focusAt(position: Offset) {
-        val index = activeItems().indexOfFirst { it.bounds.contains(position) }
+        val visibleItems = activeItems()
+        val index = visibleItems
+            .withIndex()
+            .filter { it.value.bounds.contains(position) }
+            .minByOrNull { it.value.bounds.width * it.value.bounds.height }
+            ?.index
+            ?: -1
         if (index < 0 || index == focusedIndex) return
 
         setFocus(index)
