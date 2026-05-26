@@ -16,6 +16,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -39,28 +40,43 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.eyes.R
+import com.example.eyes.system.SpeechOutput
+import com.example.eyes.ui.blind.BlindAction
+import com.example.eyes.ui.blind.BlindGestureLayer
+import com.example.eyes.ui.blind.LocalBlindFocusManager
+import com.example.eyes.ui.blind.LocalBlindFocusRouteKey
+import com.example.eyes.ui.blind.blindFocusable
 import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.camera.CameraScreen
 import com.example.eyes.ui.home.HomeScreen
 import com.example.eyes.ocr.OcrMode
 import com.example.eyes.ui.onboarding.OnboardingScreen
 import com.example.eyes.ui.settings.SettingsScreen
-import com.example.eyes.ui.voice.VoiceCommandScreen
+import org.koin.compose.koinInject
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun AppNavGraph(
-    viewModel: AppNavViewModel = koinViewModel()
+    viewModel: AppNavViewModel = koinViewModel(),
+    speechOutput: SpeechOutput = koinInject()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    when {
-        uiState.isLoading -> LoadingScreen()
-        uiState.onboardingCompleted -> MainNavigationScaffold(
-            viewModel = viewModel,
-            appLanguage = uiState.appLanguage
-        )
-        else -> OnboardingNavHost(onFinish = viewModel::completeOnboarding)
+    BlindGestureLayer(
+        speechOutput = speechOutput,
+        localeProvider = { uiState.appLanguage.ttsLocale },
+        noActionsLabel = stringResource(R.string.blind_gesture_no_actions),
+        layerDescription = stringResource(R.string.blind_gesture_layer_description),
+        focusOverlayDescription = stringResource(R.string.blind_focus_overlay_description)
+    ) {
+        when {
+            uiState.isLoading -> LoadingScreen()
+            uiState.onboardingCompleted -> MainNavigationScaffold(
+                viewModel = viewModel,
+                appLanguage = uiState.appLanguage
+            )
+            else -> OnboardingNavHost(onFinish = viewModel::completeOnboarding)
+        }
     }
 }
 
@@ -111,11 +127,19 @@ private fun MainNavigationScaffold(
         val currentSpokenText by viewModel.currentSpokenText.collectAsStateWithLifecycle(initialValue = null)
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentDestination = navBackStackEntry?.destination
+        val currentRouteKey = currentDestination?.route ?: HomeRoute::class.qualifiedName.orEmpty()
+        val blindFocusManager = LocalBlindFocusManager.current
         val announcedTopLevelDestination = currentDestination.toTopLevelDestinationOrNull()
         val currentTopLevelDestination = announcedTopLevelDestination ?: TopLevelDestination.HOME
         LaunchedEffect(announcedTopLevelDestination, appLanguage) {
             announcedTopLevelDestination?.let { destination ->
                 viewModel.announceScreen(destination, appLanguage)
+            }
+        }
+        LaunchedEffect(currentRouteKey) {
+            blindFocusManager?.setActiveRoute(currentRouteKey)
+            announcedTopLevelDestination?.let { destination ->
+                blindFocusManager?.focusItem("bottom_nav_${destination.name}")
             }
         }
         val currentTitle = stringResource(currentTopLevelDestination.titleRes)
@@ -166,7 +190,29 @@ private fun MainNavigationScaffold(
                             label = { Text(text = stringResource(destination.labelRes)) },
                             modifier = Modifier.semantics {
                                 stateDescription = if (isSelected) selectedDescription else unselectedDescription
-                            }
+                            }.blindFocusable(
+                                id = "bottom_nav_${destination.name}",
+                                label = stringResource(destination.labelRes),
+                                activateLabel = stringResource(destination.labelRes),
+                                onActivate = {
+                                    if (destination == TopLevelDestination.CAMERA) {
+                                        viewModel.requestOpenCamera(CameraMode.OBJECT_DETECTION)
+                                    }
+                                    navController.navigateToTopLevelDestination(destination)
+                                },
+                                actions = listOf(
+                                    BlindAction(
+                                        label = stringResource(destination.labelRes),
+                                        activateLabel = stringResource(destination.labelRes),
+                                        onActivate = {
+                                            if (destination == TopLevelDestination.CAMERA) {
+                                                viewModel.requestOpenCamera(CameraMode.OBJECT_DETECTION)
+                                            }
+                                            navController.navigateToTopLevelDestination(destination)
+                                        }
+                                    )
+                                )
+                            )
                         )
                     }
                 }
@@ -183,46 +229,39 @@ private fun MainNavigationScaffold(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     composable<HomeRoute> {
-                        HomeScreen(
-                            onOpenOcrQuick = {
-                                viewModel.requestOpenCameraOcr(OcrMode.QUICK)
-                                navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
-                            },
-                            onOpenOcrAccuracy = {
-                                viewModel.requestOpenCameraOcr(OcrMode.ACCURACY)
-                                navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
-                            },
-                            onOpenSettings = {
-                                navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
-                            },
-                            onOpenVoice = {
-                                navController.navigate(VoiceRoute) {
-                                    launchSingleTop = true
+                        CompositionLocalProvider(LocalBlindFocusRouteKey provides HomeRoute::class.qualifiedName.orEmpty()) {
+                            HomeScreen(
+                                onOpenOcrQuick = {
+                                    viewModel.requestOpenCameraOcr(OcrMode.QUICK)
+                                    navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
+                                },
+                                onOpenOcrAccuracy = {
+                                    viewModel.requestOpenCameraOcr(OcrMode.ACCURACY)
+                                    navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
+                                },
+                                onOpenCameraMode = { mode ->
+                                    viewModel.requestOpenCamera(mode)
+                                    navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
+                                },
+                                onOpenSettings = {
+                                    navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                     composable<CameraRoute> {
-                        CameraScreen(
-                            requestedMode = requestedCameraMode,
-                            onRequestedModeConsumed = viewModel::clearRequestedCameraMode
-                        )
+                        CompositionLocalProvider(LocalBlindFocusRouteKey provides CameraRoute::class.qualifiedName.orEmpty()) {
+                            CameraScreen(
+                                requestedMode = requestedCameraMode,
+                                appLanguage = appLanguage,
+                                onRequestedModeConsumed = viewModel::clearRequestedCameraMode
+                            )
+                        }
                     }
                     composable<SettingsRoute> {
-                        SettingsScreen()
-                    }
-                    composable<VoiceRoute> {
-                        VoiceCommandScreen(
-                            onNavigateToCamera = {
-                                navController.navigate(CameraRoute) {
-                                    popUpTo(HomeRoute) { saveState = true }
-                                    launchSingleTop = true
-                                }
-                            },
-                            onNavigateBackHome = {
-                                navController.popBackStack(HomeRoute, inclusive = false)
-                            }
-                        )
+                        CompositionLocalProvider(LocalBlindFocusRouteKey provides SettingsRoute::class.qualifiedName.orEmpty()) {
+                            SettingsScreen()
+                        }
                     }
                 }
                 SpeechSubtitle(

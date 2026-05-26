@@ -1,5 +1,6 @@
 ﻿package com.example.eyes.ui.voice
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.R
@@ -122,6 +123,29 @@ class VoiceCommandViewModel(
         sttService.stopListening()
     }
 
+    fun handleRecognizedText(text: String) {
+        val command = commandParser.parse(text, appLanguage)
+        _uiState.update {
+            it.copy(
+                sttState = SttState.Idle,
+                partialText = "",
+                finalText = text,
+                lastCommand = command
+            )
+        }
+        handleParsedCommand(command)
+    }
+
+    fun handleRecognitionCancelled() {
+        _uiState.update { it.copy(sttState = SttState.Error(SttErrorReason.NoMatch)) }
+        hapticService.error()
+    }
+
+    fun handleRecognitionUnavailable() {
+        _uiState.update { it.copy(sttState = SttState.Error(SttErrorReason.NotAvailable)) }
+        hapticService.error()
+    }
+
     fun toggleHelp() {
         _uiState.update { it.copy(helpExpanded = !it.helpExpanded) }
     }
@@ -233,7 +257,7 @@ class VoiceCommandViewModel(
 
     override fun onCleared() {
         super.onCleared()
-        sttService.release()
+        sttService.cancel()
     }
 
     private data class VoiceText(

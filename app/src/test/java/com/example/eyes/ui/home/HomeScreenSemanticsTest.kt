@@ -40,16 +40,23 @@ class HomeScreenSemanticsTest {
     @Test
     fun homeActions_haveAccessibleDescriptions_andClickActions() {
         // GIVEN
-        val viewModel = HomeViewModel(ApplicationProvider.getApplicationContext(), FakeSpeechOutput())
+        val viewModel = HomeViewModel(ApplicationProvider.getApplicationContext<Application>(), FakeSpeechOutput())
 
         // WHEN
         composeTestRule.setContent {
-            HomeScreen(
-                onOpenOcrQuick = {},
-                onOpenOcrAccuracy = {},
-                onOpenSettings = {},
-                onOpenVoice = {},
-                viewModel = viewModel
+            HomeContent(
+                uiState = viewModel.uiState.value,
+                onActionSelected = { action ->
+                    when (action) {
+                        HomeActionType.ReadTextQuick -> Unit
+                        HomeActionType.ReadTextAccuracy -> Unit
+                        HomeActionType.DescribeScene -> Unit
+                        HomeActionType.DetectObjects -> Unit
+                        HomeActionType.RecognizeCurrency -> Unit
+                        HomeActionType.Voice -> Unit
+                        HomeActionType.Settings -> Unit
+                    }
+                }
             )
         }
 

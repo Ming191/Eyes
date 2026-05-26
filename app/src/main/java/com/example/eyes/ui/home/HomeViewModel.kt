@@ -21,6 +21,9 @@ import kotlinx.coroutines.launch
 enum class HomeActionType {
     ReadTextQuick,
     ReadTextAccuracy,
+    DescribeScene,
+    DetectObjects,
+    RecognizeCurrency,
     Voice,
     Settings
 }
@@ -119,11 +122,25 @@ class HomeViewModel(
                 getString(R.string.home_action_read_quick_accessibility)
             ),
             HomeAction(
-                HomeActionType.ReadTextAccuracy,
-                getString(R.string.home_action_read_accuracy_title),
-                getString(R.string.home_action_read_accuracy_description),
-                getString(R.string.home_action_read_accuracy_supporting),
-                getString(R.string.home_action_read_accuracy_accessibility)
+                HomeActionType.DescribeScene,
+                getString(R.string.camera_mode_scene_description_label),
+                getString(R.string.camera_mode_scene_description_description),
+                getString(R.string.camera_mode_scene_description_label),
+                getString(R.string.camera_mode_scene_description_description)
+            ),
+            HomeAction(
+                HomeActionType.DetectObjects,
+                getString(R.string.camera_mode_object_detection_label),
+                getString(R.string.camera_mode_object_detection_description),
+                getString(R.string.camera_mode_object_detection_label),
+                getString(R.string.camera_mode_object_detection_description)
+            ),
+            HomeAction(
+                HomeActionType.RecognizeCurrency,
+                getString(R.string.camera_mode_currency_label),
+                getString(R.string.camera_mode_currency_description),
+                getString(R.string.camera_mode_currency_label),
+                getString(R.string.camera_mode_currency_description)
             ),
             HomeAction(
                 HomeActionType.Voice,
@@ -132,13 +149,6 @@ class HomeViewModel(
                 getString(R.string.home_action_voice_supporting),
                 getString(R.string.home_action_voice_accessibility)
             ),
-            HomeAction(
-                HomeActionType.Settings,
-                getString(R.string.home_action_settings_title),
-                getString(R.string.home_action_settings_description),
-                getString(R.string.home_action_settings_supporting),
-                getString(R.string.home_action_settings_accessibility)
-            )
         )
     )
 }

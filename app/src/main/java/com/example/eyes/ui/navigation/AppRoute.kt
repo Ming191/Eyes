@@ -21,9 +21,6 @@ data object CameraRoute
 @Serializable
 data object SettingsRoute
 
-@Serializable
-data object VoiceRoute
-
 enum class TopLevelDestination(
     @StringRes val titleRes: Int,
     @StringRes val labelRes: Int,

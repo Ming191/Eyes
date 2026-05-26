@@ -14,11 +14,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AttachMoney
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ImageSearch
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
@@ -37,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -54,13 +60,17 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.R
 import com.example.eyes.camera.CameraManager
+import com.example.eyes.i18n.AppLanguage
 import com.example.eyes.ocr.OcrMode
+import com.example.eyes.ui.blind.BlindAction
+import com.example.eyes.ui.blind.blindFocusable
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
 @Composable
 fun CameraScreen(
     requestedMode: CameraMode? = null,
+    appLanguage: AppLanguage = AppLanguage.VI,
     onRequestedModeConsumed: () -> Unit = {},
     viewModel: CameraViewModel = koinViewModel()
 ) {
@@ -76,7 +86,6 @@ fun CameraScreen(
     val ocrSwipeHint = stringResource(R.string.camera_ocr_swipe_hint)
     val captureAnotherDescription = stringResource(R.string.camera_capture_another_description)
     val captureAnotherText = stringResource(R.string.camera_capture_another_text)
-    val showStatusDescription = stringResource(R.string.camera_show_status_description)
     val canRetakeOcr = uiState.activeMode == CameraMode.OCR &&
         uiState.isOcrDocumentMode &&
         !uiState.isOcrScanning
@@ -87,8 +96,58 @@ fun CameraScreen(
         uiState.ocrCapturedBitmap != null &&
         !uiState.isCurrencyScanning
 
-    LaunchedEffect(requestedMode) {
+    fun prepareNextCaptureForActiveMode() {
+        when (uiState.activeMode) {
+            CameraMode.OCR -> viewModel.prepareForNextOcrCapture()
+            CameraMode.SCENE_DESCRIPTION -> viewModel.prepareForNextSceneCapture()
+            CameraMode.CURRENCY -> viewModel.prepareForNextCurrencyCapture()
+            CameraMode.OBJECT_DETECTION -> Unit
+        }
+    }
+
+    fun captureCurrentModeIfReady() {
+        when (uiState.activeMode) {
+            CameraMode.OCR -> {
+                if (!uiState.isOcrScanning && !uiState.isOcrDocumentMode && uiState.ocrCapturedBitmap == null) {
+                    viewModel.onOcrCaptureRequested()
+                    cameraManager.takePictureAfterCenterFocus(
+                        onCaptured = viewModel::processCapturedOcrImage,
+                        onError = { viewModel.onOcrCaptureError() }
+                    )
+                }
+            }
+
+            CameraMode.SCENE_DESCRIPTION -> {
+                if (!uiState.isDescribingScene && uiState.ocrCapturedBitmap == null) {
+                    viewModel.onSceneCaptureRequested()
+                    cameraManager.takePictureAfterCenterFocus(
+                        onCaptured = viewModel::processCapturedSceneImage,
+                        onError = { viewModel.onSceneCaptureError() }
+                    )
+                }
+            }
+
+            CameraMode.CURRENCY -> {
+                if (!uiState.isCurrencyScanning && uiState.ocrCapturedBitmap == null) {
+                    viewModel.onCurrencyCaptureRequested()
+                    cameraManager.takePictureAfterCenterFocus(
+                        onCaptured = viewModel::processCapturedCurrencyImage,
+                        onError = { viewModel.onCurrencyCaptureError() }
+                    )
+                }
+            }
+
+            CameraMode.OBJECT_DETECTION -> Unit
+        }
+    }
+
+    LaunchedEffect(appLanguage) {
+        viewModel.setAppLanguage(appLanguage)
+    }
+
+    LaunchedEffect(requestedMode, appLanguage) {
         if (requestedMode != null) {
+            viewModel.setAppLanguage(appLanguage)
             viewModel.selectMode(requestedMode)
             onRequestedModeConsumed()
         }
@@ -112,42 +171,7 @@ fun CameraScreen(
             ) {
                 detectTapGestures(
                     onDoubleTap = {
-                        when (uiState.activeMode) {
-                            CameraMode.OCR -> {
-                                if (!uiState.isOcrScanning &&
-                                    !uiState.isOcrDocumentMode &&
-                                    uiState.ocrCapturedBitmap == null
-                                ) {
-                                    viewModel.onOcrCaptureRequested()
-                                    cameraManager.takePictureAfterCenterFocus(
-                                        onCaptured = viewModel::processCapturedOcrImage,
-                                        onError = { viewModel.onOcrCaptureError() }
-                                    )
-                                }
-                            }
-
-                            CameraMode.SCENE_DESCRIPTION -> {
-                                if (!uiState.isDescribingScene && uiState.ocrCapturedBitmap == null) {
-                                    viewModel.onSceneCaptureRequested()
-                                    cameraManager.takePictureAfterCenterFocus(
-                                        onCaptured = viewModel::processCapturedSceneImage,
-                                        onError = { viewModel.onSceneCaptureError() }
-                                    )
-                                }
-                            }
-
-                            CameraMode.CURRENCY -> {
-                                if (!uiState.isCurrencyScanning && uiState.ocrCapturedBitmap == null) {
-                                    viewModel.onCurrencyCaptureRequested()
-                                    cameraManager.takePictureAfterCenterFocus(
-                                        onCaptured = viewModel::processCapturedCurrencyImage,
-                                        onError = { viewModel.onCurrencyCaptureError() }
-                                    )
-                                }
-                            }
-
-                            CameraMode.OBJECT_DETECTION -> Unit
-                        }
+                        captureCurrentModeIfReady()
                     }
                 )
             }
@@ -179,7 +203,15 @@ fun CameraScreen(
             }
             .semantics {
                 contentDescription = screenDescription
-            },
+            }
+            .blindFocusable(
+                id = "camera_viewfinder",
+                label = screenDescription,
+                onActivate = { captureCurrentModeIfReady() },
+                actions = listOf(
+                    BlindAction(label = captureAnotherDescription, onActivate = { captureCurrentModeIfReady() })
+                )
+            ),
         contentAlignment = Alignment.Center
     ) {
         AndroidView(
@@ -218,26 +250,6 @@ fun CameraScreen(
                 modifier = Modifier.fillMaxSize()
             )
         }
-        if (uiState.activeMode == CameraMode.CURRENCY) {
-            CurrencyResultOverlay(
-                display = uiState.currencyDisplay,
-                confidence = uiState.currencyConfidence,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 16.dp, vertical = 212.dp)
-            )
-        }
-
-        if (uiState.isStatusCardVisible) {
-            CameraStatusPanel(
-                uiState = uiState,
-                onDismiss = viewModel::toggleStatusCardVisibility,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            )
-        }
-
         CameraModeSelector(
             mode = uiState.activeMode,
             onModeSelected = viewModel::selectMode,
@@ -300,35 +312,22 @@ fun CameraScreen(
 
         if (canRetakeOcr || canRetakeScene || canRetakeCurrency) {
             Button(
-                onClick = {
-                    when (uiState.activeMode) {
-                        CameraMode.OCR -> viewModel.prepareForNextOcrCapture()
-                        CameraMode.SCENE_DESCRIPTION -> viewModel.prepareForNextSceneCapture()
-                        CameraMode.CURRENCY -> viewModel.prepareForNextCurrencyCapture()
-                        CameraMode.OBJECT_DETECTION -> Unit
-                    }
-                },
+                onClick = ::prepareNextCaptureForActiveMode,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .heightIn(min = 88.dp)
                     .padding(bottom = 164.dp)
                     .semantics { contentDescription = captureAnotherDescription }
+                    .blindFocusable(
+                        id = "camera_capture_another",
+                        label = captureAnotherDescription,
+                        onActivate = ::prepareNextCaptureForActiveMode
+                    )
             ) {
                 Text(captureAnotherText)
             }
         }
 
-        if (!uiState.isStatusCardVisible) {
-            FilledTonalIconButton(
-                onClick = viewModel::toggleStatusCardVisibility,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(16.dp)
-                    .semantics { contentDescription = showStatusDescription }
-            ) {
-                Icon(imageVector = Icons.Rounded.Info, contentDescription = null)
-            }
-        }
     }
 }
 
@@ -343,50 +342,58 @@ private fun CameraModeSelector(
     val selectorDescription = stringResource(R.string.camera_mode_selector_description)
     val selectedDescription = stringResource(R.string.camera_selected_description)
     val unselectedDescription = stringResource(R.string.camera_unselected_description)
-    Surface(
+    SingleChoiceSegmentedButtonRow(
         modifier = modifier
             .fillMaxWidth()
             .semantics(mergeDescendants = true) {
                 contentDescription = selectorDescription
-            },
-        shape = MaterialTheme.shapes.large,
-        tonalElevation = 4.dp,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
-    ) {
-        SingleChoiceSegmentedButtonRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-        ) {
-            modes.forEachIndexed { index, item ->
-                val selected = item == mode
-                val itemLabel = item.localizedLabel()
-                val itemDescription = item.localizedDescription()
-                SegmentedButton(
-                    selected = selected,
-                    onClick = { onModeSelected(item) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 48.dp)
-                        .semantics {
-                            contentDescription = itemDescription
-                            stateDescription = if (selected) selectedDescription else unselectedDescription
-                        },
-                    icon = {},
-                    label = {
-                        Text(
-                            text = itemLabel,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                )
             }
+    ) {
+        modes.forEachIndexed { index, item ->
+            val selected = item == mode
+            val itemDescription = item.localizedDescription()
+            SegmentedButton(
+                selected = selected,
+                onClick = { onModeSelected(item) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = MaterialTheme.colorScheme.primary,
+                    activeContentColor = MaterialTheme.colorScheme.onPrimary,
+                    inactiveContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    inactiveContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    activeBorderColor = MaterialTheme.colorScheme.primary,
+                    inactiveBorderColor = MaterialTheme.colorScheme.secondaryContainer
+                ),
+                modifier = Modifier
+                .weight(1f)
+                .heightIn(min = 72.dp)
+                .semantics {
+                    contentDescription = itemDescription
+                    stateDescription = if (selected) selectedDescription else unselectedDescription
+                }
+                .blindFocusable(
+                    id = "camera_mode_${item.name}",
+                    label = itemDescription,
+                    onActivate = { onModeSelected(item) }
+                ),
+                icon = {},
+                label = {
+                    Icon(
+                        imageVector = item.icon(),
+                        contentDescription = null,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            )
         }
     }
+}
+
+private fun CameraMode.icon(): ImageVector = when (this) {
+    CameraMode.OCR -> Icons.Rounded.TextFields
+    CameraMode.SCENE_DESCRIPTION -> Icons.Rounded.ImageSearch
+    CameraMode.OBJECT_DETECTION -> Icons.Rounded.Visibility
+    CameraMode.CURRENCY -> Icons.Rounded.AttachMoney
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -429,7 +436,12 @@ private fun OcrEngineModeSelector(
                         .semantics {
                             contentDescription = if (item == OcrMode.QUICK) quickDescription else accurateDescription
                             stateDescription = if (selected) selectedDescription else unselectedDescription
-                        },
+                        }
+                        .blindFocusable(
+                            id = "camera_ocr_mode_${item.name}",
+                            label = if (item == OcrMode.QUICK) quickDescription else accurateDescription,
+                            onActivate = { onModeSelected(item) }
+                        ),
                     icon = {},
                     label = {
                         Text(
@@ -440,59 +452,6 @@ private fun OcrEngineModeSelector(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CurrencyResultOverlay(
-    display: String,
-    confidence: Float,
-    modifier: Modifier = Modifier
-) {
-    val hasResult = display.isNotBlank()
-    val confidencePercent = (confidence * 100f).toInt().coerceIn(0, 100)
-    val overlayDescription = stringResource(R.string.currency_overlay_content_description)
-    val instruction = stringResource(R.string.currency_instruction)
-    val resultDescription = stringResource(
-        R.string.currency_overlay_result_content_description,
-        display,
-        confidencePercent
-    )
-    val confidenceLabel = stringResource(R.string.currency_overlay_confidence_text, confidencePercent)
-
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .semantics(mergeDescendants = true) {
-                contentDescription = if (hasResult) resultDescription else overlayDescription
-                liveRegion = LiveRegionMode.Polite
-            },
-        shape = MaterialTheme.shapes.large,
-        tonalElevation = 4.dp,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = if (hasResult) display else instruction,
-                style = if (hasResult) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.semantics {
-                    contentDescription = if (hasResult) resultDescription else instruction
-                }
-            )
-            if (hasResult) {
-                Text(
-                    text = confidenceLabel,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.semantics { contentDescription = confidenceLabel }
                 )
             }
         }
@@ -516,7 +475,15 @@ private fun CameraStatusPanel(
                 contentDescription = panelDescription
                 stateDescription = "${uiState.title}. ${uiState.statusMessage}. ${uiState.lastAnnouncement}."
                 liveRegion = LiveRegionMode.Polite
-            },
+            }
+            .blindFocusable(
+                id = "camera_status_panel",
+                label = "${uiState.title}. ${uiState.statusMessage}. ${uiState.lastAnnouncement}.",
+                onActivate = {},
+                actions = listOf(
+                    BlindAction(label = hideStatusDescription, onActivate = { onDismiss() })
+                )
+            ),
         shape = MaterialTheme.shapes.large,
         tonalElevation = 4.dp,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
@@ -546,7 +513,13 @@ private fun CameraStatusPanel(
                 Spacer(modifier = Modifier.width(12.dp))
                 FilledTonalIconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.semantics { contentDescription = hideStatusDescription }
+                    modifier = Modifier
+                        .semantics { contentDescription = hideStatusDescription }
+                        .blindFocusable(
+                            id = "camera_hide_status",
+                            label = hideStatusDescription,
+                            onActivate = onDismiss
+                        )
                 ) {
                     Icon(imageVector = Icons.Rounded.Close, contentDescription = null)
                 }

@@ -27,37 +27,38 @@ class CommandParser {
             return VoiceCommand.Unknown(original)
         }
 
-        // Priority 1: Stop
-        val keywords = KeywordSet.forLanguage(language)
+        // Accept both Vietnamese and English keywords because device speech engines can return
+        // mixed-language text even when app language is fixed.
+        val keywordSets = KeywordSet.forLanguage(language).withFallbacks()
 
-        if (containsAny(normalized, keywords.stop)) {
+        if (keywordSets.any { containsAny(normalized, it.stop) }) {
             return VoiceCommand.Stop
         }
 
         // Priority 2: removed navigation commands
-        if (keywords.navigateRegex.containsMatchIn(normalized)) return VoiceCommand.Unknown(original)
+        if (keywordSets.any { it.navigateRegex.containsMatchIn(normalized) }) return VoiceCommand.Unknown(original)
 
         // Priority 3: Help
-        if (containsAny(normalized, keywords.help)) {
+        if (keywordSets.any { containsAny(normalized, it.help) }) {
             return VoiceCommand.Help
         }
 
         // Priority 4: Repeat
-        if (containsAny(normalized, keywords.repeat)) {
+        if (keywordSets.any { containsAny(normalized, it.repeat) }) {
             return VoiceCommand.Repeat
         }
 
         // Priority 5: feature commands (any order)
-        if (containsAny(normalized, keywords.readText)) {
+        if (keywordSets.any { containsAny(normalized, it.readText) }) {
             return VoiceCommand.ReadText
         }
-        if (containsAny(normalized, keywords.describeScene)) {
+        if (keywordSets.any { containsAny(normalized, it.describeScene) }) {
             return VoiceCommand.DescribeScene
         }
-        if (containsAny(normalized, keywords.recognizeCurrency)) {
+        if (keywordSets.any { containsAny(normalized, it.recognizeCurrency) }) {
             return VoiceCommand.RecognizeCurrency
         }
-        if (containsAny(normalized, keywords.detectObstacle)) return VoiceCommand.Unknown(original)
+        if (keywordSets.any { containsAny(normalized, it.detectObstacle) }) return VoiceCommand.Unknown(original)
 
         return VoiceCommand.Unknown(original)
     }
@@ -94,6 +95,12 @@ class CommandParser {
                     AppLanguage.EN -> EN_KEYWORDS
                 }
             }
+        }
+
+        private fun KeywordSet.withFallbacks(): List<KeywordSet> = when (this) {
+            VI_KEYWORDS -> listOf(VI_KEYWORDS, EN_KEYWORDS)
+            EN_KEYWORDS -> listOf(EN_KEYWORDS, VI_KEYWORDS)
+            else -> listOf(this, VI_KEYWORDS, EN_KEYWORDS)
         }
 
         // Stop is checked first; "dừng" alone is enough.
@@ -139,6 +146,7 @@ class CommandParser {
             ),
 
             readText = listOf(
+            "đọc",
             "đọc giúp",
             "đọc cho",
             "đọc văn bản",
@@ -149,6 +157,7 @@ class CommandParser {
             ),
 
             describeScene = listOf(
+            "cảnh",
             "trước mặt có gì",
             "phía trước có gì",
             "mô tả",
@@ -158,12 +167,20 @@ class CommandParser {
             ),
 
             recognizeCurrency = listOf(
+            "tiền",
+            "tien",
             "tờ tiền",
+            "to tien",
             "tiền này",
+            "tien nay",
             "mệnh giá",
+            "menh gia",
             "bao nhiêu tiền",
+            "bao nhieu tien",
             "nhận diện tiền",
+            "nhan dien tien",
             "tiền bao nhiêu"
+            ,"tien bao nhieu"
             ),
 
             detectObstacle = listOf(

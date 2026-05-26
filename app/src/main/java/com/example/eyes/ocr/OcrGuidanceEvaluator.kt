@@ -1,4 +1,4 @@
-﻿package com.example.eyes.ocr
+package com.example.eyes.ocr
 
 object OcrGuidanceEvaluator {
     private const val MIN_TEXT_COVERAGE = 0.06f
@@ -148,3 +148,18 @@ object OcrGuidanceEvaluator {
         textBounds = textBounds
     )
 }
+
+data class OcrGuidanceText(
+    val searching: String = "",
+    val tooDark: String = "",
+    val tooBright: String = "",
+    val moveCloser: String = "",
+    val moveBack: String = "",
+    val textClipped: String = "",
+    val moveLeft: String = "",
+    val moveRight: String = "",
+    val moveUp: String = "",
+    val moveDown: String = "",
+    val ready: String = "",
+    val holdSteady: String = ""
+)
