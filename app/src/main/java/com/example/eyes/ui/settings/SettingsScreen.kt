@@ -149,7 +149,10 @@ private fun LanguageCard(
                     )
                     RadioButton(
                         selected = selectedLanguage == language,
-                        onClick = { onLanguageSelected(language) }
+                        onClick = { onLanguageSelected(language) },
+                        modifier = Modifier.semantics {
+                            contentDescription = optionDescription
+                        }
                     )
                 }
             }
