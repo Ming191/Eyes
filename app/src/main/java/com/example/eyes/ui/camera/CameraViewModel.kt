@@ -12,6 +12,9 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.R
+import com.example.eyes.application.ports.ObjectDetectorPort
+import com.example.eyes.application.ports.OcrEnginePort
+import com.example.eyes.application.ports.OcrTranslatorPort
 import com.example.eyes.application.scene.DescribeSceneUseCase
 import com.example.eyes.camera.CurrencyAnalyzer
 import com.example.eyes.camera.toBitmapWithRotation
@@ -22,7 +25,6 @@ import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.i18n.LocalizedTextProvider
 import com.example.eyes.ocr.MlKitOcrGuidanceAnalyzer
-import com.example.eyes.ocr.OcrEngine
 import com.example.eyes.ocr.OcrGuidanceEvaluator
 import com.example.eyes.ocr.OcrGuidanceEvaluator.OcrGuidanceText
 import com.example.eyes.ocr.OcrGuidanceStatus
@@ -30,8 +32,6 @@ import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.ocr.OcrPostProcessor
 import com.example.eyes.ocr.OcrResult
 import com.example.eyes.ocr.OcrTextBounds
-import com.example.eyes.ocr.OcrTranslator
-import com.example.eyes.objectdetection.ObjectDetector
 import com.example.eyes.objectdetection.localizedText
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
@@ -108,16 +108,16 @@ private data class OcrRecognitionOutcome(
 )
 
 class CameraViewModel(
-    private val quickOcrEngine: OcrEngine,
-    private val accuracyOcrEngine: OcrEngine,
+    private val quickOcrEngine: OcrEnginePort,
+    private val accuracyOcrEngine: OcrEnginePort,
     private val ocrGuidanceAnalyzer: MlKitOcrGuidanceAnalyzer,
-    private val translator: OcrTranslator,
+    private val translator: OcrTranslatorPort,
     private val ttsService: TtsService,
     private val hapticService: HapticService,
     private val dataStoreManager: DataStoreManager,
     private val voiceCommandRepository: VoiceCommandRepository,
     private val describeSceneUseCase: DescribeSceneUseCase,
-    private val objectDetector: ObjectDetector,
+    private val objectDetector: ObjectDetectorPort,
     private val audioManager: AudioManager,
     private val localizedTextProvider: LocalizedTextProvider
 ) : ViewModel() {

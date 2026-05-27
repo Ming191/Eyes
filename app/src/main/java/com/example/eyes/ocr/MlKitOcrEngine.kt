@@ -3,6 +3,7 @@ package com.example.eyes.ocr
 import android.graphics.Bitmap
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageProxy
+import com.example.eyes.application.ports.OcrEnginePort
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -10,7 +11,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
-class MlKitOcrEngine : OcrEngine {
+class MlKitOcrEngine : OcrEnginePort {
 
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 

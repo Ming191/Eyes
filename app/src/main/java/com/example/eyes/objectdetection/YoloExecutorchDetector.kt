@@ -2,6 +2,7 @@ package com.example.eyes.objectdetection
 
 import android.graphics.Bitmap
 import android.util.Log
+import com.example.eyes.application.ports.ObjectDetectorPort
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,7 +14,7 @@ class YoloExecutorchDetector(
     private val inputSize: Int = DEFAULT_INPUT_SIZE,
     private val preprocessor: YoloPreprocessor = YoloPreprocessor(inputSize),
     private val postprocessor: YoloPostprocessor = YoloPostprocessor(inputSize = inputSize)
-) : ObjectDetector {
+) : ObjectDetectorPort {
 
     override suspend fun inspectOutputShape(): List<YoloOutputInfo> = withContext(Dispatchers.Default) {
         val input = FloatArray(1 * CHANNELS * inputSize * inputSize)

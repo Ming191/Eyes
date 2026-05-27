@@ -1,13 +1,14 @@
 ﻿package com.example.eyes.ocr
 
 import com.example.eyes.BuildConfig
+import com.example.eyes.application.ports.OcrTranslatorPort
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
-class GptTranslationEngine : OcrTranslator {
+class GptTranslationEngine : OcrTranslatorPort {
     private val httpClient = OpenAiResponsesHttpClient()
     private val json = Json { ignoreUnknownKeys = true }
 

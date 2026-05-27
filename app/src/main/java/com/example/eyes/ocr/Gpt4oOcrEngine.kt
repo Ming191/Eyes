@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.util.Base64
 import androidx.camera.core.ImageProxy
 import com.example.eyes.BuildConfig
+import com.example.eyes.application.ports.OcrEnginePort
 import com.example.eyes.camera.toBitmapWithRotation
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -12,7 +13,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
-class Gpt4oOcrEngine : OcrEngine {
+class Gpt4oOcrEngine : OcrEnginePort {
     private val httpClient = OpenAiResponsesHttpClient()
     private val json = Json { ignoreUnknownKeys = true }
 

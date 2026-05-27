@@ -11,6 +11,9 @@ import com.example.eyes.application.navigation.CompleteOnboardingUseCase
 import com.example.eyes.application.navigation.ObserveAppNavStateUseCase
 import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
 import com.example.eyes.application.navigation.UpdateAppLanguageUseCase
+import com.example.eyes.application.ports.ObjectDetectorPort
+import com.example.eyes.application.ports.OcrEnginePort
+import com.example.eyes.application.ports.OcrTranslatorPort
 import com.example.eyes.application.scene.DescribeSceneUseCase
 import com.example.eyes.application.settings.ObserveSettingsUseCase
 import com.example.eyes.application.settings.UpdateSettingsUseCase
@@ -35,12 +38,9 @@ import com.example.eyes.ocr.Gpt4oOcrEngine
 import com.example.eyes.ocr.GptTranslationEngine
 import com.example.eyes.ocr.MlKitOcrEngine
 import com.example.eyes.ocr.MlKitOcrGuidanceAnalyzer
-import com.example.eyes.ocr.OcrEngine
-import com.example.eyes.ocr.OcrTranslator
 import com.example.eyes.data.remote.SceneDescriptionEngine
 import com.example.eyes.data.remote.SceneRepository
 import com.example.eyes.objectdetection.ExecutorchModelAssetCopier
-import com.example.eyes.objectdetection.ObjectDetector
 import com.example.eyes.objectdetection.YoloExecutorchDetector
 import com.example.eyes.objectdetection.YoloExecutorchModelLoader
 import com.example.eyes.system.HapticService
@@ -91,14 +91,14 @@ val appModule = module {
     factory { SetCameraOcrModeUseCase(get()) }
     factory { AnnounceDestinationUseCase(get(), get()) }
     factory { HandleVoiceCommandUseCase(get(), get(), get()) }
-    factory<OcrEngine>(named("quick-ocr")) { MlKitOcrEngine() }
-    factory<OcrEngine>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
+    factory<OcrEnginePort>(named("quick-ocr")) { MlKitOcrEngine() }
+    factory<OcrEnginePort>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
     factory { MlKitOcrGuidanceAnalyzer() }
-    factory<OcrTranslator> { GptTranslationEngine() }
+    factory<OcrTranslatorPort> { GptTranslationEngine() }
     single { ExecutorchModelAssetCopier(androidContext()) }
     single { YoloExecutorchModelLoader(get()) }
     single { YoloExecutorchDetector(get()) }
-    single<ObjectDetector> { get<YoloExecutorchDetector>() }
+    single<ObjectDetectorPort> { get<YoloExecutorchDetector>() }
     single<SceneDescriptionEngine> { Gpt4oSceneDescriptionEngine() }
     single { SceneRepository(get(), get()) }
     single<SceneDescriptionRepository> { SceneRepositorySceneDescriptionRepository(get()) }
