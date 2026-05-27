@@ -7,7 +7,6 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.example.eyes.domain.settings.SettingsRepository
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.i18n.AppLanguage
 import com.example.eyes.ocr.OcrMode
@@ -17,7 +16,7 @@ import java.util.Locale
 
 private val Context.dataStore by preferencesDataStore(name = "user_settings")
 
-class DataStoreManager(private val context: Context) : SettingsRepository {
+class DataStoreManager(private val context: Context) {
 
     private object PreferenceKeys {
         val TtsSpeed = floatPreferencesKey("tts_speed")
@@ -30,11 +29,11 @@ class DataStoreManager(private val context: Context) : SettingsRepository {
         val VoiceGuideEnabled = booleanPreferencesKey("voice_guide_enabled")
     }
 
-    override val ttsSpeedFlow: Flow<Float> = context.dataStore.data.map { preferences: Preferences ->
+    val ttsSpeedFlow: Flow<Float> = context.dataStore.data.map { preferences: Preferences ->
         preferences[PreferenceKeys.TtsSpeed] ?: 1.0f
     }
 
-    override val alertSensitivityFlow: Flow<Float> =
+    val alertSensitivityFlow: Flow<Float> =
         context.dataStore.data.map { preferences: Preferences ->
             preferences[PreferenceKeys.AlertSensitivity] ?: 0.5f
         }
@@ -50,7 +49,7 @@ class DataStoreManager(private val context: Context) : SettingsRepository {
             .getOrDefault(OcrMode.QUICK)
     }
 
-    override val ocrTranslateToVietnameseFlow: Flow<Boolean> = context.dataStore.data.map { preferences: Preferences ->
+    val ocrTranslateToVietnameseFlow: Flow<Boolean> = context.dataStore.data.map { preferences: Preferences ->
         preferences[PreferenceKeys.OcrTranslateToVietnamese] ?: false
     }
 
@@ -59,16 +58,16 @@ class DataStoreManager(private val context: Context) : SettingsRepository {
             preferences[PreferenceKeys.LastVoiceCommand]?.let(::decodeVoiceCommand)
         }
 
-    override val appLanguageFlow: Flow<AppLanguage> = context.dataStore.data.map { preferences: Preferences ->
+    val appLanguageFlow: Flow<AppLanguage> = context.dataStore.data.map { preferences: Preferences ->
         preferences[PreferenceKeys.AppLanguage]?.let(AppLanguage::fromStorageValue)
             ?: AppLanguage.fromLocale(Locale.getDefault())
     }
 
-    override val voiceGuideEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences: Preferences ->
+    val voiceGuideEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences: Preferences ->
         preferences[PreferenceKeys.VoiceGuideEnabled] ?: true
     }
 
-    override suspend fun setTtsSpeed(value: Float) {
+    suspend fun setTtsSpeed(value: Float) {
         context.dataStore.edit { preferences -> preferences[PreferenceKeys.TtsSpeed] = value }
     }
 
@@ -80,7 +79,7 @@ class DataStoreManager(private val context: Context) : SettingsRepository {
         context.dataStore.edit { preferences -> preferences[PreferenceKeys.OcrMode] = mode.name }
     }
 
-    override suspend fun setOcrTranslateToVietnamese(enabled: Boolean) {
+    suspend fun setOcrTranslateToVietnamese(enabled: Boolean) {
         context.dataStore.edit { preferences -> preferences[PreferenceKeys.OcrTranslateToVietnamese] = enabled }
     }
 
@@ -92,7 +91,7 @@ class DataStoreManager(private val context: Context) : SettingsRepository {
         context.dataStore.edit { preferences -> preferences.remove(PreferenceKeys.LastVoiceCommand) }
     }
 
-    override suspend fun setAppLanguage(language: AppLanguage) {
+    suspend fun setAppLanguage(language: AppLanguage) {
         context.dataStore.edit { preferences -> preferences[PreferenceKeys.AppLanguage] = language.storageValue }
     }
 

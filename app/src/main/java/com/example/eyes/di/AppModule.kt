@@ -15,6 +15,7 @@ import com.example.eyes.application.settings.UpdateSettingsUseCase
 import com.example.eyes.application.voice.HandleVoiceCommandUseCase
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.data.DataStoreManager
+import com.example.eyes.data.settings.DataStoreSettingsRepository
 import com.example.eyes.domain.settings.SettingsRepository
 import com.example.eyes.domain.voice.CommandParser
 import com.example.eyes.data.remote.Gpt4oSceneDescriptionEngine
@@ -62,7 +63,7 @@ val appModule = module {
     single<AnnouncementController> { DefaultAnnouncementController(get<DataStoreManager>().voiceGuideEnabledFlow, get(), get(), get()) }
     single { HapticService(androidContext()) }
     single { DataStoreManager(androidContext()) }
-    single<SettingsRepository> { get<DataStoreManager>() }
+    single<SettingsRepository> { DataStoreSettingsRepository(get()) }
     factory { ObserveSettingsUseCase(get()) }
     factory { UpdateSettingsUseCase(get(), get()) }
     single { CameraManager(androidContext()) }
