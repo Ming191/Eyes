@@ -11,6 +11,9 @@ import com.example.eyes.application.navigation.CompleteOnboardingUseCase
 import com.example.eyes.application.navigation.ObserveAppNavStateUseCase
 import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
 import com.example.eyes.application.navigation.UpdateAppLanguageUseCase
+import com.example.eyes.application.objectdetection.DetectObjectsUseCase
+import com.example.eyes.application.objectdetection.WarmUpObjectDetectionUseCase
+import com.example.eyes.application.ocr.RecognizeOcrDocumentUseCase
 import com.example.eyes.application.ports.ObjectDetectorPort
 import com.example.eyes.application.ports.OcrEnginePort
 import com.example.eyes.application.ports.OcrTranslatorPort
@@ -95,10 +98,13 @@ val appModule = module {
     factory<OcrEnginePort>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
     factory { MlKitOcrGuidanceAnalyzer() }
     factory<OcrTranslatorPort> { GptTranslationEngine() }
+    factory { RecognizeOcrDocumentUseCase(get(named("quick-ocr")), get(named("accuracy-ocr")), get()) }
     single { ExecutorchModelAssetCopier(androidContext()) }
     single { YoloExecutorchModelLoader(get()) }
     single { YoloExecutorchDetector(get()) }
     single<ObjectDetectorPort> { get<YoloExecutorchDetector>() }
+    factory { DetectObjectsUseCase(get()) }
+    factory { WarmUpObjectDetectionUseCase(get()) }
     single<SceneDescriptionEngine> { Gpt4oSceneDescriptionEngine() }
     single { SceneRepository(get(), get()) }
     single<SceneDescriptionRepository> { SceneRepositorySceneDescriptionRepository(get()) }
@@ -123,16 +129,15 @@ val appModule = module {
     }
     viewModel {
         CameraViewModel(
-            quickOcrEngine = get(named("quick-ocr")),
-            accuracyOcrEngine = get(named("accuracy-ocr")),
+            recognizeOcrDocumentUseCase = get(),
             ocrGuidanceAnalyzer = get(),
-            translator = get(),
             ttsService = get(),
             hapticService = get(),
             dataStoreManager = get(),
             voiceCommandRepository = get(),
             describeSceneUseCase = get(),
-            objectDetector = get(),
+            detectObjectsUseCase = get(),
+            warmUpObjectDetectionUseCase = get(),
             audioManager = get(),
             localizedTextProvider = get()
         )

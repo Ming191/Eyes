@@ -12,9 +12,11 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.R
-import com.example.eyes.application.ports.ObjectDetectorPort
-import com.example.eyes.application.ports.OcrEnginePort
-import com.example.eyes.application.ports.OcrTranslatorPort
+import com.example.eyes.application.objectdetection.DetectObjectsUseCase
+import com.example.eyes.application.objectdetection.WarmUpObjectDetectionUseCase
+import com.example.eyes.application.ocr.RecognizeOcrDocumentInput
+import com.example.eyes.application.ocr.RecognizeOcrDocumentStrings
+import com.example.eyes.application.ocr.RecognizeOcrDocumentUseCase
 import com.example.eyes.application.scene.DescribeSceneUseCase
 import com.example.eyes.camera.CurrencyAnalyzer
 import com.example.eyes.camera.toBitmapWithRotation
@@ -101,23 +103,16 @@ data class DetectionOverlayItem(
     val sourceAspectRatio: Float
 )
 
-private data class OcrRecognitionOutcome(
-    val result: Result<OcrResult>,
-    val usedFallbackFromAccuracy: Boolean,
-    val fallbackReason: String? = null
-)
-
 class CameraViewModel(
-    private val quickOcrEngine: OcrEnginePort,
-    private val accuracyOcrEngine: OcrEnginePort,
+    private val recognizeOcrDocumentUseCase: RecognizeOcrDocumentUseCase,
     private val ocrGuidanceAnalyzer: MlKitOcrGuidanceAnalyzer,
-    private val translator: OcrTranslatorPort,
     private val ttsService: TtsService,
     private val hapticService: HapticService,
     private val dataStoreManager: DataStoreManager,
     private val voiceCommandRepository: VoiceCommandRepository,
     private val describeSceneUseCase: DescribeSceneUseCase,
-    private val objectDetector: ObjectDetectorPort,
+    private val detectObjectsUseCase: DetectObjectsUseCase,
+    private val warmUpObjectDetectionUseCase: WarmUpObjectDetectionUseCase,
     private val audioManager: AudioManager,
     private val localizedTextProvider: LocalizedTextProvider
 ) : ViewModel() {
@@ -209,7 +204,7 @@ class CameraViewModel(
     private fun warmUpObjectDetectionModel() {
         viewModelScope.launch(Dispatchers.Default) {
             try {
-                val outputs = objectDetector.inspectOutputShape()
+                val outputs = warmUpObjectDetectionUseCase()
                 if (_uiState.value.activeMode == CameraMode.OBJECT_DETECTION) {
                     val message = cameraText.objectDetectionWarmupDone
                     Log.i(TAG, "Object detection warmup done: $outputs")
@@ -492,7 +487,7 @@ class CameraViewModel(
 
     private suspend fun processObjectDetection(bitmap: Bitmap) {
         try {
-            val detections = objectDetector.detect(bitmap)
+            val detections = detectObjectsUseCase(bitmap)
             if (_uiState.value.activeMode != CameraMode.OBJECT_DETECTION) return
 
             val overlayItems = detections.map { detection ->
@@ -649,30 +644,42 @@ class CameraViewModel(
                 )
             }
 
-            val outcome = recognizeByMode(bitmap = bitmap, mode = currentOcrMode.value)
-            val result = outcome.result.getOrElse { error ->
+            val recognizedDocument = runCatching {
+                recognizeOcrDocumentUseCase(
+                    RecognizeOcrDocumentInput(
+                        bitmap = bitmap,
+                        mode = currentOcrMode.value,
+                        translateToVietnamese = _uiState.value.ocrTranslateToVietnamese,
+                        strings = cameraText.ocrDocumentStrings(),
+                        onTranslateFailure = {
+                            ttsService.speak(
+                                cameraText.cannotTranslateReadingOriginal,
+                                appLanguage.get().ttsLocale
+                            )
+                        }
+                    )
+                )
+            }.getOrElse { error ->
                 _uiState.update {
                     it.copy(isOcrScanning = false, statusMessage = cameraText.ocrFailed(error.message ?: cameraText.unknownReason))
                 }
                 hapticService.error()
                 return@launch
             }
-            lastRawOcrResult.set(result)
-            lastOcrUsedFallback.set(outcome.usedFallbackFromAccuracy)
-            val canTranslateDocument = looksEnglish(result.fullText)
-            val translatedResult = maybeTranslateForSpeech(result)
-            if (outcome.usedFallbackFromAccuracy) {
+            lastRawOcrResult.set(recognizedDocument.rawResult)
+            lastOcrUsedFallback.set(recognizedDocument.usedFallbackFromAccuracy)
+            if (recognizedDocument.usedFallbackFromAccuracy) {
                 dataStoreManager.setOcrMode(OcrMode.QUICK)
-                val reason = outcome.fallbackReason ?: cameraText.unknownError
+                val reason = recognizedDocument.fallbackReason ?: cameraText.unknownError
                 ttsService.speak(
                     cameraText.accuracyOcrFallback(reason),
                     appLanguage.get().ttsLocale
                 )
             }
             enterOcrDocumentMode(
-                result = translatedResult,
-                usedFallback = outcome.usedFallbackFromAccuracy,
-                canTranslateCurrentDocument = canTranslateDocument
+                result = recognizedDocument.resultForSpeech,
+                usedFallback = recognizedDocument.usedFallbackFromAccuracy,
+                canTranslateCurrentDocument = recognizedDocument.canTranslateDocument
             )
         }
     }
@@ -1065,8 +1072,7 @@ class CameraViewModel(
     }
 
     override fun onCleared() {
-        quickOcrEngine.close()
-        accuracyOcrEngine.close()
+        recognizeOcrDocumentUseCase.close()
         ocrGuidanceAnalyzer.close()
         currencyAnalyzer?.close()
         recycleBitmapIfNeeded(_uiState.value.ocrCapturedBitmap)
@@ -1135,37 +1141,6 @@ class CameraViewModel(
         return centerDelta < OCR_GUIDANCE_STABLE_CENTER_DELTA && areaDelta < OCR_GUIDANCE_STABLE_AREA_DELTA
     }
 
-    private suspend fun recognizeByMode(bitmap: Bitmap, mode: OcrMode): OcrRecognitionOutcome {
-        return when (mode) {
-            OcrMode.QUICK -> OcrRecognitionOutcome(
-                result = runCatching { quickOcrEngine.recognize(bitmap) },
-                usedFallbackFromAccuracy = false
-            )
-            OcrMode.ACCURACY -> {
-                val accuracyResult = runCatching { accuracyOcrEngine.recognize(bitmap) }
-                val text = accuracyResult.getOrNull()?.fullText.orEmpty()
-                val refused = accuracyResult.isSuccess && looksLikeGptRefusal(text)
-                if (accuracyResult.isSuccess && !refused) {
-                    OcrRecognitionOutcome(
-                        result = accuracyResult,
-                        usedFallbackFromAccuracy = false
-                    )
-                } else {
-                    val reason = when {
-                        refused -> cameraText.gptRefusedReason
-                        accuracyResult.exceptionOrNull() != null -> buildFallbackReason(accuracyResult.exceptionOrNull()!!)
-                        else -> cameraText.unknownReason
-                    }
-                    OcrRecognitionOutcome(
-                        result = runCatching { quickOcrEngine.recognize(bitmap) },
-                        usedFallbackFromAccuracy = true,
-                        fallbackReason = reason
-                    )
-                }
-            }
-        }
-    }
-
     private fun enterOcrDocumentMode(
         result: OcrResult,
         usedFallback: Boolean,
@@ -1198,13 +1173,6 @@ class CameraViewModel(
         speakCurrentOcrSentence()
     }
 
-    private suspend fun maybeTranslateForSpeech(result: OcrResult): OcrResult {
-        val enabled = _uiState.value.ocrTranslateToVietnamese
-        if (!enabled) return OcrPostProcessor.process(result.fullText)
-        if (!shouldAutoTranslateToVietnamese(result.fullText)) return OcrPostProcessor.process(result.fullText)
-        return translateToVietnameseOrFallback(result.fullText)
-    }
-
     private fun speakCurrentOcrSentence() {
         val state = _uiState.value
         if (!state.isOcrDocumentMode) return
@@ -1216,71 +1184,10 @@ class CameraViewModel(
         )
     }
 
-    private fun looksLikeGptRefusal(text: String): Boolean {
-        val normalized = text.trim().lowercase()
-        if (normalized.isBlank()) return true
-        val refusalMarkers = listOf(
-            "i'm sorry, i can't assist with that",
-            "i can't assist with that",
-            "i cannot assist with that",
-            "i'm sorry",
-            "i cannot help with that request"
-        )
-        return refusalMarkers.any { normalized.startsWith(it) }
-    }
-
-    private fun buildFallbackReason(error: Throwable): String {
-        val message = error.message?.trim().orEmpty()
-        return when {
-            message.contains("401") -> cameraText.apiKeyReason
-            message.contains("403") -> cameraText.modelPermissionReason
-            message.contains("429") -> cameraText.quotaReason
-            message.contains("timeout", ignoreCase = true) -> cameraText.timeoutReason
-            message.isNotBlank() -> message
-            else -> error::class.simpleName ?: cameraText.unknownError
-        }
-    }
-
     private fun looksEnglish(text: String): Boolean {
         if (text.isBlank()) return false
         if (VI_DIACRITIC_REGEX.containsMatchIn(text)) return false
         return EN_LETTER_REGEX.containsMatchIn(text)
-    }
-
-    private fun shouldAutoTranslateToVietnamese(text: String): Boolean {
-        if (text.isBlank()) return false
-        val latinCount = EN_LETTER_REGEX.findAll(text).count()
-        if (latinCount < 6) return false
-        val viCount = VI_DIACRITIC_REGEX.findAll(text).count()
-        return viCount == 0 || latinCount >= viCount * 3
-    }
-
-    private suspend fun translateToVietnameseOrFallback(sourceText: String): OcrResult {
-        return runCatching {
-            val translated = translator.translateToVietnamese(sourceText)
-            if (looksUntranslated(sourceText, translated)) {
-                throw IllegalStateException(cameraText.translationUnchangedReason)
-            }
-            OcrPostProcessor.process(translated)
-        }.getOrElse {
-            ttsService.speak(
-                cameraText.cannotTranslateReadingOriginal,
-                appLanguage.get().ttsLocale
-            )
-            OcrPostProcessor.process(sourceText)
-        }
-    }
-
-    private fun looksUntranslated(source: String, translated: String): Boolean {
-        val sourceNorm = OcrPostProcessor.normalizeText(source).lowercase()
-        val translatedNorm = OcrPostProcessor.normalizeText(translated).lowercase()
-        if (sourceNorm.isBlank() || translatedNorm.isBlank()) return true
-
-        val sourceWordCount = sourceNorm.split(Regex("\\s+")).count { it.isNotBlank() }
-        if (sourceWordCount < 3) return false
-
-        val similarity = OcrPostProcessor.similarityRatio(sourceNorm, translatedNorm)
-        return similarity >= 0.92f && !VI_DIACRITIC_REGEX.containsMatchIn(translatedNorm)
     }
 
     private fun canHandleOcrSwipe(): Boolean {
@@ -1476,6 +1383,17 @@ class CameraViewModel(
             moveDown = ocrGuidanceMoveDown,
             ready = ocrGuidanceReady,
             holdSteady = ocrGuidanceHoldSteady
+        )
+
+        fun ocrDocumentStrings(): RecognizeOcrDocumentStrings = RecognizeOcrDocumentStrings(
+            gptRefusedReason = gptRefusedReason,
+            apiKeyReason = apiKeyReason,
+            modelPermissionReason = modelPermissionReason,
+            quotaReason = quotaReason,
+            timeoutReason = timeoutReason,
+            unknownReason = unknownReason,
+            unknownError = unknownError,
+            translationUnchangedReason = translationUnchangedReason
         )
 
         fun translateDebug(value: String, target: CameraText): String = when (value) {
