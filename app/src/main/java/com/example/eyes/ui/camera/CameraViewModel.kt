@@ -114,14 +114,10 @@ class CameraViewModel(
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
     private val isProcessingOcrGuidance = AtomicBoolean(false)
-    private val isProcessingObjectDetection = AtomicBoolean(false)
     private val isProcessingCurrencyPreview = AtomicBoolean(false)
     private val lastOcrGuidanceAtMs = AtomicLong(0L)
-    private val lastObjectDetectionAtMs = AtomicLong(0L)
     private val lastCurrencyPreviewAtMs = AtomicLong(0L)
-    private val lastObjectAnnouncementAtMs = AtomicLong(0L)
     private val lastCurrencyNoDetectionAtMs = AtomicLong(0L)
-    private val lastObjectAnnouncement = AtomicReference("")
     private val lastCurrencyAnnouncement = AtomicReference("")
 
     private val currentOcrMode = MutableStateFlow(OcrMode.QUICK)
@@ -148,6 +144,16 @@ class CameraViewModel(
         cameraText = { cameraText },
         appLanguage = { appLanguage.get() },
         updateUiStateAndRecycleReplacedBitmap = ::updateUiStateAndRecycleReplacedOcrBitmap
+    )
+    private val objectDetectionController = ObjectDetectionController(
+        uiState = _uiState,
+        detectObjectsUseCase = detectObjectsUseCase,
+        warmUpObjectDetectionUseCase = warmUpObjectDetectionUseCase,
+        speechOutput = speechOutput,
+        bitmapStore = bitmapStore,
+        localizedTextProvider = localizedTextProvider,
+        cameraText = { cameraText },
+        appLanguage = { appLanguage.get() }
     )
     private var currencyAnalyzer: CurrencyRecognizerPort? = null
     private val cameraText: CameraText get() = CameraText.from(localizedTextProvider, appLanguage.get())
@@ -192,7 +198,7 @@ class CameraViewModel(
                 voiceCommandRepository.clearLastVoiceCommand()
             }
         }
-        warmUpObjectDetectionModel()
+        objectDetectionController.warmUp(viewModelScope)
     }
 
     fun setAppLanguage(language: AppLanguage) {
@@ -202,39 +208,6 @@ class CameraViewModel(
         val previousText = cameraText
         appLanguage.set(language)
         refreshLanguageBoundUiText(previousText, cameraText)
-    }
-
-    private fun warmUpObjectDetectionModel() {
-        viewModelScope.launch(Dispatchers.Default) {
-            try {
-                val outputs = warmUpObjectDetectionUseCase()
-                if (_uiState.value.activeMode == CameraMode.OBJECT_DETECTION) {
-                    val message = cameraText.objectDetectionWarmupDone
-                    Log.i(TAG, "Object detection warmup done: $outputs")
-                    _uiState.update {
-                        it.copy(
-                            statusMessage = message,
-                            debugMetrics = outputs.joinToString(prefix = "YOLO: ") { output ->
-                                "#${output.index} ${output.shape} ${output.dtype} n=${output.elementCount}"
-                            }
-                        )
-                    }
-                }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Throwable) {
-                if (_uiState.value.activeMode == CameraMode.OBJECT_DETECTION) {
-                    val message = cameraText.objectDetectionWarmupFailed
-                    Log.e(TAG, "Object detection warmup failed", error)
-                    _uiState.update {
-                        it.copy(
-                            statusMessage = message,
-                            debugMetrics = "YOLO: ${error.message ?: error::class.java.simpleName}"
-                        )
-                    }
-                }
-            }
-        }
     }
 
     private fun getCurrencyAnalyzer(): CurrencyRecognizerPort? {
@@ -317,7 +290,7 @@ class CameraViewModel(
         summary: String = cameraText.ocrSummary,
         statusMessage: String
     ) {
-        resetObjectAnnouncementDebounce()
+        objectDetectionController.resetAnnouncementDebounce()
         resetCurrencyAnnouncementDebounce()
         _uiState.update {
             it
@@ -395,33 +368,7 @@ class CameraViewModel(
     }
 
     private fun processObjectDetectionImageProxy(imageProxy: ImageProxy) {
-        val now = System.currentTimeMillis()
-        if (now - lastObjectDetectionAtMs.get() < OBJECT_DETECTION_INTERVAL_MS) {
-            imageProxy.close()
-            return
-        }
-        if (!isProcessingObjectDetection.compareAndSet(false, true)) {
-            imageProxy.close()
-            return
-        }
-        lastObjectDetectionAtMs.set(now)
-
-        viewModelScope.launch(Dispatchers.Default) {
-            var bitmap: Bitmap? = null
-            try {
-                bitmap = imageProxy.toBitmapWithRotation()
-                bitmapStore.replaceLatestFrame(bitmap)
-                processObjectDetection(bitmap)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Object detection frame failed", e)
-            } finally {
-                bitmapStore.recycle(bitmap)
-                imageProxy.close()
-                isProcessingObjectDetection.set(false)
-            }
-        }
+        objectDetectionController.processImageProxy(imageProxy, viewModelScope)
     }
 
     private fun processOcrGuidanceImageProxy(imageProxy: ImageProxy) {
@@ -486,58 +433,6 @@ class CameraViewModel(
         }
     }
 
-    private suspend fun processObjectDetection(bitmap: Bitmap) {
-        try {
-            val detections = detectObjectsUseCase(bitmap.toImageFrame())
-            if (_uiState.value.activeMode != CameraMode.OBJECT_DETECTION) return
-
-            val language = appLanguage.get()
-            val overlayItems = detections.map { detection ->
-                detection.toOverlayItem(bitmap.width, bitmap.height, localizedTextProvider, language)
-            }
-            Log.i(TAG, "Object detection frame: ${overlayItems.size} detections")
-            val announcement = if (overlayItems.isNotEmpty()) {
-                overlayItems.joinToString(separator = ". ") { item ->
-                    cameraText.objectDetectionAnnouncement(item.label, item.positionText)
-                }
-            } else {
-                cameraText.objectDetectionNoObjects
-            }
-            if (_uiState.value.activeMode != CameraMode.OBJECT_DETECTION) return
-            maybeSpeakObjectDetection(announcement, overlayItems.isNotEmpty())
-            _uiState.update { state ->
-                if (state.activeMode != CameraMode.OBJECT_DETECTION) {
-                    state
-                } else {
-                    state.copy(
-                        objectDetections = overlayItems,
-                        lastAnnouncement = announcement,
-                        debugMetrics = cameraText.objectDetectionDebug(overlayItems.size)
-                    )
-                }
-            }
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Throwable) {
-            Log.e(TAG, "Object detection failed", error)
-            _uiState.update { state ->
-                if (state.activeMode != CameraMode.OBJECT_DETECTION) {
-                    state
-                } else {
-                    state.copy(
-                        objectDetections = emptyList(),
-                        debugMetrics = "YOLO detect: ${error.message ?: error::class.java.simpleName}"
-                    )
-                }
-            }
-        }
-    }
-
-    private fun resetObjectAnnouncementDebounce() {
-        lastObjectAnnouncement.set("")
-        lastObjectAnnouncementAtMs.set(0L)
-    }
-
     private fun resetCurrencyAnnouncementDebounce() {
         lastCurrencyAnnouncement.set("")
         lastCurrencyNoDetectionAtMs.set(0L)
@@ -551,25 +446,6 @@ class CameraViewModel(
         speechOutput.speak(
             cameraText.noCurrencyDetected,
             appLanguage.get().ttsLocale
-        )
-    }
-
-    private fun maybeSpeakObjectDetection(
-        announcement: String,
-        hasObjects: Boolean
-    ) {
-        if (!hasObjects) return
-        val now = System.currentTimeMillis()
-        val previous = lastObjectAnnouncement.get()
-        if (announcement == previous && now - lastObjectAnnouncementAtMs.get() < OBJECT_ANNOUNCEMENT_REPEAT_MS) return
-        if (announcement != previous && now - lastObjectAnnouncementAtMs.get() < OBJECT_ANNOUNCEMENT_INTERVAL_MS) return
-
-        lastObjectAnnouncement.set(announcement)
-        lastObjectAnnouncementAtMs.set(now)
-        Log.i(TAG, "Object detection TTS: $announcement")
-        speechOutput.speak(
-            text = announcement,
-            locale = appLanguage.get().ttsLocale
         )
     }
 
@@ -672,7 +548,7 @@ class CameraViewModel(
             currencyAnalyzer?.resetBuffer()
         }
         resetOcrGuidanceTracking()
-        resetObjectAnnouncementDebounce()
+        objectDetectionController.resetAnnouncementDebounce()
         resetCurrencyAnnouncementDebounce()
         when (mode) {
             CameraMode.OCR -> {
@@ -977,10 +853,7 @@ class CameraViewModel(
     private companion object {
         private const val TAG = "CameraViewModel"
         private const val OCR_GUIDANCE_INTERVAL_MS = 700L
-        private const val OBJECT_DETECTION_INTERVAL_MS = 1_000L
         private const val CURRENCY_PREVIEW_INTERVAL_MS = 1_500L
-        private const val OBJECT_ANNOUNCEMENT_INTERVAL_MS = 3_000L
-        private const val OBJECT_ANNOUNCEMENT_REPEAT_MS = 6_000L
         private const val CURRENCY_NO_DETECTION_REPEAT_MS = 10_000L
     }
 }
