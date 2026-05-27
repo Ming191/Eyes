@@ -5,7 +5,9 @@ import android.util.Base64
 import androidx.camera.core.ImageProxy
 import com.example.eyes.BuildConfig
 import com.example.eyes.application.ports.OcrEnginePort
+import com.example.eyes.camera.toBitmap
 import com.example.eyes.camera.toBitmapWithRotation
+import com.example.eyes.domain.image.ImageFrame
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
@@ -17,7 +19,7 @@ class Gpt4oOcrEngine : OcrEnginePort {
     private val httpClient = OpenAiResponsesHttpClient()
     private val json = Json { ignoreUnknownKeys = true }
 
-    override suspend fun recognize(imageProxy: ImageProxy): OcrResult {
+    suspend fun recognize(imageProxy: ImageProxy): OcrResult {
         return try {
             val bitmap = imageProxy.toBitmapWithRotation()
             recognize(bitmap)
@@ -26,7 +28,9 @@ class Gpt4oOcrEngine : OcrEnginePort {
         }
     }
 
-    override suspend fun recognize(bitmap: Bitmap): OcrResult {
+    override suspend fun recognize(imageFrame: ImageFrame): OcrResult = recognize(imageFrame.toBitmap())
+
+    suspend fun recognize(bitmap: Bitmap): OcrResult {
         return withContext(Dispatchers.IO) {
             val apiKey = BuildConfig.OPENAI_API_KEY
             if (apiKey.isBlank()) {

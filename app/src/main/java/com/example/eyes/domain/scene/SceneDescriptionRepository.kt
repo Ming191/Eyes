@@ -1,8 +1,8 @@
 package com.example.eyes.domain.scene
 
-import android.graphics.Bitmap
+import com.example.eyes.domain.image.ImageFrame
 import com.example.eyes.domain.i18n.AppLanguage
 
 interface SceneDescriptionRepository {
-    suspend fun describeScene(bitmap: Bitmap, language: AppLanguage): SceneDescription
+    suspend fun describeScene(imageFrame: ImageFrame, language: AppLanguage): SceneDescription
 }

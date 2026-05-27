@@ -3,6 +3,8 @@ package com.example.eyes.objectdetection
 import android.graphics.Bitmap
 import android.util.Log
 import com.example.eyes.application.ports.ObjectDetectorPort
+import com.example.eyes.camera.toBitmap
+import com.example.eyes.domain.image.ImageFrame
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -36,7 +38,12 @@ class YoloExecutorchDetector(
         }
     }
 
-    override suspend fun detect(bitmap: Bitmap): List<Detection> {
+    override suspend fun detect(imageFrame: ImageFrame): List<Detection> {
+        val bitmap: Bitmap = imageFrame.toBitmap()
+        return detect(bitmap)
+    }
+
+    suspend fun detect(bitmap: Bitmap): List<Detection> {
         return withContext(Dispatchers.Default) {
             try {
                 val input = preprocessor.preprocess(bitmap)

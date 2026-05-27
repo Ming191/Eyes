@@ -19,6 +19,7 @@ import com.example.eyes.application.ocr.RecognizeOcrDocumentStrings
 import com.example.eyes.application.ocr.RecognizeOcrDocumentUseCase
 import com.example.eyes.application.scene.DescribeSceneUseCase
 import com.example.eyes.camera.CurrencyAnalyzer
+import com.example.eyes.camera.toImageFrame
 import com.example.eyes.camera.toBitmapWithRotation
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.domain.scene.SceneDescription
@@ -488,7 +489,7 @@ class CameraViewModel(
 
     private suspend fun processObjectDetection(bitmap: Bitmap) {
         try {
-            val detections = detectObjectsUseCase(bitmap)
+            val detections = detectObjectsUseCase(bitmap.toImageFrame())
             if (_uiState.value.activeMode != CameraMode.OBJECT_DETECTION) return
 
             val overlayItems = detections.map { detection ->
@@ -648,7 +649,7 @@ class CameraViewModel(
             val recognizedDocument = runCatching {
                 recognizeOcrDocumentUseCase(
                     RecognizeOcrDocumentInput(
-                        bitmap = bitmap,
+                        imageFrame = bitmap.toImageFrame(),
                         mode = currentOcrMode.value,
                         translateToVietnamese = _uiState.value.ocrTranslateToVietnamese,
                         strings = cameraText.ocrDocumentStrings(),
@@ -1015,7 +1016,7 @@ class CameraViewModel(
     private suspend fun describeCapturedScene(capturedBitmap: Bitmap) {
         try {
             val language = appLanguage.get()
-            when (val result = describeSceneUseCase(bitmap = capturedBitmap, language = language)) {
+            when (val result = describeSceneUseCase(imageFrame = capturedBitmap.toImageFrame(), language = language)) {
                 is SceneDescription.Success -> {
                     if (!isHeadsetConnected()) {
                         ttsService.speak(result.text, language.ttsLocale)

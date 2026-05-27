@@ -7,6 +7,8 @@ import android.graphics.Matrix
 import android.graphics.Rect
 import android.graphics.YuvImage
 import androidx.camera.core.ImageProxy
+import com.example.eyes.domain.image.ImageFrame
+import com.example.eyes.domain.image.ImageFormat as DomainImageFormat
 import java.io.ByteArrayOutputStream
 
 fun ImageProxy.toBitmapWithRotation(): Bitmap {
@@ -21,6 +23,32 @@ fun ImageProxy.toBitmapWithRotation(): Bitmap {
 
     val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
     return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+}
+
+fun Bitmap.toImageFrame(
+    format: DomainImageFormat = DomainImageFormat.JPEG,
+    quality: Int = 95,
+    timestampMillis: Long? = null
+): ImageFrame {
+    val compressFormat = when (format) {
+        DomainImageFormat.JPEG -> Bitmap.CompressFormat.JPEG
+        else -> Bitmap.CompressFormat.PNG
+    }
+    val output = ByteArrayOutputStream()
+    compress(compressFormat, quality, output)
+    return ImageFrame(
+        data = output.toByteArray(),
+        width = width,
+        height = height,
+        format = format,
+        rotationDegrees = 0,
+        timestampMillis = timestampMillis
+    )
+}
+
+fun ImageFrame.toBitmap(): Bitmap {
+    return BitmapFactory.decodeByteArray(data, 0, data.size)
+        ?: throw IllegalStateException("Failed to decode ImageFrame")
 }
 
 private fun ImageProxy.toBitmapFromJpeg(): Bitmap {

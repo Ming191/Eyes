@@ -1,14 +1,14 @@
 package com.example.eyes.application.ocr
 
-import android.graphics.Bitmap
 import com.example.eyes.application.ports.OcrEnginePort
 import com.example.eyes.application.ports.OcrTranslatorPort
+import com.example.eyes.domain.image.ImageFrame
 import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.ocr.OcrPostProcessor
 import com.example.eyes.ocr.OcrResult
 
 data class RecognizeOcrDocumentInput(
-    val bitmap: Bitmap,
+    val imageFrame: ImageFrame,
     val mode: OcrMode,
     val translateToVietnamese: Boolean,
     val strings: RecognizeOcrDocumentStrings,
@@ -40,7 +40,7 @@ class RecognizeOcrDocumentUseCase(
     private val translator: OcrTranslatorPort
 ) {
     suspend operator fun invoke(input: RecognizeOcrDocumentInput): RecognizeOcrDocumentResult {
-        val outcome = recognizeByMode(input.bitmap, input.mode, input.strings)
+        val outcome = recognizeByMode(input.imageFrame, input.mode, input.strings)
         val rawResult = outcome.result.getOrThrow()
         val translatedResult = maybeTranslateForSpeech(rawResult, input.translateToVietnamese, input.strings, input.onTranslateFailure)
         return RecognizeOcrDocumentResult(
@@ -58,17 +58,17 @@ class RecognizeOcrDocumentUseCase(
     }
 
     private suspend fun recognizeByMode(
-        bitmap: Bitmap,
+        imageFrame: ImageFrame,
         mode: OcrMode,
         strings: RecognizeOcrDocumentStrings
     ): OcrRecognitionOutcome {
         return when (mode) {
             OcrMode.QUICK -> OcrRecognitionOutcome(
-                result = runCatching { quickOcrEngine.recognize(bitmap) },
+                result = runCatching { quickOcrEngine.recognize(imageFrame) },
                 usedFallbackFromAccuracy = false
             )
             OcrMode.ACCURACY -> {
-                val accuracyResult = runCatching { accuracyOcrEngine.recognize(bitmap) }
+                val accuracyResult = runCatching { accuracyOcrEngine.recognize(imageFrame) }
                 val text = accuracyResult.getOrNull()?.fullText.orEmpty()
                 val refused = accuracyResult.isSuccess && looksLikeGptRefusal(text)
                 if (accuracyResult.isSuccess && !refused) {
@@ -83,7 +83,7 @@ class RecognizeOcrDocumentUseCase(
                         else -> strings.unknownReason
                     }
                     OcrRecognitionOutcome(
-                        result = runCatching { quickOcrEngine.recognize(bitmap) },
+                        result = runCatching { quickOcrEngine.recognize(imageFrame) },
                         usedFallbackFromAccuracy = true,
                         fallbackReason = reason
                     )
