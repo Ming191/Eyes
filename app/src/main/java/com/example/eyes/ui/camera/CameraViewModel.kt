@@ -13,7 +13,6 @@ import com.example.eyes.application.objectdetection.WarmUpObjectDetectionUseCase
 import com.example.eyes.application.ocr.RecognizeOcrDocumentInput
 import com.example.eyes.application.ocr.RecognizeOcrDocumentUseCase
 import com.example.eyes.application.ports.CurrencyRecognizerFactory
-import com.example.eyes.application.ports.CurrencyRecognizerPort
 import com.example.eyes.application.scene.DescribeSceneUseCase
 import com.example.eyes.infrastructure.camera.toBitmapWithRotation
 import com.example.eyes.infrastructure.camera.toImageFrame
@@ -114,11 +113,7 @@ class CameraViewModel(
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
     private val isProcessingOcrGuidance = AtomicBoolean(false)
-    private val isProcessingCurrencyPreview = AtomicBoolean(false)
     private val lastOcrGuidanceAtMs = AtomicLong(0L)
-    private val lastCurrencyPreviewAtMs = AtomicLong(0L)
-    private val lastCurrencyNoDetectionAtMs = AtomicLong(0L)
-    private val lastCurrencyAnnouncement = AtomicReference("")
 
     private val currentOcrMode = MutableStateFlow(OcrMode.QUICK)
 
@@ -155,7 +150,17 @@ class CameraViewModel(
         cameraText = { cameraText },
         appLanguage = { appLanguage.get() }
     )
-    private var currencyAnalyzer: CurrencyRecognizerPort? = null
+    private val currencyRecognitionController = CurrencyRecognitionController(
+        uiState = _uiState,
+        currencyRecognizerFactory = currencyRecognizerFactory,
+        speechOutput = speechOutput,
+        hapticService = hapticService,
+        bitmapStore = bitmapStore,
+        currencyTextMapper = currencyTextMapper,
+        cameraText = { cameraText },
+        appLanguage = { appLanguage.get() },
+        updateUiStateAndRecycleReplacedBitmap = ::updateUiStateAndRecycleReplacedOcrBitmap
+    )
     private val cameraText: CameraText get() = CameraText.from(localizedTextProvider, appLanguage.get())
 
     init {
@@ -208,80 +213,6 @@ class CameraViewModel(
         val previousText = cameraText
         appLanguage.set(language)
         refreshLanguageBoundUiText(previousText, cameraText)
-    }
-
-    private fun getCurrencyAnalyzer(): CurrencyRecognizerPort? {
-        currencyAnalyzer?.let { return it }
-        return try {
-            currencyRecognizerFactory.create(::onCurrencyResult).also { analyzer ->
-                currencyAnalyzer = analyzer
-            }
-        } catch (error: Throwable) {
-            Log.e(TAG, "Currency model load failed", error)
-            val message = cameraText.currencyModelLoadError
-            _uiState.update {
-                it.copy(
-                    statusMessage = message,
-                    lastAnnouncement = message,
-                    currencyDisplay = "",
-                    currencyConfidence = 0f
-                )
-            }
-            null
-        }
-    }
-
-    private fun onCurrencyResult(label: String, confidence: Float) {
-        if (_uiState.value.activeMode != CameraMode.CURRENCY) return
-        val safeConfidence = confidence.coerceIn(0f, 1f)
-
-        if (label == CurrencyRecognizerPort.EMPTY_LABEL) {
-            val hadResult = _uiState.value.currencyDisplay.isNotEmpty()
-            if (hadResult) {
-                resetCurrencyAnnouncementDebounce()
-                currencyAnalyzer?.resetBuffer()
-            }
-            maybeSpeakNoCurrencyDetected()
-            _uiState.update { state ->
-                if (state.activeMode != CameraMode.CURRENCY) {
-                    state
-                } else {
-                    state.copy(
-                        currencyDisplay = "",
-                        currencyConfidence = 0f,
-                        isCurrencyScanning = false,
-                        statusMessage = cameraText.noCurrencyDetected,
-                        lastAnnouncement = cameraText.noCurrencyDetected
-                    )
-                }
-            }
-            return
-        }
-
-        val display = currencyTextMapper.display(label)
-        val spoken = currencyTextMapper.spoken(label)
-        val confidencePercent = String.format(Locale.getDefault(), "%.0f%%", safeConfidence * 100f)
-
-        if (lastCurrencyAnnouncement.get() != label) {
-            lastCurrencyAnnouncement.set(label)
-            hapticService.confirm()
-            speechOutput.speak(spoken, appLanguage.get().ttsLocale)
-        }
-
-        _uiState.update { state ->
-            if (state.activeMode != CameraMode.CURRENCY) {
-                state
-            } else {
-                state.copy(
-                    currencyDisplay = display,
-                    currencyConfidence = safeConfidence,
-                    isCurrencyScanning = false,
-                    statusMessage = cameraText.currencyDetectedStatus(display, confidencePercent),
-                    lastAnnouncement = spoken,
-                    debugMetrics = cameraText.currencyDebug(confidencePercent)
-                )
-            }
-        }
     }
 
     private fun applyVoiceCameraCommand(
@@ -338,33 +269,7 @@ class CameraViewModel(
     }
 
     private fun processCurrencyPreviewImageProxy(imageProxy: ImageProxy) {
-        val now = System.currentTimeMillis()
-        if (now - lastCurrencyPreviewAtMs.get() < CURRENCY_PREVIEW_INTERVAL_MS) {
-            imageProxy.close()
-            return
-        }
-        if (!isProcessingCurrencyPreview.compareAndSet(false, true)) {
-            imageProxy.close()
-            return
-        }
-        lastCurrencyPreviewAtMs.set(now)
-
-        viewModelScope.launch(Dispatchers.Default) {
-            var bitmap: Bitmap? = null
-            try {
-	            val analyzer = getCurrencyAnalyzer() ?: return@launch
-	            bitmap = imageProxy.toBitmapWithRotation()
-                analyzer.analyze(bitmap.toImageFrame())
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Throwable) {
-                Log.e(TAG, "Currency preview frame failed", error)
-            } finally {
-                bitmapStore.recycle(bitmap)
-                imageProxy.close()
-                isProcessingCurrencyPreview.set(false)
-            }
-        }
+        currencyRecognitionController.processPreviewImageProxy(imageProxy, viewModelScope)
     }
 
     private fun processObjectDetectionImageProxy(imageProxy: ImageProxy) {
@@ -434,19 +339,7 @@ class CameraViewModel(
     }
 
     private fun resetCurrencyAnnouncementDebounce() {
-        lastCurrencyAnnouncement.set("")
-        lastCurrencyNoDetectionAtMs.set(0L)
-    }
-
-    private fun maybeSpeakNoCurrencyDetected() {
-        val now = System.currentTimeMillis()
-        if (now - lastCurrencyNoDetectionAtMs.get() < CURRENCY_NO_DETECTION_REPEAT_MS) return
-
-        lastCurrencyNoDetectionAtMs.set(now)
-        speechOutput.speak(
-            cameraText.noCurrencyDetected,
-            appLanguage.get().ttsLocale
-        )
+        currencyRecognitionController.resetAnnouncementDebounce()
     }
 
     fun processCapturedOcrImage(imageProxy: ImageProxy) {
@@ -545,7 +438,7 @@ class CameraViewModel(
     fun selectMode(mode: CameraMode) {
         if (_uiState.value.activeMode == mode) return
         if (_uiState.value.activeMode == CameraMode.CURRENCY && mode != CameraMode.CURRENCY) {
-            currencyAnalyzer?.resetBuffer()
+            currencyRecognitionController.resetBuffer()
         }
         resetOcrGuidanceTracking()
         objectDetectionController.resetAnnouncementDebounce()
@@ -616,7 +509,7 @@ class CameraViewModel(
             }
 
             CameraMode.CURRENCY -> {
-                currencyAnalyzer?.resetBuffer()
+                currencyRecognitionController.resetBuffer()
                 hapticService.confirm()
                 if (!audioRouteProvider.isHeadsetConnected()) {
                     speechOutput.speak(cameraText.switchedToCurrencyMode, appLanguage.get().ttsLocale)
@@ -684,106 +577,19 @@ class CameraViewModel(
     }
 
     fun onCurrencyCaptureRequested() {
-        val state = _uiState.value
-        if (state.isCurrencyScanning || state.ocrCapturedBitmap != null) return
-        _uiState.update {
-            it.copy(
-                isCurrencyScanning = true,
-                statusMessage = cameraText.processingCurrencyImage,
-                lastAnnouncement = cameraText.processingCurrencyImage
-            )
-        }
-        hapticService.loading()
-        speechOutput.speak(
-            cameraText.processingCurrencyImage,
-            appLanguage.get().ttsLocale
-        )
+        currencyRecognitionController.onCaptureRequested()
     }
 
     fun processCapturedCurrencyImage(imageProxy: ImageProxy) {
-        viewModelScope.launch(Dispatchers.Default) {
-            val capturedBitmap = try {
-                imageProxy.toBitmapWithRotation()
-            } catch (_: Throwable) {
-                _uiState.update {
-                    it.copy(
-                        isCurrencyScanning = false,
-                        statusMessage = cameraText.cannotCaptureCurrencyTryAgain,
-                        lastAnnouncement = cameraText.cannotCaptureCurrencyTryAgain
-                    )
-                }
-                hapticService.error()
-                return@launch
-            } finally {
-                imageProxy.close()
-            }
-
-            updateUiStateAndRecycleReplacedOcrBitmap {
-                it.copy(
-                    ocrCapturedBitmap = capturedBitmap,
-                    isCurrencyScanning = true,
-                    currencyDisplay = "",
-                    currencyConfidence = 0f,
-                    statusMessage = cameraText.processingCurrencyImage,
-                    lastAnnouncement = cameraText.processingCurrencyImage
-                )
-            }
-
-            val analyzer = getCurrencyAnalyzer()
-            if (analyzer == null) {
-                _uiState.update {
-                    it.copy(
-                        isCurrencyScanning = false,
-                        statusMessage = cameraText.currencyModelInitError,
-                        lastAnnouncement = cameraText.currencyModelInitError
-                    )
-                }
-                hapticService.error()
-                return@launch
-            }
-
-            runCatching {
-                analyzer.resetBuffer()
-                analyzer.analyze(capturedBitmap.toImageFrame())
-            }.onFailure { error ->
-                Log.e(TAG, "Currency capture failed", error)
-                _uiState.update {
-                    it.copy(
-                        isCurrencyScanning = false,
-                        statusMessage = cameraText.cannotCaptureCurrencyTryAgain,
-                        lastAnnouncement = cameraText.cannotCaptureCurrencyTryAgain
-                    )
-                }
-                hapticService.error()
-            }
-        }
+        currencyRecognitionController.processCapturedImage(imageProxy, viewModelScope)
     }
 
     fun onCurrencyCaptureError() {
-        _uiState.update {
-            it.copy(
-                isCurrencyScanning = false,
-                statusMessage = cameraText.cannotCaptureCurrencyTryAgain,
-                lastAnnouncement = cameraText.cannotCaptureCurrencyTryAgain
-            )
-        }
-        hapticService.error()
+        currencyRecognitionController.onCaptureError()
     }
 
     fun prepareForNextCurrencyCapture() {
-        resetCurrencyAnnouncementDebounce()
-        currencyAnalyzer?.resetBuffer()
-        updateUiStateAndRecycleReplacedOcrBitmap {
-            it.copy(
-                ocrCapturedBitmap = null,
-                isCurrencyScanning = false,
-                currencyDisplay = "",
-                currencyConfidence = 0f,
-                statusMessage = cameraText.waitingForClearMoneyImage,
-                lastAnnouncement = cameraText.waitingForClearMoneyImage
-            )
-        }
-        speechOutput.stop()
+        currencyRecognitionController.prepareForNextCapture()
     }
 
     fun onScreenDisposed() {
@@ -798,14 +604,14 @@ class CameraViewModel(
         lastOcrUsedFallback.set(false)
         resetOcrGuidanceTracking()
         resetCurrencyAnnouncementDebounce()
-        currencyAnalyzer?.resetBuffer()
+        currencyRecognitionController.resetBuffer()
         updateUiStateAndRecycleReplacedOcrBitmap { it.copy(ocrCapturedBitmap = null) }
     }
 
     override fun onCleared() {
         recognizeOcrDocumentUseCase.close()
         ocrGuidanceAnalyzer.close()
-        currencyAnalyzer?.close()
+        currencyRecognitionController.close()
         bitmapStore.recycle(_uiState.value.ocrCapturedBitmap)
         bitmapStore.clear()
         super.onCleared()
@@ -853,7 +659,5 @@ class CameraViewModel(
     private companion object {
         private const val TAG = "CameraViewModel"
         private const val OCR_GUIDANCE_INTERVAL_MS = 700L
-        private const val CURRENCY_PREVIEW_INTERVAL_MS = 1_500L
-        private const val CURRENCY_NO_DETECTION_REPEAT_MS = 10_000L
     }
 }
