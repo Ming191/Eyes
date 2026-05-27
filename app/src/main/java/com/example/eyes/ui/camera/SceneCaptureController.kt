@@ -134,6 +134,6 @@ class SceneCaptureController(
     }
 
     private companion object {
-        private const val TAG = "CameraViewModel"
+        private const val TAG = "SceneCaptureController"
     }
 }
