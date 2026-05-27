@@ -1,4 +1,4 @@
-package com.example.eyes.ocr
+package com.example.eyes.infrastructure.openai
 
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals

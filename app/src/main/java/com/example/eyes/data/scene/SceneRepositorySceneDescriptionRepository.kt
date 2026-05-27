@@ -1,7 +1,7 @@
 package com.example.eyes.data.scene
 
 import android.graphics.Bitmap
-import com.example.eyes.camera.toBitmap
+import com.example.eyes.infrastructure.camera.toBitmap
 import com.example.eyes.data.remote.SceneRepository
 import com.example.eyes.domain.image.ImageFrame
 import com.example.eyes.domain.i18n.AppLanguage

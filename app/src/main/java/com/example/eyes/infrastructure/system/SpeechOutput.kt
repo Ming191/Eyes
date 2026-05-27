@@ -1,4 +1,4 @@
-package com.example.eyes.system
+package com.example.eyes.infrastructure.system
 
 /**
  * Abstraction for text-to-speech output. Allows ViewModels and other modules

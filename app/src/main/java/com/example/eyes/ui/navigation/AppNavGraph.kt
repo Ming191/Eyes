@@ -40,7 +40,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.eyes.R
-import com.example.eyes.system.SpeechOutput
+import com.example.eyes.infrastructure.system.SpeechOutput
 import com.example.eyes.ui.blind.BlindAction
 import com.example.eyes.ui.blind.BlindGestureLayer
 import com.example.eyes.ui.blind.LocalBlindFocusManager

@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.example.eyes.R
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.i18n.LocalizedTextProvider
-import com.example.eyes.system.SpeechOutput
+import com.example.eyes.infrastructure.system.SpeechOutput
 import com.example.eyes.ui.blind.LocalBlindFocusManager
 import com.example.eyes.ui.blind.blindFocusable
 import org.koin.compose.koinInject

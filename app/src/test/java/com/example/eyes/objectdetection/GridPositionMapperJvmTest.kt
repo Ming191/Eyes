@@ -1,5 +1,6 @@
 package com.example.eyes.objectdetection
 
+import com.example.eyes.infrastructure.objectdetection.GridPositionMapper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test

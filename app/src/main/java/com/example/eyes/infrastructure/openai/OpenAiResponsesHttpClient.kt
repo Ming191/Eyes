@@ -1,4 +1,4 @@
-package com.example.eyes.ocr
+package com.example.eyes.infrastructure.openai
 
 import java.io.IOException
 import java.net.HttpURLConnection

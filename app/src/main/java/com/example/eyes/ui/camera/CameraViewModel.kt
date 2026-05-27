@@ -1,4 +1,4 @@
-﻿package com.example.eyes.ui.camera
+package com.example.eyes.ui.camera
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
@@ -18,9 +18,9 @@ import com.example.eyes.application.ocr.RecognizeOcrDocumentInput
 import com.example.eyes.application.ocr.RecognizeOcrDocumentStrings
 import com.example.eyes.application.ocr.RecognizeOcrDocumentUseCase
 import com.example.eyes.application.scene.DescribeSceneUseCase
-import com.example.eyes.camera.CurrencyAnalyzer
-import com.example.eyes.camera.toImageFrame
-import com.example.eyes.camera.toBitmapWithRotation
+import com.example.eyes.infrastructure.currency.CurrencyAnalyzer
+import com.example.eyes.infrastructure.camera.toImageFrame
+import com.example.eyes.infrastructure.camera.toBitmapWithRotation
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.domain.scene.SceneDescription
 import com.example.eyes.domain.scene.SceneDescriptionError
@@ -37,8 +37,8 @@ import com.example.eyes.ocr.OcrPostProcessor
 import com.example.eyes.ocr.OcrResult
 import com.example.eyes.ocr.OcrTextBounds
 import com.example.eyes.objectdetection.localizedText
-import com.example.eyes.system.HapticService
-import com.example.eyes.system.TtsService
+import com.example.eyes.infrastructure.system.HapticService
+import com.example.eyes.infrastructure.system.TtsService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -12,7 +12,7 @@ import com.example.eyes.application.navigation.UpdateAppLanguageUseCase
 import com.example.eyes.domain.navigation.Destination
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrMode
-import com.example.eyes.system.SpeechOutput
+import com.example.eyes.infrastructure.system.SpeechOutput
 import com.example.eyes.ui.camera.CameraMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted

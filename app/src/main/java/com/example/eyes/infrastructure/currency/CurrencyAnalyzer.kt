@@ -1,10 +1,11 @@
-package com.example.eyes.camera
+package com.example.eyes.infrastructure.currency
 
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Rect
 import androidx.camera.core.ImageProxy
+import com.example.eyes.infrastructure.camera.toBitmapWithRotation
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.support.common.FileUtil
 import java.nio.ByteBuffer

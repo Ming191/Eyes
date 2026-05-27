@@ -1,4 +1,4 @@
-package com.example.eyes.objectdetection
+package com.example.eyes.infrastructure.objectdetection
 
 import android.util.Log
 import org.pytorch.executorch.Module

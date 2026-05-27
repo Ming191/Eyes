@@ -1,6 +1,7 @@
-package com.example.eyes.objectdetection
+package com.example.eyes.infrastructure.objectdetection
 
 import android.graphics.RectF
+import com.example.eyes.objectdetection.Detection
 import kotlin.math.max
 import kotlin.math.min
 

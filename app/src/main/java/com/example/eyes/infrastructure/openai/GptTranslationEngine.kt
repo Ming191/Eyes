@@ -1,4 +1,4 @@
-﻿package com.example.eyes.ocr
+package com.example.eyes.infrastructure.openai
 
 import com.example.eyes.BuildConfig
 import com.example.eyes.application.ports.OcrTranslatorPort

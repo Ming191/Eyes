@@ -3,8 +3,8 @@ package com.example.eyes.di
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.example.eyes.domain.accessibility.AnnouncementController
-import com.example.eyes.system.HapticService
-import com.example.eyes.system.TtsService
+import com.example.eyes.infrastructure.system.HapticService
+import com.example.eyes.infrastructure.system.TtsService
 import com.example.eyes.voiceguide.AccessibilityStateProvider
 import org.junit.After
 import org.junit.Assert.assertNotNull
@@ -51,7 +51,7 @@ class KoinModulesTest : KoinTest {
         assertNotNull(get<com.example.eyes.data.DataStoreManager>())
         assertNotNull(get<com.example.eyes.ui.navigation.AppNavViewModel>())
         assertNotNull(get<com.example.eyes.ui.home.HomeViewModel>())
-        assertNotNull(get<com.example.eyes.system.SttService>())
+        assertNotNull(get<com.example.eyes.infrastructure.system.SttService>())
         assertNotNull(get<AccessibilityStateProvider>())
         assertNotNull(get<AnnouncementController>())
         assertNotNull(get<com.example.eyes.domain.voice.CommandParser>())

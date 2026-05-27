@@ -16,10 +16,10 @@ class CleanArchitectureImportTest {
             forbiddenImports = listOf(
                 "com.example.eyes.data",
                 "com.example.eyes.ui",
-                "com.example.eyes.system",
+                "com.example.eyes.infrastructure.system",
                 "com.example.eyes.ocr",
                 "com.example.eyes.objectdetection",
-                "com.example.eyes.camera",
+                "com.example.eyes.infrastructure.camera",
                 "com.example.eyes.di",
             ),
         )

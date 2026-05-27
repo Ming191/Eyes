@@ -1,13 +1,15 @@
-﻿package com.example.eyes.ocr
+package com.example.eyes.infrastructure.openai
 
 import android.graphics.Bitmap
 import android.util.Base64
 import androidx.camera.core.ImageProxy
 import com.example.eyes.BuildConfig
 import com.example.eyes.application.ports.OcrEnginePort
-import com.example.eyes.camera.toBitmap
-import com.example.eyes.camera.toBitmapWithRotation
+import com.example.eyes.infrastructure.camera.toBitmap
+import com.example.eyes.infrastructure.camera.toBitmapWithRotation
 import com.example.eyes.domain.image.ImageFrame
+import com.example.eyes.ocr.OcrPostProcessor
+import com.example.eyes.ocr.OcrResult
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers

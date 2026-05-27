@@ -1,4 +1,4 @@
-package com.example.eyes.system
+package com.example.eyes.infrastructure.system
 
 /**
  * State of the speech-to-text recognizer.

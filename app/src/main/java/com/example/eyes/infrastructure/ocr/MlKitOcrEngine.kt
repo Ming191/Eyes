@@ -1,14 +1,17 @@
-package com.example.eyes.ocr
+package com.example.eyes.infrastructure.ocr
 
 import android.graphics.Bitmap
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageProxy
 import com.example.eyes.application.ports.OcrEnginePort
-import com.example.eyes.camera.toBitmap
+import com.example.eyes.infrastructure.camera.toBitmap
 import com.example.eyes.domain.image.ImageFrame
+import com.example.eyes.ocr.OcrPostProcessor
+import com.example.eyes.ocr.OcrResult
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -47,7 +50,7 @@ class MlKitOcrEngine : OcrEnginePort {
     override suspend fun recognize(imageFrame: ImageFrame): OcrResult = recognize(imageFrame.toBitmap())
 
     suspend fun recognize(bitmap: Bitmap): OcrResult =
-        suspendCoroutine { cont ->
+        suspendCancellableCoroutine { cont ->
             val inputImage = InputImage.fromBitmap(bitmap, 0)
             recognizer.process(inputImage)
                 .addOnSuccessListener { visionText ->

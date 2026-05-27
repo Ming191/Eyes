@@ -59,7 +59,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.R
-import com.example.eyes.camera.CameraManager
+import com.example.eyes.infrastructure.camera.CameraManager
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.ui.blind.BlindAction

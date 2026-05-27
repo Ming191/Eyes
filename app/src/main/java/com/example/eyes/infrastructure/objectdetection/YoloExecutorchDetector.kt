@@ -1,10 +1,12 @@
-package com.example.eyes.objectdetection
+package com.example.eyes.infrastructure.objectdetection
 
 import android.graphics.Bitmap
 import android.util.Log
 import com.example.eyes.application.ports.ObjectDetectorPort
-import com.example.eyes.camera.toBitmap
+import com.example.eyes.infrastructure.camera.toBitmap
 import com.example.eyes.domain.image.ImageFrame
+import com.example.eyes.objectdetection.Detection
+import com.example.eyes.objectdetection.YoloOutputInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -77,10 +79,3 @@ class YoloExecutorchDetector(
         const val DEFAULT_INPUT_SIZE = 320
     }
 }
-
-data class YoloOutputInfo(
-    val index: Int,
-    val shape: List<Long>,
-    val dtype: String,
-    val elementCount: Long
-)

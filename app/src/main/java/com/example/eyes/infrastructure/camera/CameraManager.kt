@@ -1,4 +1,4 @@
-package com.example.eyes.camera
+package com.example.eyes.infrastructure.camera
 
 import android.content.Context
 import androidx.camera.core.Camera

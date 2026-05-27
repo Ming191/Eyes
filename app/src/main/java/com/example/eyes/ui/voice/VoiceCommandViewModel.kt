@@ -1,4 +1,4 @@
-﻿package com.example.eyes.ui.voice
+package com.example.eyes.ui.voice
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -10,11 +10,11 @@ import com.example.eyes.domain.settings.SettingsRepository
 import com.example.eyes.domain.voice.CommandParser
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.domain.i18n.AppLanguage
-import com.example.eyes.system.HapticService
-import com.example.eyes.system.SttErrorReason
-import com.example.eyes.system.SttResult
-import com.example.eyes.system.SttService
-import com.example.eyes.system.SttState
+import com.example.eyes.infrastructure.system.HapticService
+import com.example.eyes.infrastructure.system.SttErrorReason
+import com.example.eyes.infrastructure.system.SttResult
+import com.example.eyes.infrastructure.system.SttService
+import com.example.eyes.infrastructure.system.SttState
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

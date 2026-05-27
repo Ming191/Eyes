@@ -5,9 +5,9 @@ import android.util.Base64
 import androidx.core.graphics.scale
 import com.example.eyes.BuildConfig
 import com.example.eyes.domain.i18n.AppLanguage
-import com.example.eyes.ocr.OpenAiHttpException
-import com.example.eyes.ocr.OpenAiResponseTextExtractor
-import com.example.eyes.ocr.OpenAiResponsesHttpClient
+import com.example.eyes.infrastructure.openai.OpenAiHttpException
+import com.example.eyes.infrastructure.openai.OpenAiResponseTextExtractor
+import com.example.eyes.infrastructure.openai.OpenAiResponsesHttpClient
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.SocketTimeoutException

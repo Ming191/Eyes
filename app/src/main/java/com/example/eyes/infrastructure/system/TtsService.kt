@@ -1,4 +1,4 @@
-package com.example.eyes.system
+package com.example.eyes.infrastructure.system
 
 import android.content.Context
 import android.media.AudioAttributes
