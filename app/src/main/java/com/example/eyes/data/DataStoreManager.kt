@@ -8,8 +8,8 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.eyes.domain.voice.VoiceCommand
+import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.i18n.AppLanguage
-import com.example.eyes.ocr.OcrMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.Locale

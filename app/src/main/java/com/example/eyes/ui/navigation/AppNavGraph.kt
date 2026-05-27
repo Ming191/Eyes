@@ -50,7 +50,7 @@ import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.camera.CameraScreen
 import com.example.eyes.ui.emergency.EmergencyScreen
 import com.example.eyes.ui.home.HomeScreen
-import com.example.eyes.ocr.OcrMode
+import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.ui.onboarding.OnboardingScreen
 import com.example.eyes.ui.settings.SettingsScreen
 import org.koin.compose.koinInject

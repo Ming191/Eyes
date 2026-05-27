@@ -25,7 +25,7 @@ import com.example.eyes.ocr.OcrEngine
 import com.example.eyes.ocr.OcrGuidanceEvaluator
 import com.example.eyes.ocr.OcrGuidanceEvaluator.OcrGuidanceText
 import com.example.eyes.ocr.OcrGuidanceStatus
-import com.example.eyes.ocr.OcrMode
+import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.ocr.OcrPostProcessor
 import com.example.eyes.ocr.OcrResult
 import com.example.eyes.ocr.OcrTextBounds

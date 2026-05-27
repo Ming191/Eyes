@@ -1,11 +1,11 @@
 package com.example.eyes.application.navigation
 
-import com.example.eyes.data.DataStoreManager
+import com.example.eyes.domain.navigation.NavigationPreferencesRepository
 
 class CompleteOnboardingUseCase(
-    private val dataStoreManager: DataStoreManager
+    private val navigationPreferencesRepository: NavigationPreferencesRepository
 ) {
     suspend operator fun invoke() {
-        dataStoreManager.setOnboardingCompleted(true)
+        navigationPreferencesRepository.setOnboardingCompleted(true)
     }
 }

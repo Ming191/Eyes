@@ -61,7 +61,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.R
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.i18n.AppLanguage
-import com.example.eyes.ocr.OcrMode
+import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.ui.blind.BlindAction
 import com.example.eyes.ui.blind.blindFocusable
 import org.koin.androidx.compose.koinViewModel

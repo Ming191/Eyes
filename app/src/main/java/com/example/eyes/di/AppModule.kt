@@ -15,7 +15,9 @@ import com.example.eyes.application.settings.UpdateSettingsUseCase
 import com.example.eyes.application.voice.HandleVoiceCommandUseCase
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.data.DataStoreManager
+import com.example.eyes.data.navigation.DataStoreNavigationPreferencesRepository
 import com.example.eyes.data.settings.DataStoreSettingsRepository
+import com.example.eyes.domain.navigation.NavigationPreferencesRepository
 import com.example.eyes.domain.settings.SettingsRepository
 import com.example.eyes.domain.voice.CommandParser
 import com.example.eyes.data.remote.Gpt4oSceneDescriptionEngine
@@ -64,6 +66,7 @@ val appModule = module {
     single { HapticService(androidContext()) }
     single { DataStoreManager(androidContext()) }
     single<SettingsRepository> { DataStoreSettingsRepository(get()) }
+    single<NavigationPreferencesRepository> { DataStoreNavigationPreferencesRepository(get()) }
     factory { ObserveSettingsUseCase(get()) }
     factory { UpdateSettingsUseCase(get(), get()) }
     single { CameraManager(androidContext()) }
@@ -71,7 +74,7 @@ val appModule = module {
     single { CommandParser() }
     factory { BuildHomeStateUseCase(get()) }
     factory { AnnounceHomeGreetingUseCase(get(), get(), get()) }
-    factory { ObserveAppNavStateUseCase(get()) }
+    factory { ObserveAppNavStateUseCase(get(), get()) }
     factory { CompleteOnboardingUseCase(get()) }
     factory { UpdateAppLanguageUseCase(get()) }
     factory { ApplySpeechRateUseCase(get(), get()) }

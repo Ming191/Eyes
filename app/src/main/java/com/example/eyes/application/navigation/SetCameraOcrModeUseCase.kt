@@ -1,12 +1,12 @@
 package com.example.eyes.application.navigation
 
-import com.example.eyes.data.DataStoreManager
-import com.example.eyes.ocr.OcrMode
+import com.example.eyes.domain.navigation.NavigationPreferencesRepository
+import com.example.eyes.domain.ocr.OcrMode
 
 class SetCameraOcrModeUseCase(
-    private val dataStoreManager: DataStoreManager
+    private val navigationPreferencesRepository: NavigationPreferencesRepository
 ) {
     suspend operator fun invoke(mode: OcrMode) {
-        dataStoreManager.setOcrMode(mode)
+        navigationPreferencesRepository.setOcrMode(mode)
     }
 }
