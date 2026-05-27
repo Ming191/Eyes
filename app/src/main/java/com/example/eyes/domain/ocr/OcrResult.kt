@@ -1,4 +1,4 @@
-package com.example.eyes.ocr
+package com.example.eyes.domain.ocr
 
 /**
  * Kết quả nhận dạng văn bản từ OCR.

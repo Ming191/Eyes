@@ -1,7 +1,6 @@
 package com.example.eyes.ui.camera
 
 import android.graphics.Bitmap
-import android.graphics.RectF
 import android.util.Log
 import androidx.camera.core.ImageProxy
 import androidx.compose.runtime.Immutable
@@ -28,15 +27,15 @@ import com.example.eyes.domain.voice.VoiceCommandRepository
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.i18n.LocalizedTextProvider
-import com.example.eyes.ocr.MlKitOcrGuidanceAnalyzer
-import com.example.eyes.ocr.OcrGuidanceEvaluator
-import com.example.eyes.ocr.OcrGuidanceEvaluator.OcrGuidanceText
-import com.example.eyes.ocr.OcrGuidanceStatus
+import com.example.eyes.infrastructure.ocr.MlKitOcrGuidanceAnalyzer
+import com.example.eyes.domain.ocr.OcrGuidanceEvaluator
+import com.example.eyes.domain.ocr.OcrGuidanceEvaluator.OcrGuidanceText
+import com.example.eyes.domain.ocr.OcrGuidanceStatus
 import com.example.eyes.domain.ocr.OcrMode
-import com.example.eyes.ocr.OcrPostProcessor
-import com.example.eyes.ocr.OcrResult
-import com.example.eyes.ocr.OcrTextBounds
-import com.example.eyes.objectdetection.localizedText
+import com.example.eyes.domain.ocr.OcrPostProcessor
+import com.example.eyes.domain.ocr.OcrResult
+import com.example.eyes.domain.ocr.OcrTextBounds
+import com.example.eyes.infrastructure.i18n.localizedText
 import com.example.eyes.domain.speech.SpeechOutput
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -84,8 +83,7 @@ data class CameraUiState(
 }
 
 @Immutable
-enum class CameraMode(
-) {
+enum class CameraMode {
     OCR,
     SCENE_DESCRIPTION,
     OBJECT_DETECTION,
@@ -375,11 +373,8 @@ class CameraViewModel(
         viewModelScope.launch(Dispatchers.Default) {
             var bitmap: Bitmap? = null
             try {
-                val analyzer = getCurrencyAnalyzer()
-                if (analyzer == null) {
-                    return@launch
-                }
-                bitmap = imageProxy.toBitmapWithRotation()
+	            val analyzer = getCurrencyAnalyzer() ?: return@launch
+	            bitmap = imageProxy.toBitmapWithRotation()
                 analyzer.analyze(bitmap.toImageFrame())
             } catch (error: CancellationException) {
                 throw error
@@ -571,11 +566,11 @@ class CameraViewModel(
         )
     }
 
-    private fun com.example.eyes.objectdetection.Detection.toOverlayItem(
+    private fun com.example.eyes.domain.objectdetection.Detection.toOverlayItem(
         frameWidth: Int,
         frameHeight: Int
     ): DetectionOverlayItem {
-        val box: RectF = boundingBox
+        val box = boundingBox
         return DetectionOverlayItem(
             label = localizedObjectDetectionLabel(classId, label),
             confidence = confidence,
@@ -1161,7 +1156,7 @@ class CameraViewModel(
         usedFallback: Boolean,
         canTranslateCurrentDocument: Boolean
     ) {
-        val sentences = if (result.sentences.isNotEmpty()) result.sentences else OcrPostProcessor.splitToSentences(result.fullText)
+        val sentences = result.sentences.ifEmpty { OcrPostProcessor.splitToSentences(result.fullText) }
         val finalSentences = sentences.ifEmpty { listOf(result.fullText.trim()).filter { it.isNotBlank() } }
 
         if (finalSentences.isEmpty()) {

@@ -1,8 +1,5 @@
-package com.example.eyes.ocr
+package com.example.eyes.domain.ocr
 
-import androidx.compose.runtime.Immutable
-
-@Immutable
 data class OcrTextBounds(
     val left: Float,
     val top: Float,
@@ -23,7 +20,6 @@ data class OcrTextBounds(
     )
 }
 
-@Immutable
 data class OcrGuidanceFrame(
     val textBounds: OcrTextBounds?,
     val lineCount: Int,
@@ -31,7 +27,6 @@ data class OcrGuidanceFrame(
     val luminance: Float
 )
 
-@Immutable
 enum class OcrGuidanceStatus {
     SEARCHING,
     MOVE_CLOSER,
@@ -47,7 +42,6 @@ enum class OcrGuidanceStatus {
     READY
 }
 
-@Immutable
 data class OcrGuidanceEvaluation(
     val status: OcrGuidanceStatus,
     val message: String,

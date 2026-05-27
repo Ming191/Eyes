@@ -1,7 +1,7 @@
 package com.example.eyes.application.objectdetection
 
 import com.example.eyes.application.ports.ObjectDetectorPort
-import com.example.eyes.objectdetection.YoloOutputInfo
+import com.example.eyes.domain.objectdetection.YoloOutputInfo
 
 class WarmUpObjectDetectionUseCase(
     private val objectDetector: ObjectDetectorPort

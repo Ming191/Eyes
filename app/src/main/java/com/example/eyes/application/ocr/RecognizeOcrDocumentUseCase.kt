@@ -4,8 +4,8 @@ import com.example.eyes.application.ports.OcrEnginePort
 import com.example.eyes.application.ports.OcrTranslatorPort
 import com.example.eyes.domain.image.ImageFrame
 import com.example.eyes.domain.ocr.OcrMode
-import com.example.eyes.ocr.OcrPostProcessor
-import com.example.eyes.ocr.OcrResult
+import com.example.eyes.domain.ocr.OcrPostProcessor
+import com.example.eyes.domain.ocr.OcrResult
 
 data class RecognizeOcrDocumentInput(
     val imageFrame: ImageFrame,

@@ -1,4 +1,4 @@
-package com.example.eyes.ocr
+package com.example.eyes.domain.ocr
 
 object OcrGuidanceEvaluator {
     private const val MIN_TEXT_COVERAGE = 0.06f

@@ -1,17 +1,17 @@
 package com.example.eyes.infrastructure.objectdetection
 
-import android.graphics.RectF
-import com.example.eyes.objectdetection.DetectionPosition
+import com.example.eyes.domain.objectdetection.DetectionBounds
+import com.example.eyes.domain.objectdetection.DetectionPosition
 
 class GridPositionMapper {
 
     fun map(
-        boundingBox: RectF,
+        boundingBox: DetectionBounds,
         frameWidth: Int,
         frameHeight: Int
     ): DetectionPosition = mapCenter(
-        centerX = boundingBox.centerX(),
-        centerY = boundingBox.centerY(),
+        centerX = boundingBox.centerX,
+        centerY = boundingBox.centerY,
         frameWidth = frameWidth,
         frameHeight = frameHeight
     )

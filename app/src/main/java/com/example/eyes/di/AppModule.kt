@@ -52,7 +52,7 @@ import com.example.eyes.i18n.LocalizedTextProvider
 import com.example.eyes.infrastructure.openai.Gpt4oOcrEngine
 import com.example.eyes.infrastructure.openai.GptTranslationEngine
 import com.example.eyes.infrastructure.ocr.MlKitOcrEngine
-import com.example.eyes.ocr.MlKitOcrGuidanceAnalyzer
+import com.example.eyes.infrastructure.ocr.MlKitOcrGuidanceAnalyzer
 import com.example.eyes.data.remote.SceneDescriptionEngine
 import com.example.eyes.data.remote.SceneRepository
 import com.example.eyes.infrastructure.objectdetection.ExecutorchModelAssetCopier

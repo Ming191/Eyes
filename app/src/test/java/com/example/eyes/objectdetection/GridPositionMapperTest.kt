@@ -1,6 +1,7 @@
-package com.example.eyes.objectdetection
+package com.example.eyes.domain.objectdetection
 
 import androidx.test.core.app.ApplicationProvider
+import com.example.eyes.infrastructure.i18n.localizedText
 import com.example.eyes.domain.i18n.AppLanguage
 import org.junit.Assert.assertEquals
 import org.junit.Test

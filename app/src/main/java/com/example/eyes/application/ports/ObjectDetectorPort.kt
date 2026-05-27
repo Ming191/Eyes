@@ -1,8 +1,8 @@
 package com.example.eyes.application.ports
 
 import com.example.eyes.domain.image.ImageFrame
-import com.example.eyes.objectdetection.Detection
-import com.example.eyes.objectdetection.YoloOutputInfo
+import com.example.eyes.domain.objectdetection.Detection
+import com.example.eyes.domain.objectdetection.YoloOutputInfo
 
 interface ObjectDetectorPort {
     suspend fun inspectOutputShape(): List<YoloOutputInfo>

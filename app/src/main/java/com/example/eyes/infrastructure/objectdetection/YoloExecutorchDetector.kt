@@ -5,8 +5,8 @@ import android.util.Log
 import com.example.eyes.application.ports.ObjectDetectorPort
 import com.example.eyes.infrastructure.camera.toBitmap
 import com.example.eyes.domain.image.ImageFrame
-import com.example.eyes.objectdetection.Detection
-import com.example.eyes.objectdetection.YoloOutputInfo
+import com.example.eyes.domain.objectdetection.Detection
+import com.example.eyes.domain.objectdetection.YoloOutputInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

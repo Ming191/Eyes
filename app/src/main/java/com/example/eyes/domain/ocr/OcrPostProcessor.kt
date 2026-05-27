@@ -1,4 +1,4 @@
-package com.example.eyes.ocr
+package com.example.eyes.domain.ocr
 
 /**
  * Post-process kết quả OCR đã chuẩn hóa thành chuỗi text.

@@ -6,8 +6,8 @@ import androidx.camera.core.ImageProxy
 import com.example.eyes.application.ports.OcrEnginePort
 import com.example.eyes.infrastructure.camera.toBitmap
 import com.example.eyes.domain.image.ImageFrame
-import com.example.eyes.ocr.OcrPostProcessor
-import com.example.eyes.ocr.OcrResult
+import com.example.eyes.domain.ocr.OcrPostProcessor
+import com.example.eyes.domain.ocr.OcrResult
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions

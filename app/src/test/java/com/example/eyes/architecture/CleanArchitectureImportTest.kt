@@ -73,6 +73,16 @@ class CleanArchitectureImportTest {
         )
     }
 
+    @Test
+    fun oldTopLevelOcrAndObjectDetectionPackages_areNotUsed() {
+        assertNoForbiddenPackagesOrImports(
+            forbiddenPackages = listOf(
+                "com.example.eyes.ocr",
+                "com.example.eyes.objectdetection",
+            ),
+        )
+    }
+
     private fun assertNoForbiddenImports(sourceSet: String, forbiddenImports: List<String>) {
         val sourceDirectory = File(sourceRoot, sourceSet)
         val violations = sourceDirectory
@@ -100,6 +110,33 @@ class CleanArchitectureImportTest {
             .toList()
     }
 
+    private fun assertNoForbiddenPackagesOrImports(forbiddenPackages: List<String>) {
+        val sourceDirectory = File(projectRoot, "app/src")
+        val violations = sourceDirectory
+            .walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .flatMap { file -> forbiddenPackageOrImportViolations(file, forbiddenPackages).asSequence() }
+            .toList()
+
+        assertTrue(
+            "Forbidden packages/imports found:\n${violations.joinToString(separator = "\n")}",
+            violations.isEmpty(),
+        )
+    }
+
+    private fun forbiddenPackageOrImportViolations(file: File, forbiddenPackages: List<String>): List<String> {
+        val relativePath = file.relativeTo(projectRoot).invariantSeparatorsPath
+        return packageOrImportRegex.findAll(file.readText())
+            .map { match -> match.groupValues[2] }
+            .filter { packageName ->
+                forbiddenPackages.any { forbiddenPackage ->
+                    packageName == forbiddenPackage || packageName.startsWith("$forbiddenPackage.")
+                }
+            }
+            .map { forbiddenPackage -> "$relativePath uses $forbiddenPackage" }
+            .toList()
+    }
+
     private fun findProjectRoot(): File {
         val userDir = requireNotNull(System.getProperty("user.dir")) { "user.dir system property is missing" }
         return generateSequence(File(userDir).absoluteFile) { it.parentFile }
@@ -109,6 +146,7 @@ class CleanArchitectureImportTest {
 
     private companion object {
         val importRegex = Regex("(?m)^\\s*import\\s+([^\\s]+)")
+        val packageOrImportRegex = Regex("(?m)^\\s*(package|import)\\s+([^\\s]+)")
 
         fun String.matchesForbiddenImport(forbiddenImport: String): Boolean {
             val prefix = forbiddenImport.removeSuffix(".*")

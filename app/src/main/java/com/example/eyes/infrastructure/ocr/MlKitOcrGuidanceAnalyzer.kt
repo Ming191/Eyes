@@ -1,24 +1,31 @@
-package com.example.eyes.ocr
+package com.example.eyes.infrastructure.ocr
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import com.example.eyes.domain.ocr.OcrGuidanceFrame
+import com.example.eyes.domain.ocr.OcrTextBounds
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.suspendCoroutine
 
 class MlKitOcrGuidanceAnalyzer {
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
     suspend fun analyze(bitmap: Bitmap): OcrGuidanceFrame =
-        suspendCoroutine { continuation ->
+        suspendCancellableCoroutine { continuation ->
             val inputImage = InputImage.fromBitmap(bitmap, 0)
             recognizer.process(inputImage)
                 .addOnSuccessListener { text ->
                     val bounds = text.textBlocks
-                        .mapNotNull { block -> block.boundingBox?.toNormalizedBounds(bitmap.width, bitmap.height) }
+                        .mapNotNull { block ->
+                            block.boundingBox?.toNormalizedBounds(
+                                bitmap.width,
+                                bitmap.height
+                            )
+                        }
                         .reduceOrNull { acc, blockBounds -> acc.union(blockBounds) }
                     val lineCount = text.textBlocks.sumOf { it.lines.size }
                     continuation.resume(

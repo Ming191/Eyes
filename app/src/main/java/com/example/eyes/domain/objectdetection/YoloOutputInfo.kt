@@ -1,4 +1,4 @@
-package com.example.eyes.objectdetection
+package com.example.eyes.domain.objectdetection
 
 data class YoloOutputInfo(
     val index: Int,

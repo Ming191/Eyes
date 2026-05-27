@@ -1,4 +1,4 @@
-package com.example.eyes.objectdetection
+package com.example.eyes.domain.objectdetection
 
 import com.example.eyes.infrastructure.objectdetection.GridPositionMapper
 import org.junit.Assert.assertEquals
