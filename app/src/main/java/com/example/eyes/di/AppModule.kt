@@ -4,6 +4,12 @@ import android.content.Context
 import android.media.AudioManager
 import com.example.eyes.application.home.AnnounceHomeGreetingUseCase
 import com.example.eyes.application.home.BuildHomeStateUseCase
+import com.example.eyes.application.navigation.AnnounceDestinationUseCase
+import com.example.eyes.application.navigation.ApplySpeechRateUseCase
+import com.example.eyes.application.navigation.CompleteOnboardingUseCase
+import com.example.eyes.application.navigation.ObserveAppNavStateUseCase
+import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
+import com.example.eyes.application.navigation.UpdateAppLanguageUseCase
 import com.example.eyes.application.settings.ObserveSettingsUseCase
 import com.example.eyes.application.settings.UpdateSettingsUseCase
 import com.example.eyes.camera.CameraManager
@@ -63,6 +69,12 @@ val appModule = module {
     single { CommandParser() }
     factory { BuildHomeStateUseCase(get()) }
     factory { AnnounceHomeGreetingUseCase(get(), get(), get()) }
+    factory { ObserveAppNavStateUseCase(get()) }
+    factory { CompleteOnboardingUseCase(get()) }
+    factory { UpdateAppLanguageUseCase(get()) }
+    factory { ApplySpeechRateUseCase(get(), get()) }
+    factory { SetCameraOcrModeUseCase(get()) }
+    factory { AnnounceDestinationUseCase(get(), get()) }
     factory<OcrEngine>(named("quick-ocr")) { MlKitOcrEngine() }
     factory<OcrEngine>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
     factory { MlKitOcrGuidanceAnalyzer() }
@@ -75,10 +87,13 @@ val appModule = module {
     single { SceneRepository(get(), get()) }
     viewModel {
         AppNavViewModel(
-            dataStoreManager = get(),
-            speechOutput = get(),
-            announcementController = get(),
-            localizedTextProvider = get()
+            observeAppNavState = get(),
+            completeOnboardingUseCase = get(),
+            updateAppLanguageUseCase = get(),
+            applySpeechRateUseCase = get(),
+            setCameraOcrModeUseCase = get(),
+            announceDestinationUseCase = get(),
+            speechOutput = get()
         )
     }
     viewModel {
