@@ -12,6 +12,7 @@ import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
 import com.example.eyes.application.navigation.UpdateAppLanguageUseCase
 import com.example.eyes.application.settings.ObserveSettingsUseCase
 import com.example.eyes.application.settings.UpdateSettingsUseCase
+import com.example.eyes.application.voice.HandleVoiceCommandUseCase
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.domain.settings.SettingsRepository
@@ -75,6 +76,7 @@ val appModule = module {
     factory { ApplySpeechRateUseCase(get(), get()) }
     factory { SetCameraOcrModeUseCase(get()) }
     factory { AnnounceDestinationUseCase(get(), get()) }
+    factory { HandleVoiceCommandUseCase(get(), get(), get()) }
     factory<OcrEngine>(named("quick-ocr")) { MlKitOcrEngine() }
     factory<OcrEngine>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
     factory { MlKitOcrGuidanceAnalyzer() }
@@ -124,5 +126,5 @@ val appModule = module {
             updateSettings = get()
         )
     }
-    viewModel { com.example.eyes.ui.voice.VoiceCommandViewModel(get(), get(), get(), get(), get(), get()) }
+    viewModel { com.example.eyes.ui.voice.VoiceCommandViewModel(get(), get(), get(), get(), get()) }
 }
