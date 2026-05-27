@@ -1,7 +1,7 @@
 package com.example.eyes.ui.blind
 
 import androidx.compose.ui.geometry.Rect
-import com.example.eyes.infrastructure.system.SpeechOutput
+import com.example.eyes.domain.speech.SpeechOutput
 import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Test

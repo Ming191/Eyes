@@ -6,15 +6,15 @@ import androidx.lifecycle.viewModelScope
 import com.example.eyes.application.voice.HandleVoiceCommandUseCase
 import com.example.eyes.application.voice.VoiceCommandAction
 import com.example.eyes.application.voice.VoiceNavigationTargetKind
+import com.example.eyes.domain.haptics.HapticFeedback
 import com.example.eyes.domain.settings.SettingsRepository
 import com.example.eyes.domain.voice.CommandParser
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.domain.i18n.AppLanguage
-import com.example.eyes.infrastructure.system.HapticService
-import com.example.eyes.infrastructure.system.SttErrorReason
-import com.example.eyes.infrastructure.system.SttResult
-import com.example.eyes.infrastructure.system.SttService
-import com.example.eyes.infrastructure.system.SttState
+import com.example.eyes.domain.voice.SpeechRecognitionPort
+import com.example.eyes.domain.voice.SttErrorReason
+import com.example.eyes.domain.voice.SttResult
+import com.example.eyes.domain.voice.SttState
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,9 +41,9 @@ data class VoiceCommandUiState(
 )
 
 class VoiceCommandViewModel(
-    private val sttService: SttService,
+    private val speechRecognition: SpeechRecognitionPort,
     private val commandParser: CommandParser,
-    private val hapticService: HapticService,
+    private val hapticService: HapticFeedback,
     private val settingsRepository: SettingsRepository,
     private val handleVoiceCommand: HandleVoiceCommandUseCase
 ) : ViewModel() {
@@ -62,14 +62,14 @@ class VoiceCommandViewModel(
     init {
         // Mirror recognizer state into UI state.
         viewModelScope.launch {
-            sttService.state.collect { sttState ->
+            speechRecognition.state.collect { sttState ->
                 _uiState.update { it.copy(sttState = sttState) }
             }
         }
 
         // React to recognizer results.
         viewModelScope.launch {
-            sttService.results.collect { result ->
+            speechRecognition.results.collect { result ->
                 handleSttResult(result)
             }
         }
@@ -113,11 +113,11 @@ class VoiceCommandViewModel(
         if (_uiState.value.sttState != SttState.Idle && _uiState.value.sttState !is SttState.Error) return
         hapticService.confirm()
         _uiState.update { it.copy(partialText = "", finalText = "", lastCommand = null) }
-        sttService.startListening(appLanguage)
+        speechRecognition.startListening(appLanguage)
     }
 
     fun stopListening() {
-        sttService.stopListening()
+        speechRecognition.stopListening()
     }
 
     fun handleRecognizedText(text: String) {
@@ -198,12 +198,12 @@ class VoiceCommandViewModel(
     }
 
     private fun restartListeningAfterSpeech() {
-        sttService.startListening(appLanguage)
+        speechRecognition.startListening(appLanguage)
     }
 
     override fun onCleared() {
         super.onCleared()
-        sttService.cancel()
+        speechRecognition.cancel()
     }
 
     private fun VoiceNavigationTargetKind.toUiTarget(): VoiceNavigationTarget = when (this) {

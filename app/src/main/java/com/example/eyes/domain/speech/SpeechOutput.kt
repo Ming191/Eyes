@@ -24,5 +24,7 @@ interface SpeechOutput {
 
     fun setSpeechRate(rate: Float) = Unit
 
+    fun warmupLocale(locale: Locale) = Unit
+
     fun stop() = Unit
 }

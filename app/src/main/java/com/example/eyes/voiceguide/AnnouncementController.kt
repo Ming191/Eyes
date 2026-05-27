@@ -2,7 +2,7 @@ package com.example.eyes.voiceguide
 
 import com.example.eyes.domain.accessibility.AnnouncementCategory
 import com.example.eyes.domain.accessibility.AnnouncementController
-import com.example.eyes.infrastructure.system.SpeechOutput
+import com.example.eyes.domain.speech.SpeechOutput
 import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted

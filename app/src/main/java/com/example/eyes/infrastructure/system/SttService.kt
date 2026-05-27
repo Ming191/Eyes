@@ -12,6 +12,10 @@ import android.speech.SpeechRecognizer
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.example.eyes.domain.i18n.AppLanguage
+import com.example.eyes.domain.voice.SpeechRecognitionPort
+import com.example.eyes.domain.voice.SttErrorReason
+import com.example.eyes.domain.voice.SttResult
+import com.example.eyes.domain.voice.SttState
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -36,20 +40,20 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 class SttService(
     context: Context
-) {
+) : SpeechRecognitionPort {
 
     private val appContext: Context = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
     private var isReleased = false
 
     private val _state = MutableStateFlow<SttState>(SttState.Idle)
-    val state: StateFlow<SttState> = _state.asStateFlow()
+    override val state: StateFlow<SttState> = _state.asStateFlow()
 
     private val _results = MutableSharedFlow<SttResult>(
         replay = 0,
         extraBufferCapacity = RESULTS_BUFFER_CAPACITY
     )
-    val results: SharedFlow<SttResult> = _results.asSharedFlow()
+    override val results: SharedFlow<SttResult> = _results.asSharedFlow()
 
     private var recognizer: SpeechRecognizer? = null
 
@@ -65,7 +69,7 @@ class SttService(
      * Errors (missing permission, unavailable engine, etc.) are emitted via
      * [state] and [results] rather than thrown.
      */
-    fun startListening(language: AppLanguage = AppLanguage.VI) {
+    override fun startListening(language: AppLanguage) {
         runOnMain {
             if (isReleased) {
                 Log.w(TAG, "startListening called after release() — ignoring")
@@ -102,7 +106,7 @@ class SttService(
      * Manually stop listening (e.g. user tapped a "stop" button).
      * The recognizer will still emit a Final result for whatever was captured.
      */
-    fun stopListening() {
+    override fun stopListening() {
         runOnMain {
             recognizer?.stopListening()
         }
@@ -111,7 +115,7 @@ class SttService(
     /**
      * Cancel any in-flight recognition without producing a final result.
      */
-    fun cancel() {
+    override fun cancel() {
         runOnMain {
             recognizer?.cancel()
             _state.value = SttState.Idle

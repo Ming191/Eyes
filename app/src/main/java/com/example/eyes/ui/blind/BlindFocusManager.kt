@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import com.example.eyes.infrastructure.system.SpeechOutput
+import com.example.eyes.domain.speech.SpeechOutput
 import java.util.Locale
 
 class BlindFocusManager(

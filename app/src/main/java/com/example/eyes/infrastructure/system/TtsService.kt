@@ -7,6 +7,7 @@ import android.media.AudioManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
+import com.example.eyes.domain.speech.SpeechOutput
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -190,7 +191,7 @@ class TtsService(context: Context) : SpeechOutput {
         pendingUtterances.clear()
     }
 
-    fun warmupLocale(locale: Locale) {
+    override fun warmupLocale(locale: Locale) {
         synchronized(lock) {
             if (initState != InitState.READY) return
             if (currentLocale == locale) return

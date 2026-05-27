@@ -6,8 +6,9 @@ import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import com.example.eyes.domain.haptics.HapticFeedback
 
-class HapticService(context: Context) {
+class HapticService(context: Context) : HapticFeedback {
     private val appContext = context.applicationContext
     private val vibrator: Vibrator? by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -18,15 +19,15 @@ class HapticService(context: Context) {
         }
     }
 
-    fun confirm() {
+    override fun confirm() {
         vibrate(longArrayOf(0, 45, 35, 45))
     }
 
-    fun loading() {
+    override fun loading() {
         vibrate(longArrayOf(0, 20, 30, 20, 30, 20))
     }
 
-    fun error() {
+    override fun error() {
         vibrate(longArrayOf(0, 200, 50, 120, 50, 200))
     }
 

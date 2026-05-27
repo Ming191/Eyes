@@ -22,7 +22,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import com.example.eyes.infrastructure.system.SpeechOutput
+import com.example.eyes.domain.speech.SpeechOutput
 import kotlin.math.abs
 import kotlinx.coroutines.withTimeoutOrNull
 
