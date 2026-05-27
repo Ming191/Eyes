@@ -4,7 +4,7 @@ import com.example.eyes.R
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.domain.voice.VoiceCommandRepository
 import com.example.eyes.domain.speech.SpeechOutput
-import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.i18n.LocalizedTextProvider
 
 enum class VoiceNavigationTargetKind {

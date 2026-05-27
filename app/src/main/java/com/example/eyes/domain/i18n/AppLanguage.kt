@@ -1,4 +1,4 @@
-package com.example.eyes.i18n
+package com.example.eyes.domain.i18n
 
 import java.util.Locale
 

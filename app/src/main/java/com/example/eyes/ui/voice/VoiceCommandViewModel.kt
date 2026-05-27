@@ -9,7 +9,7 @@ import com.example.eyes.application.voice.VoiceNavigationTargetKind
 import com.example.eyes.domain.settings.SettingsRepository
 import com.example.eyes.domain.voice.CommandParser
 import com.example.eyes.domain.voice.VoiceCommand
-import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.SttErrorReason
 import com.example.eyes.system.SttResult

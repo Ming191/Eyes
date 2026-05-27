@@ -5,7 +5,7 @@ import com.example.eyes.data.remote.SceneDescriptionResult
 import com.example.eyes.data.remote.SceneRepository
 import com.example.eyes.domain.scene.SceneDescription
 import com.example.eyes.domain.scene.SceneDescriptionRepository
-import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.domain.i18n.AppLanguage
 
 class SceneRepositorySceneDescriptionRepository(
     private val sceneRepository: SceneRepository

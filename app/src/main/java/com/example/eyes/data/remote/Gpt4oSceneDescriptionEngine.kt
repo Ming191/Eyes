@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import android.util.Base64
 import androidx.core.graphics.scale
 import com.example.eyes.BuildConfig
-import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.ocr.OpenAiHttpException
 import com.example.eyes.ocr.OpenAiResponseTextExtractor
 import com.example.eyes.ocr.OpenAiResponsesHttpClient

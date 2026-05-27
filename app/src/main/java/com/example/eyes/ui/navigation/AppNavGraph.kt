@@ -104,10 +104,10 @@ private fun LoadingScreen() {
 
 @Composable
 private fun OnboardingNavHost(
-    appLanguage: com.example.eyes.i18n.AppLanguage,
+    appLanguage: com.example.eyes.domain.i18n.AppLanguage,
     currentSpokenText: String?,
     speechOutput: SpeechOutput,
-    onLanguageSelected: (com.example.eyes.i18n.AppLanguage) -> Unit,
+    onLanguageSelected: (com.example.eyes.domain.i18n.AppLanguage) -> Unit,
     onFinish: () -> Unit
 ) {
     key("onboarding") {
@@ -142,7 +142,7 @@ private fun OnboardingNavHost(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun MainNavigationScaffold(
     viewModel: AppNavViewModel,
-    appLanguage: com.example.eyes.i18n.AppLanguage,
+    appLanguage: com.example.eyes.domain.i18n.AppLanguage,
     currentSpokenText: String?
 ) {
     key("main") {

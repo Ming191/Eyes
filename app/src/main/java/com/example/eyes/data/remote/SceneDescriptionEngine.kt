@@ -1,7 +1,7 @@
 package com.example.eyes.data.remote
 
 import android.graphics.Bitmap
-import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.domain.i18n.AppLanguage
 import java.io.IOException
 
 interface SceneDescriptionEngine {

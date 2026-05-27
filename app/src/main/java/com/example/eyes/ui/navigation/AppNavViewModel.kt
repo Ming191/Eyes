@@ -10,7 +10,7 @@ import com.example.eyes.application.navigation.ObserveAppNavStateUseCase
 import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
 import com.example.eyes.application.navigation.UpdateAppLanguageUseCase
 import com.example.eyes.domain.navigation.Destination
-import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.system.SpeechOutput
 import com.example.eyes.ui.camera.CameraMode

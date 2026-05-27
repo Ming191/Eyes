@@ -1,6 +1,6 @@
 package com.example.eyes.domain.voice
 
-import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.domain.i18n.AppLanguage
 import java.util.Locale
 
 /**

@@ -5,7 +5,7 @@ import com.example.eyes.application.home.HomeActionKind
 import com.example.eyes.application.home.HomeActionState
 import com.example.eyes.application.home.HomeState
 import com.example.eyes.application.home.HomeTextProvider
-import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.i18n.LocalizedTextProvider
 
 class AndroidHomeTextProvider(

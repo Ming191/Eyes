@@ -4,7 +4,7 @@ import com.example.eyes.R
 import com.example.eyes.domain.accessibility.AnnouncementCategory
 import com.example.eyes.domain.accessibility.AnnouncementController
 import com.example.eyes.domain.navigation.Destination
-import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.i18n.LocalizedTextProvider
 
 class AnnounceDestinationUseCase(
