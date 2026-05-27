@@ -6,7 +6,6 @@ import androidx.camera.core.ImageProxy
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.eyes.R
 import com.example.eyes.application.camera.ObserveCameraPreferencesUseCase
 import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
 import com.example.eyes.application.objectdetection.DetectObjectsUseCase
@@ -43,7 +42,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
@@ -123,7 +121,6 @@ class CameraViewModel(
     private val isProcessingCurrencyPreview = AtomicBoolean(false)
     private val lastOcrSwipeAtMs = AtomicReference(0L)
     private val lastOcrGuidanceAtMs = AtomicLong(0L)
-    private val lastOcrGuidanceSpeechAtMs = AtomicLong(0L)
     private val lastObjectDetectionAtMs = AtomicLong(0L)
     private val lastCurrencyPreviewAtMs = AtomicLong(0L)
     private val lastObjectAnnouncementAtMs = AtomicLong(0L)
@@ -133,13 +130,12 @@ class CameraViewModel(
 
     private val currentOcrMode = MutableStateFlow(OcrMode.QUICK)
 
-    private val latestFrame = AtomicReference<Bitmap?>(null)
+    private val bitmapStore = CameraBitmapStore()
     private val appLanguage = AtomicReference(AppLanguage.VI)
     private val lastRawOcrResult = AtomicReference<OcrResult?>(null)
     private val lastOcrUsedFallback = AtomicBoolean(false)
-    private val lastOcrGuidanceBounds = AtomicReference<OcrTextBounds?>(null)
-    private val stableOcrGuidanceFrames = AtomicInteger(0)
-    private val lastAnnouncedOcrGuidanceStatus = AtomicReference<OcrGuidanceStatus?>(null)
+    private val ocrGuidanceTracker = OcrGuidanceTracker()
+    private val currencyTextMapper = CurrencyTextMapper(localizedTextProvider) { appLanguage.get() }
     private var currencyAnalyzer: CurrencyRecognizerPort? = null
     private val cameraText: CameraText get() = CameraText.from(localizedTextProvider, appLanguage.get())
 
@@ -276,8 +272,8 @@ class CameraViewModel(
             return
         }
 
-        val display = currencyDisplay(label)
-        val spoken = currencySpoken(label)
+        val display = currencyTextMapper.display(label)
+        val spoken = currencyTextMapper.spoken(label)
         val confidencePercent = String.format(Locale.getDefault(), "%.0f%%", safeConfidence * 100f)
 
         if (lastCurrencyAnnouncement.get() != label) {
@@ -378,7 +374,7 @@ class CameraViewModel(
             } catch (error: Throwable) {
                 Log.e(TAG, "Currency preview frame failed", error)
             } finally {
-                recycleBitmapIfNeeded(bitmap)
+                bitmapStore.recycle(bitmap)
                 imageProxy.close()
                 isProcessingCurrencyPreview.set(false)
             }
@@ -401,14 +397,14 @@ class CameraViewModel(
             var bitmap: Bitmap? = null
             try {
                 bitmap = imageProxy.toBitmapWithRotation()
-                replaceLatestFrame(bitmap)
+                bitmapStore.replaceLatestFrame(bitmap)
                 processObjectDetection(bitmap)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Object detection frame failed", e)
             } finally {
-                recycleBitmapIfNeeded(bitmap)
+                bitmapStore.recycle(bitmap)
                 imageProxy.close()
                 isProcessingObjectDetection.set(false)
             }
@@ -437,9 +433,9 @@ class CameraViewModel(
             var bitmap: Bitmap? = null
             try {
                 bitmap = imageProxy.toBitmapWithRotation()
-                replaceLatestFrame(bitmap)
+                bitmapStore.replaceLatestFrame(bitmap)
                 val frame = ocrGuidanceAnalyzer.analyze(bitmap)
-                val stableCount = updateOcrGuidanceStability(frame.textBounds)
+                val stableCount = ocrGuidanceTracker.updateStability(frame.textBounds)
                 val evaluation = OcrGuidanceEvaluator.evaluate(
                     frame = frame,
                     stableFrameCount = stableCount,
@@ -464,13 +460,13 @@ class CameraViewModel(
                         lastAnnouncement = evaluation.message
                     )
                 }
-                maybeAnnounceOcrGuidance(evaluation.status, evaluation.message)
+                announceOcrGuidanceIfNeeded(evaluation.status, evaluation.message)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "OCR guidance failed", e)
             } finally {
-                recycleBitmapIfNeeded(bitmap)
+                bitmapStore.recycle(bitmap)
                 imageProxy.close()
                 isProcessingOcrGuidance.set(false)
             }
@@ -562,36 +558,6 @@ class CameraViewModel(
             text = announcement,
             locale = appLanguage.get().ttsLocale
         )
-    }
-
-    private fun currencyDisplay(label: String): String {
-        return when (label) {
-            "1000" -> localizedTextProvider.getString(R.string.currency_display_1000, appLanguage.get())
-            "2000" -> localizedTextProvider.getString(R.string.currency_display_2000, appLanguage.get())
-            "5000" -> localizedTextProvider.getString(R.string.currency_display_5000, appLanguage.get())
-            "10000" -> localizedTextProvider.getString(R.string.currency_display_10000, appLanguage.get())
-            "20000" -> localizedTextProvider.getString(R.string.currency_display_20000, appLanguage.get())
-            "50000" -> localizedTextProvider.getString(R.string.currency_display_50000, appLanguage.get())
-            "100000" -> localizedTextProvider.getString(R.string.currency_display_100000, appLanguage.get())
-            "200000" -> localizedTextProvider.getString(R.string.currency_display_200000, appLanguage.get())
-            "500000" -> localizedTextProvider.getString(R.string.currency_display_500000, appLanguage.get())
-            else -> label
-        }
-    }
-
-    private fun currencySpoken(label: String): String {
-        return when (label) {
-            "1000" -> localizedTextProvider.getString(R.string.currency_spoken_1000, appLanguage.get())
-            "2000" -> localizedTextProvider.getString(R.string.currency_spoken_2000, appLanguage.get())
-            "5000" -> localizedTextProvider.getString(R.string.currency_spoken_5000, appLanguage.get())
-            "10000" -> localizedTextProvider.getString(R.string.currency_spoken_10000, appLanguage.get())
-            "20000" -> localizedTextProvider.getString(R.string.currency_spoken_20000, appLanguage.get())
-            "50000" -> localizedTextProvider.getString(R.string.currency_spoken_50000, appLanguage.get())
-            "100000" -> localizedTextProvider.getString(R.string.currency_spoken_100000, appLanguage.get())
-            "200000" -> localizedTextProvider.getString(R.string.currency_spoken_200000, appLanguage.get())
-            "500000" -> localizedTextProvider.getString(R.string.currency_spoken_500000, appLanguage.get())
-            else -> label
-        }
     }
 
     fun processCapturedOcrImage(imageProxy: ImageProxy) {
@@ -1061,50 +1027,19 @@ class CameraViewModel(
         recognizeOcrDocumentUseCase.close()
         ocrGuidanceAnalyzer.close()
         currencyAnalyzer?.close()
-        recycleBitmapIfNeeded(_uiState.value.ocrCapturedBitmap)
+        bitmapStore.recycle(_uiState.value.ocrCapturedBitmap)
+        bitmapStore.clear()
         super.onCleared()
     }
 
-    private fun updateOcrGuidanceStability(bounds: OcrTextBounds?): Int {
-        if (bounds == null) {
-            lastOcrGuidanceBounds.set(null)
-            stableOcrGuidanceFrames.set(0)
-            return 0
-        }
-
-        val previous = lastOcrGuidanceBounds.get()
-        val stable = previous != null && bounds.isStableComparedTo(previous)
-        val nextCount = if (stable) stableOcrGuidanceFrames.incrementAndGet() else 1
-        stableOcrGuidanceFrames.set(nextCount)
-        lastOcrGuidanceBounds.set(bounds)
-        return nextCount
-    }
-
-    private fun maybeAnnounceOcrGuidance(status: OcrGuidanceStatus, message: String) {
-        if (status != OcrGuidanceStatus.READY) {
-            lastAnnouncedOcrGuidanceStatus.set(null)
-            return
-        }
-
-        val now = System.currentTimeMillis()
-        val previousStatus = lastAnnouncedOcrGuidanceStatus.get()
-        val elapsed = now - lastOcrGuidanceSpeechAtMs.get()
-        if (previousStatus == status && elapsed < OCR_GUIDANCE_SPEECH_INTERVAL_MS) return
-
-        lastAnnouncedOcrGuidanceStatus.set(status)
-        lastOcrGuidanceSpeechAtMs.set(now)
-
-        if (previousStatus != OcrGuidanceStatus.READY) {
-            hapticService.confirm()
-            speechOutput.speak(message, appLanguage.get().ttsLocale)
-        }
+    private fun announceOcrGuidanceIfNeeded(status: OcrGuidanceStatus, message: String) {
+        if (!ocrGuidanceTracker.shouldAnnounce(status)) return
+        hapticService.confirm()
+        speechOutput.speak(message, appLanguage.get().ttsLocale)
     }
 
     private fun resetOcrGuidanceTracking() {
-        lastOcrGuidanceBounds.set(null)
-        stableOcrGuidanceFrames.set(0)
-        lastAnnouncedOcrGuidanceStatus.set(null)
-        lastOcrGuidanceSpeechAtMs.set(0L)
+        ocrGuidanceTracker.reset()
         lastOcrGuidanceAtMs.set(0L)
     }
 
@@ -1119,12 +1054,6 @@ class CameraViewModel(
                 debugMetrics = old.translateDebug(state.debugMetrics, new)
             )
         }
-    }
-
-    private fun OcrTextBounds.isStableComparedTo(other: OcrTextBounds): Boolean {
-        val centerDelta = kotlin.math.abs(centerX - other.centerX) + kotlin.math.abs(centerY - other.centerY)
-        val areaDelta = kotlin.math.abs(area - other.area)
-        return centerDelta < OCR_GUIDANCE_STABLE_CENTER_DELTA && areaDelta < OCR_GUIDANCE_STABLE_AREA_DELTA
     }
 
     private fun enterOcrDocumentMode(
@@ -1195,17 +1124,7 @@ class CameraViewModel(
             nextBitmap = updatedState.ocrCapturedBitmap
             updatedState
         }
-        if (previousBitmap !== nextBitmap) recycleBitmapIfNeeded(previousBitmap)
-    }
-
-    private fun recycleBitmapIfNeeded(bitmap: Bitmap?) {
-        if (bitmap != null && !bitmap.isRecycled) bitmap.recycle()
-    }
-
-    private fun replaceLatestFrame(bitmap: Bitmap) {
-        val copy = bitmap.copy(Bitmap.Config.ARGB_8888, false)
-        val previous = latestFrame.getAndSet(copy)
-        recycleBitmapIfNeeded(previous)
+        if (previousBitmap !== nextBitmap) bitmapStore.recycle(previousBitmap)
     }
 
 
@@ -1213,14 +1132,11 @@ class CameraViewModel(
         private const val TAG = "CameraViewModel"
         private const val OCR_SWIPE_DEBOUNCE_MS = 320L
         private const val OCR_GUIDANCE_INTERVAL_MS = 700L
-        private const val OCR_GUIDANCE_SPEECH_INTERVAL_MS = 4_000L
         private const val OBJECT_DETECTION_INTERVAL_MS = 1_000L
         private const val CURRENCY_PREVIEW_INTERVAL_MS = 1_500L
         private const val OBJECT_ANNOUNCEMENT_INTERVAL_MS = 3_000L
         private const val OBJECT_ANNOUNCEMENT_REPEAT_MS = 6_000L
         private const val CURRENCY_NO_DETECTION_REPEAT_MS = 10_000L
-        private const val OCR_GUIDANCE_STABLE_CENTER_DELTA = 0.12f
-        private const val OCR_GUIDANCE_STABLE_AREA_DELTA = 0.15f
         private val VIETNAMESE_LOCALE: Locale = Locale.Builder().setLanguage("vi").setRegion("VN").build()
         private val VI_DIACRITIC_REGEX = Regex(
             "[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
