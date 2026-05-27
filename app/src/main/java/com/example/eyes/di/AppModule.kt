@@ -17,8 +17,10 @@ import com.example.eyes.camera.CameraManager
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.data.navigation.DataStoreNavigationPreferencesRepository
 import com.example.eyes.data.settings.DataStoreSettingsRepository
+import com.example.eyes.data.voice.DataStoreVoiceCommandRepository
 import com.example.eyes.domain.navigation.NavigationPreferencesRepository
 import com.example.eyes.domain.settings.SettingsRepository
+import com.example.eyes.domain.voice.VoiceCommandRepository
 import com.example.eyes.domain.voice.CommandParser
 import com.example.eyes.data.remote.Gpt4oSceneDescriptionEngine
 import com.example.eyes.i18n.AndroidLocalizedTextProvider
@@ -68,6 +70,7 @@ val appModule = module {
     single { DataStoreManager(androidContext()) }
     single<SettingsRepository> { DataStoreSettingsRepository(get()) }
     single<NavigationPreferencesRepository> { DataStoreNavigationPreferencesRepository(get()) }
+    single<VoiceCommandRepository> { DataStoreVoiceCommandRepository(get()) }
     factory { ObserveSettingsUseCase(get()) }
     factory { UpdateSettingsUseCase(get(), get()) }
     single { CameraManager(androidContext()) }
@@ -119,6 +122,7 @@ val appModule = module {
             ttsService = get(),
             hapticService = get(),
             dataStoreManager = get(),
+            voiceCommandRepository = get(),
             sceneRepository = get(),
             objectDetector = get(),
             audioManager = get(),

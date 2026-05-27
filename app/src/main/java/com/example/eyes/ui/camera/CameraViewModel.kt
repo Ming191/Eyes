@@ -17,6 +17,7 @@ import com.example.eyes.camera.toBitmapWithRotation
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.data.remote.SceneRepository
 import com.example.eyes.data.remote.SceneDescriptionResult
+import com.example.eyes.domain.voice.VoiceCommandRepository
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.i18n.AppLanguage
 import com.example.eyes.i18n.LocalizedTextProvider
@@ -114,6 +115,7 @@ class CameraViewModel(
     private val ttsService: TtsService,
     private val hapticService: HapticService,
     private val dataStoreManager: DataStoreManager,
+    private val voiceCommandRepository: VoiceCommandRepository,
     private val sceneRepository: SceneRepository,
     private val objectDetector: ObjectDetector,
     private val audioManager: AudioManager,
@@ -166,7 +168,7 @@ class CameraViewModel(
             }
         }
         viewModelScope.launch {
-            dataStoreManager.lastVoiceCommandFlow.collect { command ->
+            voiceCommandRepository.lastVoiceCommandFlow.collect { command ->
                 when (command) {
                     VoiceCommand.ReadText -> applyVoiceCameraCommand(
                         mode = CameraMode.OCR,
@@ -189,7 +191,7 @@ class CameraViewModel(
 
                     else -> return@collect
                 }
-                dataStoreManager.clearLastVoiceCommand()
+                voiceCommandRepository.clearLastVoiceCommand()
             }
         }
         warmUpObjectDetectionModel()

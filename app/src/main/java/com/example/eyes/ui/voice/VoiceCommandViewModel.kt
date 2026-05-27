@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.eyes.application.voice.HandleVoiceCommandUseCase
 import com.example.eyes.application.voice.VoiceCommandAction
 import com.example.eyes.application.voice.VoiceNavigationTargetKind
-import com.example.eyes.data.DataStoreManager
+import com.example.eyes.domain.settings.SettingsRepository
 import com.example.eyes.domain.voice.CommandParser
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.i18n.AppLanguage
@@ -44,7 +44,7 @@ class VoiceCommandViewModel(
     private val sttService: SttService,
     private val commandParser: CommandParser,
     private val hapticService: HapticService,
-    private val dataStoreManager: DataStoreManager,
+    private val settingsRepository: SettingsRepository,
     private val handleVoiceCommand: HandleVoiceCommandUseCase
 ) : ViewModel() {
 
@@ -75,7 +75,7 @@ class VoiceCommandViewModel(
         }
 
         viewModelScope.launch {
-            dataStoreManager.appLanguageFlow.collect { language ->
+            settingsRepository.appLanguageFlow.collect { language ->
                 appLanguage = language
                 isAppLanguageLoaded = true
                 if (pendingStartListening) {

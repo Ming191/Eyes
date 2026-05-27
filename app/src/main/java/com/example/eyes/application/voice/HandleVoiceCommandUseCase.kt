@@ -1,8 +1,8 @@
 package com.example.eyes.application.voice
 
 import com.example.eyes.R
-import com.example.eyes.data.DataStoreManager
 import com.example.eyes.domain.voice.VoiceCommand
+import com.example.eyes.domain.voice.VoiceCommandRepository
 import com.example.eyes.domain.speech.SpeechOutput
 import com.example.eyes.i18n.AppLanguage
 import com.example.eyes.i18n.LocalizedTextProvider
@@ -19,14 +19,14 @@ data class VoiceCommandAction(
 )
 
 class HandleVoiceCommandUseCase(
-    private val dataStoreManager: DataStoreManager,
+    private val voiceCommandRepository: VoiceCommandRepository,
     private val speechOutput: SpeechOutput,
     private val localizedTextProvider: LocalizedTextProvider
 ) {
     private var lastSpokenText: String = ""
 
     suspend operator fun invoke(command: VoiceCommand, language: AppLanguage): VoiceCommandAction {
-        dataStoreManager.setLastVoiceCommand(command)
+        voiceCommandRepository.setLastVoiceCommand(command)
         val text = voiceText(language)
 
         return when (command) {
