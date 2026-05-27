@@ -12,7 +12,7 @@ import org.junit.Test
  *   methodName_condition_expectedResult
  *
  * Each test follows the GIVEN / WHEN / THEN structure used elsewhere
- * in the project (see HomeScreenSemanticsTest, FrameThrottleTest).
+ * in the project (see HomeScreenSemanticsTest).
  *
  * Test names use ASCII identifiers for safe handling on every CI runner;
  * Vietnamese test inputs live in the string literals.

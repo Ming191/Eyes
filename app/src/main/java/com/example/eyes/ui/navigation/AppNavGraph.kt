@@ -258,16 +258,9 @@ private fun MainNavigationScaffold(
                                     viewModel.requestOpenCameraOcr(OcrMode.QUICK)
                                     navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
                                 },
-                                onOpenOcrAccuracy = {
-                                    viewModel.requestOpenCameraOcr(OcrMode.ACCURACY)
-                                    navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
-                                },
-                                onOpenCameraMode = { mode ->
+	                            onOpenCameraMode = { mode ->
                                     viewModel.requestOpenCamera(mode)
                                     navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
-                                },
-                                onOpenSettings = {
-                                    navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
                                 },
                                 onOpenEmergency = {
                                     navController.navigate(EmergencyRoute)

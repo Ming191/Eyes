@@ -358,14 +358,10 @@ class CameraViewModel(
     fun processFrame(imageProxy: ImageProxy) {
         when (_uiState.value.activeMode) {
             CameraMode.OCR -> processOcrGuidanceImageProxy(imageProxy)
-            CameraMode.SCENE_DESCRIPTION -> processScenePreviewImageProxy(imageProxy)
+            CameraMode.SCENE_DESCRIPTION -> imageProxy.close()
             CameraMode.OBJECT_DETECTION -> processObjectDetectionImageProxy(imageProxy)
             CameraMode.CURRENCY -> processCurrencyPreviewImageProxy(imageProxy)
         }
-    }
-
-    private fun processScenePreviewImageProxy(imageProxy: ImageProxy) {
-        imageProxy.close()
     }
 
     private fun processCurrencyPreviewImageProxy(imageProxy: ImageProxy) {

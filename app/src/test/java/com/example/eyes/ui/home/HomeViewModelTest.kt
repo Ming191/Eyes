@@ -2,6 +2,9 @@ package com.example.eyes.ui.home
 
 import androidx.test.core.app.ApplicationProvider
 import android.app.Application
+import com.example.eyes.application.home.AnnounceHomeGreetingUseCase
+import com.example.eyes.application.home.BuildHomeStateUseCase
+import com.example.eyes.i18n.AndroidLocalizedTextProvider
 import com.example.eyes.system.SpeechOutput
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -13,8 +16,13 @@ class HomeViewModelTest {
 
     @Test
     fun onScreenShown_callsSpeakOnce_withExpectedVietnameseMessage() {
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        val localizedTextProvider = AndroidLocalizedTextProvider(application)
         val fakeSpeechOutput = FakeSpeechOutput()
-        val viewModel = HomeViewModel(ApplicationProvider.getApplicationContext<Application>(), fakeSpeechOutput)
+        val viewModel = HomeViewModel(
+            buildHomeState = BuildHomeStateUseCase(localizedTextProvider),
+            announceHomeGreeting = AnnounceHomeGreetingUseCase(localizedTextProvider, fakeSpeechOutput)
+        )
 
         viewModel.onScreenShown()
         viewModel.onScreenShown()

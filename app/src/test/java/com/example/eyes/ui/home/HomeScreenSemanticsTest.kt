@@ -5,6 +5,9 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.test.core.app.ApplicationProvider
+import com.example.eyes.application.home.AnnounceHomeGreetingUseCase
+import com.example.eyes.application.home.BuildHomeStateUseCase
+import com.example.eyes.i18n.AndroidLocalizedTextProvider
 import com.example.eyes.system.SpeechOutput
 import org.junit.After
 import org.junit.Before
@@ -35,7 +38,12 @@ class HomeScreenSemanticsTest {
     @Test
     fun homeActions_haveAccessibleDescriptions_andClickActions() {
         // GIVEN
-        val viewModel = HomeViewModel(ApplicationProvider.getApplicationContext<Application>(), FakeSpeechOutput())
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        val localizedTextProvider = AndroidLocalizedTextProvider(application)
+        val viewModel = HomeViewModel(
+            buildHomeState = BuildHomeStateUseCase(localizedTextProvider),
+            announceHomeGreeting = AnnounceHomeGreetingUseCase(localizedTextProvider, FakeSpeechOutput())
+        )
 
         // WHEN
         composeTestRule.setContent {
@@ -44,13 +52,11 @@ class HomeScreenSemanticsTest {
                 onActionSelected = { action ->
                     when (action) {
                         HomeActionType.ReadTextQuick -> Unit
-                        HomeActionType.ReadTextAccuracy -> Unit
                         HomeActionType.DescribeScene -> Unit
                         HomeActionType.DetectObjects -> Unit
                         HomeActionType.RecognizeCurrency -> Unit
                         HomeActionType.EmergencyCall -> Unit
                         HomeActionType.Voice -> Unit
-                        HomeActionType.Settings -> Unit
                     }
                 },
                 onEmergencyNumberSelected = {}

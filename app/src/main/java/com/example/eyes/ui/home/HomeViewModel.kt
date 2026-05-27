@@ -1,17 +1,15 @@
 ﻿package com.example.eyes.ui.home
 
-import android.content.Context
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.eyes.R
-import com.example.eyes.data.DataStoreManager
-import com.example.eyes.i18n.AndroidLocalizedTextProvider
+import com.example.eyes.application.home.AnnounceHomeGreetingUseCase
+import com.example.eyes.application.home.BuildHomeStateUseCase
+import com.example.eyes.application.home.HomeActionKind
+import com.example.eyes.application.home.HomeActionState
+import com.example.eyes.application.home.HomeState
+import com.example.eyes.domain.settings.SettingsRepository
 import com.example.eyes.i18n.AppLanguage
-import com.example.eyes.i18n.LocalizedTextProvider
-import com.example.eyes.system.SpeechOutput
-import com.example.eyes.voiceguide.AnnouncementCategory
-import com.example.eyes.voiceguide.AnnouncementController
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,13 +18,11 @@ import kotlinx.coroutines.launch
 
 enum class HomeActionType {
     ReadTextQuick,
-    ReadTextAccuracy,
     DescribeScene,
     DetectObjects,
     RecognizeCurrency,
     EmergencyCall,
     Voice,
-    Settings
 }
 
 @Immutable
@@ -46,25 +42,11 @@ data class HomeUiState(
 )
 
 class HomeViewModel(
-    private val localizedTextProvider: LocalizedTextProvider,
-    private val tts: SpeechOutput,
-    private val dataStoreManager: DataStoreManager? = null,
-    private val announcementController: AnnouncementController? = null
+    private val buildHomeState: BuildHomeStateUseCase,
+    private val announceHomeGreeting: AnnounceHomeGreetingUseCase,
+    private val settingsRepository: SettingsRepository? = null
 ) : ViewModel() {
-
-    constructor(
-        context: Context,
-        tts: SpeechOutput,
-        dataStoreManager: DataStoreManager? = null,
-        announcementController: AnnouncementController? = null
-    ) : this(
-        localizedTextProvider = AndroidLocalizedTextProvider(context),
-        tts = tts,
-        dataStoreManager = dataStoreManager,
-        announcementController = announcementController
-    )
-
-    private val _uiState = MutableStateFlow(homeUiStateFor(AppLanguage.VI))
+    private val _uiState = MutableStateFlow(buildHomeState(AppLanguage.VI).toUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private var hasSpokenGreeting = false
@@ -73,12 +55,12 @@ class HomeViewModel(
     private var pendingGreeting = false
 
     init {
-        dataStoreManager?.let { store ->
+        settingsRepository?.let { repository ->
             viewModelScope.launch {
-                store.appLanguageFlow.collect { language ->
+                repository.appLanguageFlow.collect { language ->
                     appLanguage = language
                     isAppLanguageLoaded = true
-                    _uiState.update { homeUiStateFor(language) }
+                    _uiState.update { buildHomeState(language).toUiState() }
                     if (pendingGreeting) {
                         pendingGreeting = false
                         speakGreetingIfNeeded()
@@ -89,7 +71,7 @@ class HomeViewModel(
     }
 
     fun onScreenShown() {
-        if (dataStoreManager != null && !isAppLanguageLoaded) {
+        if (settingsRepository != null && !isAppLanguageLoaded) {
             pendingGreeting = true
             return
         }
@@ -99,63 +81,29 @@ class HomeViewModel(
     private fun speakGreetingIfNeeded() {
         if (hasSpokenGreeting) return
         hasSpokenGreeting = true
-        val text = localizedTextProvider.getString(R.string.home_greeting, appLanguage)
-        announcementController?.announce(
-            text = text,
-            category = AnnouncementCategory.Guidance,
-            locale = appLanguage.ttsLocale
-        ) ?: tts.speak(text, appLanguage.ttsLocale)
+        announceHomeGreeting.invoke(appLanguage)
     }
 
-    private fun homeUiStateFor(language: AppLanguage): HomeUiState =
-        localizedTextProvider.localizedContext(language).homeUiStateFromResources()
-
-    private fun Context.homeUiStateFromResources(): HomeUiState = HomeUiState(
-        welcomeTitle = getString(R.string.home_welcome_title),
-        welcomeSummary = getString(R.string.home_welcome_summary),
-        actions = listOf(
-            HomeAction(
-                HomeActionType.ReadTextQuick,
-                getString(R.string.home_action_read_quick_title),
-                getString(R.string.home_action_read_quick_description),
-                getString(R.string.home_action_read_quick_supporting),
-                getString(R.string.home_action_read_quick_accessibility)
-            ),
-            HomeAction(
-                HomeActionType.DescribeScene,
-                getString(R.string.camera_mode_scene_description_label),
-                getString(R.string.camera_mode_scene_description_description),
-                getString(R.string.camera_mode_scene_description_label),
-                getString(R.string.camera_mode_scene_description_description)
-            ),
-            HomeAction(
-                HomeActionType.DetectObjects,
-                getString(R.string.camera_mode_object_detection_label),
-                getString(R.string.camera_mode_object_detection_description),
-                getString(R.string.camera_mode_object_detection_label),
-                getString(R.string.camera_mode_object_detection_description)
-            ),
-            HomeAction(
-                HomeActionType.RecognizeCurrency,
-                getString(R.string.camera_mode_currency_label),
-                getString(R.string.camera_mode_currency_description),
-                getString(R.string.camera_mode_currency_label),
-                getString(R.string.camera_mode_currency_description)
-            ),
-            HomeAction(
-                HomeActionType.EmergencyCall,
-                getString(R.string.home_action_emergency_title),
-                getString(R.string.home_action_emergency_description),
-                getString(R.string.home_action_emergency_supporting),
-                getString(R.string.home_action_emergency_accessibility)
-            ),
-            HomeAction(
-                HomeActionType.Voice,
-                getString(R.string.home_action_voice_title),
-                getString(R.string.home_action_voice_description),
-                getString(R.string.home_action_voice_supporting),
-                getString(R.string.home_action_voice_accessibility)
-            ),
-        )
+    private fun HomeState.toUiState(): HomeUiState = HomeUiState(
+        welcomeTitle = welcomeTitle,
+        welcomeSummary = welcomeSummary,
+        actions = actions.map { it.toUiAction() }
     )
+
+    private fun HomeActionState.toUiAction(): HomeAction = HomeAction(
+        type = kind.toUiType(),
+        title = title,
+        description = description,
+        supportingLabel = supportingLabel,
+        accessibilityLabel = accessibilityLabel
+    )
+
+    private fun HomeActionKind.toUiType(): HomeActionType = when (this) {
+        HomeActionKind.ReadTextQuick -> HomeActionType.ReadTextQuick
+        HomeActionKind.DescribeScene -> HomeActionType.DescribeScene
+        HomeActionKind.DetectObjects -> HomeActionType.DetectObjects
+        HomeActionKind.RecognizeCurrency -> HomeActionType.RecognizeCurrency
+        HomeActionKind.EmergencyCall -> HomeActionType.EmergencyCall
+        HomeActionKind.Voice -> HomeActionType.Voice
+    }
 }

@@ -2,6 +2,8 @@ package com.example.eyes.di
 
 import android.content.Context
 import android.media.AudioManager
+import com.example.eyes.application.home.AnnounceHomeGreetingUseCase
+import com.example.eyes.application.home.BuildHomeStateUseCase
 import com.example.eyes.application.settings.ObserveSettingsUseCase
 import com.example.eyes.application.settings.UpdateSettingsUseCase
 import com.example.eyes.camera.CameraManager
@@ -59,6 +61,8 @@ val appModule = module {
     single { CameraManager(androidContext()) }
     factory { SttService(androidContext()) }
     single { CommandParser() }
+    factory { BuildHomeStateUseCase(get()) }
+    factory { AnnounceHomeGreetingUseCase(get(), get(), get()) }
     factory<OcrEngine>(named("quick-ocr")) { MlKitOcrEngine() }
     factory<OcrEngine>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
     factory { MlKitOcrGuidanceAnalyzer() }
@@ -79,10 +83,9 @@ val appModule = module {
     }
     viewModel {
         HomeViewModel(
-            localizedTextProvider = get(),
-            tts = get(),
-            dataStoreManager = get(),
-            announcementController = get()
+            buildHomeState = get(),
+            announceHomeGreeting = get(),
+            settingsRepository = get()
         )
     }
     viewModel {
