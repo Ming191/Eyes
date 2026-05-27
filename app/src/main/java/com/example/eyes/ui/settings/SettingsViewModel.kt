@@ -2,12 +2,12 @@ package com.example.eyes.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.eyes.data.DataStoreManager
+import com.example.eyes.application.settings.ObserveSettingsUseCase
+import com.example.eyes.application.settings.UpdateSettingsUseCase
 import com.example.eyes.i18n.AppLanguage
-import com.example.eyes.system.SpeechOutput
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -20,23 +20,17 @@ data class SettingsUiState(
 )
 
 class SettingsViewModel(
-    private val dataStoreManager: DataStoreManager,
-    private val speechOutput: SpeechOutput
+    observeSettings: ObserveSettingsUseCase,
+    private val updateSettings: UpdateSettingsUseCase
 ) : ViewModel() {
 
-    val uiState: StateFlow<SettingsUiState> = combine(
-        dataStoreManager.ttsSpeedFlow,
-        dataStoreManager.alertSensitivityFlow,
-        dataStoreManager.ocrTranslateToVietnameseFlow,
-        dataStoreManager.appLanguageFlow,
-        dataStoreManager.voiceGuideEnabledFlow
-    ) { ttsSpeed, alertSensitivity, autoTranslate, appLanguage, voiceGuideEnabled ->
+    val uiState: StateFlow<SettingsUiState> = observeSettings().map { settings ->
         SettingsUiState(
-            ttsSpeed = ttsSpeed,
-            alertSensitivity = alertSensitivity,
-            autoTranslateEnglishOcrToVietnamese = autoTranslate,
-            appLanguage = appLanguage,
-            voiceGuideEnabled = voiceGuideEnabled
+            ttsSpeed = settings.ttsSpeed,
+            alertSensitivity = settings.alertSensitivity,
+            autoTranslateEnglishOcrToVietnamese = settings.autoTranslateEnglishOcrToVietnamese,
+            appLanguage = settings.appLanguage,
+            voiceGuideEnabled = settings.voiceGuideEnabled
         )
     }.stateIn(
         scope = viewModelScope,
@@ -46,20 +40,19 @@ class SettingsViewModel(
 
     fun setTtsSpeed(value: Float) {
         viewModelScope.launch {
-            speechOutput.setSpeechRate(value)
-            dataStoreManager.setTtsSpeed(value)
+            updateSettings.setTtsSpeed(value)
         }
     }
 
     fun setAutoTranslateEnglishOcrToVietnamese(enabled: Boolean) {
         viewModelScope.launch {
-            dataStoreManager.setOcrTranslateToVietnamese(enabled)
+            updateSettings.setAutoTranslateEnglishOcrToVietnamese(enabled)
         }
     }
 
     fun setAppLanguage(language: AppLanguage) {
         viewModelScope.launch {
-            dataStoreManager.setAppLanguage(language)
+            updateSettings.setAppLanguage(language)
         }
     }
 

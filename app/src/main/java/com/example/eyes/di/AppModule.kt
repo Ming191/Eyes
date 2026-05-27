@@ -2,8 +2,11 @@ package com.example.eyes.di
 
 import android.content.Context
 import android.media.AudioManager
+import com.example.eyes.application.settings.ObserveSettingsUseCase
+import com.example.eyes.application.settings.UpdateSettingsUseCase
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.data.DataStoreManager
+import com.example.eyes.domain.settings.SettingsRepository
 import com.example.eyes.domain.voice.CommandParser
 import com.example.eyes.data.remote.Gpt4oSceneDescriptionEngine
 import com.example.eyes.i18n.AndroidLocalizedTextProvider
@@ -50,6 +53,9 @@ val appModule = module {
     single<AnnouncementController> { DefaultAnnouncementController(get<DataStoreManager>().voiceGuideEnabledFlow, get(), get(), get()) }
     single { HapticService(androidContext()) }
     single { DataStoreManager(androidContext()) }
+    single<SettingsRepository> { get<DataStoreManager>() }
+    factory { ObserveSettingsUseCase(get()) }
+    factory { UpdateSettingsUseCase(get(), get()) }
     single { CameraManager(androidContext()) }
     factory { SttService(androidContext()) }
     single { CommandParser() }
@@ -96,8 +102,8 @@ val appModule = module {
     }
     viewModel {
         SettingsViewModel(
-            dataStoreManager = get(),
-            speechOutput = get()
+            observeSettings = get(),
+            updateSettings = get()
         )
     }
     viewModel { com.example.eyes.ui.voice.VoiceCommandViewModel(get(), get(), get(), get(), get(), get()) }
