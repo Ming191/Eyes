@@ -71,10 +71,6 @@ class DataStoreManager(private val context: Context) {
         context.dataStore.edit { preferences -> preferences[PreferenceKeys.TtsSpeed] = value }
     }
 
-    suspend fun setAlertSensitivity(value: Float) {
-        context.dataStore.edit { preferences -> preferences[PreferenceKeys.AlertSensitivity] = value }
-    }
-
     suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { preferences -> preferences[PreferenceKeys.OnboardingCompleted] = completed }
     }
@@ -99,10 +95,6 @@ class DataStoreManager(private val context: Context) {
         context.dataStore.edit { preferences -> preferences[PreferenceKeys.AppLanguage] = language.storageValue }
     }
 
-    suspend fun setVoiceGuideEnabled(enabled: Boolean) {
-        context.dataStore.edit { preferences -> preferences[PreferenceKeys.VoiceGuideEnabled] = enabled }
-    }
-
     private companion object {
         /**
          * Stable string encoding for [VoiceCommand]. The format is intentionally
@@ -112,7 +104,6 @@ class DataStoreManager(private val context: Context) {
          *   READ_TEXT
          *   DESCRIBE_SCENE
          *   RECOGNIZE_CURRENCY
-         *   DETECT_OBSTACLE
          *   REPEAT
          *   STOP
          *   HELP

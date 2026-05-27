@@ -18,18 +18,6 @@ class HapticService(context: Context) {
         }
     }
 
-    fun obstacleLeft() {
-        vibrate(longArrayOf(0, 30, 40, 110))
-    }
-
-    fun obstacleCenter() {
-        vibrate(longArrayOf(0, 140, 40, 140))
-    }
-
-    fun obstacleRight() {
-        vibrate(longArrayOf(0, 110, 40, 30))
-    }
-
     fun confirm() {
         vibrate(longArrayOf(0, 45, 35, 45))
     }

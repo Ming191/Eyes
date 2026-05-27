@@ -28,5 +28,4 @@ fun homeScreenDefaultPreview() {
 
 private class FakeSpeechOutput : SpeechOutput {
     override fun speak(text: String) = Unit
-    override fun speak(text: String, priority: SpeechOutput.Priority) = Unit
 }

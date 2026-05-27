@@ -1,7 +1,6 @@
 package com.example.eyes.voiceguide
 
 import com.example.eyes.system.SpeechOutput
-import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
@@ -68,11 +67,7 @@ class DefaultAnnouncementControllerTest {
             spokenTexts.add(text)
         }
 
-        override fun speak(text: String, locale: Locale) {
-            spokenTexts.add(text)
-        }
-
-        override fun speak(text: String, priority: SpeechOutput.Priority) {
+        override fun speak(text: String, locale: java.util.Locale) {
             spokenTexts.add(text)
         }
     }

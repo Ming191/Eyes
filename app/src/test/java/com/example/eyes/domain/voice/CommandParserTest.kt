@@ -2,7 +2,6 @@ package com.example.eyes.domain.voice
 
 import com.example.eyes.i18n.AppLanguage
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -118,20 +117,6 @@ class CommandParserTest {
     @Test
     fun parse_currency_menhGia_returnsRecognizeCurrency() {
         assertEquals(VoiceCommand.RecognizeCurrency, parser.parse("đây là tờ mệnh giá gì"))
-    }
-
-    // ----- Removed obstacle commands -----
-
-    @Test
-    fun parse_obstacle_vatCan_returnsUnknown() {
-        val input = "có vật cản không"
-        assertEquals(VoiceCommand.Unknown(input), parser.parse(input))
-    }
-
-    @Test
-    fun parse_obstacle_chuongNgai_returnsUnknown() {
-        val input = "phía trước có chướng ngại không"
-        assertEquals(VoiceCommand.Unknown(input), parser.parse(input))
     }
 
     // ----- Removed navigation commands -----

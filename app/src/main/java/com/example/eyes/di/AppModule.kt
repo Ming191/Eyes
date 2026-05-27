@@ -96,11 +96,8 @@ val appModule = module {
     }
     viewModel {
         SettingsViewModel(
-            localizedTextProvider = get(),
             dataStoreManager = get(),
-            speechOutput = get(),
-            hapticService = get(),
-            announcementController = get()
+            speechOutput = get()
         )
     }
     viewModel { com.example.eyes.ui.voice.VoiceCommandViewModel(get(), get(), get(), get(), get(), get()) }

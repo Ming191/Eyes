@@ -36,7 +36,6 @@ import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -82,13 +81,11 @@ data class CameraUiState(
 
 @Immutable
 enum class CameraMode(
-    val labelVi: String,
-    val descriptionVi: String
 ) {
-    OCR("Đọc văn bản", "đọc văn bản OCR"),
-    SCENE_DESCRIPTION("Mô tả ảnh", "mô tả ảnh xung quanh"),
-    OBJECT_DETECTION("Nhận diện vật thể", "nhận diện vật thể"),
-    CURRENCY("Nhận diện tiền", "nhận diện mệnh giá tiền")
+    OCR,
+    SCENE_DESCRIPTION,
+    OBJECT_DETECTION,
+    CURRENCY
 }
 
 @Immutable
@@ -148,7 +145,6 @@ class CameraViewModel(
     private val lastOcrGuidanceBounds = AtomicReference<OcrTextBounds?>(null)
     private val stableOcrGuidanceFrames = AtomicInteger(0)
     private val lastAnnouncedOcrGuidanceStatus = AtomicReference<OcrGuidanceStatus?>(null)
-    private var reprocessOcrJob: Job? = null
     private var currencyAnalyzer: CurrencyAnalyzer? = null
     private val cameraText: CameraText get() = CameraText.from(localizedTextProvider, appLanguage.get())
 
@@ -296,7 +292,7 @@ class CameraViewModel(
         if (lastCurrencyAnnouncement.get() != label) {
             lastCurrencyAnnouncement.set(label)
             hapticService.confirm()
-            ttsService.speak(spoken, TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
+            ttsService.speak(spoken, appLanguage.get().ttsLocale)
         }
 
         _uiState.update { state ->
@@ -559,7 +555,6 @@ class CameraViewModel(
         lastCurrencyNoDetectionAtMs.set(now)
         ttsService.speak(
             cameraText.noCurrencyDetected,
-            TtsService.Priority.NORMAL,
             appLanguage.get().ttsLocale
         )
     }
@@ -579,7 +574,6 @@ class CameraViewModel(
         Log.i(TAG, "Object detection TTS: $announcement")
         ttsService.speak(
             text = announcement,
-            priority = TtsService.Priority.NORMAL,
             locale = appLanguage.get().ttsLocale
         )
     }
@@ -674,7 +668,6 @@ class CameraViewModel(
                 val reason = outcome.fallbackReason ?: cameraText.unknownError
                 ttsService.speak(
                     cameraText.accuracyOcrFallback(reason),
-                    TtsService.Priority.URGENT,
                     appLanguage.get().ttsLocale
                 )
             }
@@ -693,7 +686,7 @@ class CameraViewModel(
 
     fun onOcrCaptureRequested() {
         if (!_uiState.value.isOcrReadyToCapture) {
-            ttsService.speak(cameraText.imageMayBeUnclearCapturing, TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
+            ttsService.speak(cameraText.imageMayBeUnclearCapturing, appLanguage.get().ttsLocale)
         }
     }
 
@@ -714,7 +707,7 @@ class CameraViewModel(
         if (!canHandleOcrSwipe()) return
         val state = _uiState.value
         if (!state.hasNextOcrSentence) {
-            ttsService.speak(cameraText.endOfText, TtsService.Priority.URGENT, appLanguage.get().ttsLocale)
+            ttsService.speak(cameraText.endOfText, appLanguage.get().ttsLocale)
             return
         }
         _uiState.update { it.copy(ocrCurrentIndex = it.ocrCurrentIndex + 1) }
@@ -725,7 +718,7 @@ class CameraViewModel(
         if (!canHandleOcrSwipe()) return
         val state = _uiState.value
         if (!state.hasPrevOcrSentence) {
-            ttsService.speak(cameraText.startOfText, TtsService.Priority.URGENT, appLanguage.get().ttsLocale)
+            ttsService.speak(cameraText.startOfText, appLanguage.get().ttsLocale)
             return
         }
         _uiState.update { it.copy(ocrCurrentIndex = it.ocrCurrentIndex - 1) }
@@ -745,7 +738,7 @@ class CameraViewModel(
                 hapticService.confirm()
                 if (!isHeadsetConnected()) {
                     val modeLabel = cameraText.ocrModeLabel(currentOcrMode.value)
-                    ttsService.speak(cameraText.switchedToOcrMode(modeLabel), TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
+                    ttsService.speak(cameraText.switchedToOcrMode(modeLabel), appLanguage.get().ttsLocale)
                 }
                 ttsService.warmupLocale(Locale.US)
                 _uiState.update {
@@ -768,7 +761,6 @@ class CameraViewModel(
                 if (!isHeadsetConnected()) {
                     ttsService.speak(
                         cameraText.switchedToSceneDescriptionMode,
-                        TtsService.Priority.HIGH,
                         appLanguage.get().ttsLocale
                     )
                 }
@@ -789,7 +781,7 @@ class CameraViewModel(
             CameraMode.OBJECT_DETECTION -> {
                 hapticService.confirm()
                 if (!isHeadsetConnected()) {
-                    ttsService.speak(cameraText.switchedToObjectDetectionMode, TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
+                    ttsService.speak(cameraText.switchedToObjectDetectionMode, appLanguage.get().ttsLocale)
                 }
                 _uiState.update {
                     it.resetOcrRuntime()
@@ -810,7 +802,7 @@ class CameraViewModel(
                 currencyAnalyzer?.resetBuffer()
                 hapticService.confirm()
                 if (!isHeadsetConnected()) {
-                    ttsService.speak(cameraText.switchedToCurrencyMode, TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
+                    ttsService.speak(cameraText.switchedToCurrencyMode, appLanguage.get().ttsLocale)
                 }
                 _uiState.update {
                     it.resetOcrRuntime()
@@ -836,26 +828,8 @@ class CameraViewModel(
             hapticService.confirm()
             ttsService.speak(
                 cameraText.switchedOcrMode(mode),
-                TtsService.Priority.NORMAL,
                 appLanguage.get().ttsLocale
             )
-        }
-    }
-
-    fun setOcrTranslateToVietnamese(enabled: Boolean) {
-        reprocessOcrJob?.cancel()
-        reprocessOcrJob = viewModelScope.launch {
-            dataStoreManager.setOcrTranslateToVietnamese(enabled)
-            ttsService.speak(
-                if (enabled) {
-                    cameraText.enabledEnglishToVietnameseTranslation
-                } else {
-                    cameraText.disabledEnglishToVietnameseTranslation
-                },
-                TtsService.Priority.NORMAL,
-                appLanguage.get().ttsLocale
-            )
-            reprocessCurrentOcrForTranslationToggle(enabled)
         }
     }
 
@@ -875,7 +849,7 @@ class CameraViewModel(
         viewModelScope.launch(Dispatchers.Default) {
             val capturedBitmap = try {
                 imageProxy.toBitmapWithRotation()
-            } catch (error: Throwable) {
+            } catch (_: Throwable) {
                 _uiState.update {
                     it.copy(
                         isDescribingScene = false,
@@ -942,7 +916,6 @@ class CameraViewModel(
         hapticService.loading()
         ttsService.speak(
             cameraText.processingCurrencyImage,
-            TtsService.Priority.NORMAL,
             appLanguage.get().ttsLocale
         )
     }
@@ -951,7 +924,7 @@ class CameraViewModel(
         viewModelScope.launch(Dispatchers.Default) {
             val capturedBitmap = try {
                 imageProxy.toBitmapWithRotation()
-            } catch (error: Throwable) {
+            } catch (_: Throwable) {
                 _uiState.update {
                     it.copy(
                         isCurrencyScanning = false,
@@ -1039,7 +1012,7 @@ class CameraViewModel(
             when (val result = sceneRepository.describeScene(bitmap = capturedBitmap, language = language)) {
                 is SceneDescriptionResult.Success -> {
                     if (!isHeadsetConnected()) {
-                        ttsService.speak(result.text, TtsService.Priority.HIGH, language.ttsLocale)
+                        ttsService.speak(result.text, language.ttsLocale)
                     }
                     hapticService.confirm()
                     _uiState.update {
@@ -1052,7 +1025,7 @@ class CameraViewModel(
 
                 is SceneDescriptionResult.Failure -> {
                     if (!isHeadsetConnected()) {
-                        ttsService.speak(result.userMessage, TtsService.Priority.HIGH, language.ttsLocale)
+                        ttsService.speak(result.userMessage, language.ttsLocale)
                     }
                     hapticService.error()
                     _uiState.update {
@@ -1075,10 +1048,6 @@ class CameraViewModel(
             }
             hapticService.error()
         }
-    }
-
-    fun toggleStatusCardVisibility() {
-        _uiState.update { it.copy(isStatusCardVisible = !it.isStatusCardVisible) }
     }
 
     fun onScreenDisposed() {
@@ -1137,7 +1106,7 @@ class CameraViewModel(
 
         if (previousStatus != OcrGuidanceStatus.READY) {
             hapticService.confirm()
-            ttsService.speak(message, TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
+            ttsService.speak(message, appLanguage.get().ttsLocale)
         }
     }
 
@@ -1238,24 +1207,6 @@ class CameraViewModel(
         return translateToVietnameseOrFallback(result.fullText)
     }
 
-    private suspend fun reprocessCurrentOcrForTranslationToggle(enabled: Boolean) {
-        val state = _uiState.value
-        val rawResult = lastRawOcrResult.get() ?: return
-        if (state.activeMode != CameraMode.OCR || !state.isOcrDocumentMode) return
-
-        _uiState.update { it.copy(statusMessage = cameraText.updatingOcrReading) }
-        val processed = if (enabled && shouldAutoTranslateToVietnamese(rawResult.fullText)) {
-            translateToVietnameseOrFallback(rawResult.fullText)
-        } else {
-            OcrPostProcessor.process(rawResult.fullText)
-        }
-        enterOcrDocumentMode(
-            result = processed,
-            usedFallback = lastOcrUsedFallback.get(),
-            canTranslateCurrentDocument = shouldAutoTranslateToVietnamese(rawResult.fullText)
-        )
-    }
-
     private fun speakCurrentOcrSentence() {
         val state = _uiState.value
         if (!state.isOcrDocumentMode) return
@@ -1263,7 +1214,6 @@ class CameraViewModel(
         val locale = if (looksEnglish(sentence)) Locale.US else VIETNAMESE_LOCALE
         ttsService.speak(
             cameraText.ocrSentencePosition(state.ocrCurrentIndex + 1, state.ocrSentences.size, sentence),
-            TtsService.Priority.URGENT,
             locale
         )
     }
@@ -1317,7 +1267,6 @@ class CameraViewModel(
         }.getOrElse {
             ttsService.speak(
                 cameraText.cannotTranslateReadingOriginal,
-                TtsService.Priority.HIGH,
                 appLanguage.get().ttsLocale
             )
             OcrPostProcessor.process(sourceText)

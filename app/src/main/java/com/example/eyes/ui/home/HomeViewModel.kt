@@ -102,7 +102,6 @@ class HomeViewModel(
         val text = localizedTextProvider.getString(R.string.home_greeting, appLanguage)
         announcementController?.announce(
             text = text,
-            priority = SpeechOutput.Priority.NORMAL,
             category = AnnouncementCategory.Guidance,
             locale = appLanguage.ttsLocale
         ) ?: tts.speak(text, appLanguage.ttsLocale)

@@ -53,7 +53,7 @@ fun EmergencyScreen(
 
     LaunchedEffect(appLanguage) {
         speechOutput.stop()
-        speechOutput.speak(ttsText, SpeechOutput.Priority.HIGH, appLanguage.ttsLocale)
+        speechOutput.speak(ttsText, appLanguage.ttsLocale)
         focusManager?.focusItem(EMERGENCY_FIRST_BUTTON_ID)
     }
 

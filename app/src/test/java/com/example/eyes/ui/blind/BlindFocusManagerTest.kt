@@ -133,11 +133,7 @@ class BlindFocusManagerTest {
             spokenTexts += text
         }
 
-        override fun speak(text: String, priority: SpeechOutput.Priority) {
-            spokenTexts += text
-        }
-
-        override fun speak(text: String, priority: SpeechOutput.Priority, locale: Locale?) {
+        override fun speak(text: String, locale: Locale) {
             spokenTexts += text
         }
     }

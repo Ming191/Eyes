@@ -13,8 +13,6 @@ enum class AnnouncementCategory {
     Status,
     Error,
     Safety,
-    VoiceCommand,
-    SystemFeedback
 }
 
 interface AnnouncementController {
@@ -22,7 +20,6 @@ interface AnnouncementController {
 
     fun announce(
         text: String,
-        priority: SpeechOutput.Priority = SpeechOutput.Priority.NORMAL,
         category: AnnouncementCategory = AnnouncementCategory.Guidance,
         locale: Locale? = null,
         interruptCurrent: Boolean = false
@@ -30,7 +27,6 @@ interface AnnouncementController {
 
     suspend fun announceAndAwait(
         text: String,
-        priority: SpeechOutput.Priority = SpeechOutput.Priority.NORMAL,
         category: AnnouncementCategory = AnnouncementCategory.Guidance,
         locale: Locale? = null
     )
@@ -51,7 +47,6 @@ class DefaultAnnouncementController(
 
     override fun announce(
         text: String,
-        priority: SpeechOutput.Priority,
         category: AnnouncementCategory,
         locale: Locale?,
         interruptCurrent: Boolean
@@ -62,25 +57,24 @@ class DefaultAnnouncementController(
             speechOutput.stop()
         }
         if (locale == null) {
-            speechOutput.speak(text, priority)
+            speechOutput.speak(text)
         } else {
-            speechOutput.speak(text, priority, locale)
+            speechOutput.speak(text, locale)
         }
         return true
     }
 
     override suspend fun announceAndAwait(
         text: String,
-        priority: SpeechOutput.Priority,
         category: AnnouncementCategory,
         locale: Locale?
     ) {
         if (!shouldSpeak(text, category)) return
         remember(text)
         if (locale == null) {
-            speechOutput.speakAndAwait(text, priority)
+            speechOutput.speakAndAwait(text)
         } else {
-            speechOutput.speakAndAwait(text, priority, locale)
+            speechOutput.speakAndAwait(text, locale)
         }
     }
 

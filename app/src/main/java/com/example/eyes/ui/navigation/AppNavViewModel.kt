@@ -1,12 +1,10 @@
 package com.example.eyes.ui.navigation
 
-import android.content.Context
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.R
-import com.example.eyes.i18n.AndroidLocalizedTextProvider
 import com.example.eyes.i18n.AppLanguage
 import com.example.eyes.i18n.LocalizedTextProvider
 import com.example.eyes.ocr.OcrMode
@@ -35,17 +33,6 @@ class AppNavViewModel(
     private val announcementController: AnnouncementController,
     private val localizedTextProvider: LocalizedTextProvider
 ) : ViewModel() {
-    constructor(
-        dataStoreManager: DataStoreManager,
-        speechOutput: SpeechOutput,
-        announcementController: AnnouncementController,
-        context: Context
-    ) : this(
-        dataStoreManager = dataStoreManager,
-        speechOutput = speechOutput,
-        announcementController = announcementController,
-        localizedTextProvider = AndroidLocalizedTextProvider(context)
-    )
 
     private val _requestedCameraMode = MutableStateFlow<CameraMode?>(null)
     val requestedCameraMode: StateFlow<CameraMode?> = _requestedCameraMode.asStateFlow()
@@ -109,7 +96,6 @@ class AppNavViewModel(
         }
         announcementController.announce(
             text = localizedTextProvider.getString(textRes, appLanguage),
-            priority = SpeechOutput.Priority.HIGH,
             category = AnnouncementCategory.Navigation,
             locale = appLanguage.ttsLocale,
             interruptCurrent = true
