@@ -60,6 +60,7 @@ val appModule = module {
     }
     single { TtsService(androidContext()) }
     single<SpeechOutput> { get<TtsService>() }
+    single<com.example.eyes.domain.speech.SpeechOutput> { get<TtsService>() }
     single { ApplicationScope() }
     single<AccessibilityStateProvider> { AndroidAccessibilityStateProvider(androidContext()) }
     single<AnnouncementController> { DefaultAnnouncementController(get<DataStoreManager>().voiceGuideEnabledFlow, get(), get(), get()) }

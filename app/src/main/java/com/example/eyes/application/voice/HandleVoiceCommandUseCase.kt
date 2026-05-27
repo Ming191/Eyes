@@ -3,9 +3,9 @@ package com.example.eyes.application.voice
 import com.example.eyes.R
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.domain.voice.VoiceCommand
+import com.example.eyes.domain.speech.SpeechOutput
 import com.example.eyes.i18n.AppLanguage
 import com.example.eyes.i18n.LocalizedTextProvider
-import com.example.eyes.system.SpeechOutput
 
 enum class VoiceNavigationTargetKind {
     Camera,

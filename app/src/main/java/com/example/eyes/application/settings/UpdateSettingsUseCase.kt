@@ -1,8 +1,8 @@
 package com.example.eyes.application.settings
 
 import com.example.eyes.domain.settings.SettingsRepository
+import com.example.eyes.domain.speech.SpeechOutput
 import com.example.eyes.i18n.AppLanguage
-import com.example.eyes.system.SpeechOutput
 
 class UpdateSettingsUseCase(
     private val settingsRepository: SettingsRepository,

@@ -1,7 +1,7 @@
 package com.example.eyes.application.navigation
 
 import com.example.eyes.domain.settings.SettingsRepository
-import com.example.eyes.system.SpeechOutput
+import com.example.eyes.domain.speech.SpeechOutput
 
 class ApplySpeechRateUseCase(
     private val settingsRepository: SettingsRepository,
