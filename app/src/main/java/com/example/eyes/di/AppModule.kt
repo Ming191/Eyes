@@ -2,6 +2,8 @@ package com.example.eyes.di
 
 import android.content.Context
 import android.media.AudioManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import com.example.eyes.application.home.AnnounceHomeGreetingUseCase
 import com.example.eyes.application.home.BuildHomeStateUseCase
 import com.example.eyes.application.home.HomeTextProvider
@@ -106,7 +108,21 @@ val appModule = module {
     factory { DetectObjectsUseCase(get()) }
     factory { WarmUpObjectDetectionUseCase(get()) }
     single<SceneDescriptionEngine> { Gpt4oSceneDescriptionEngine() }
-    single { SceneRepository(get(), get()) }
+    single {
+        SceneRepository(
+            sceneDescriptionEngine = get(),
+            networkChecker = {
+                val connectivityManager = androidContext().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                val network = connectivityManager.activeNetwork
+                if (network == null) {
+                    false
+                } else {
+                    val capabilities = connectivityManager.getNetworkCapabilities(network)
+                    capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+                }
+            }
+        )
+    }
     single<SceneDescriptionRepository> { SceneRepositorySceneDescriptionRepository(get()) }
     factory { DescribeSceneUseCase(get()) }
     viewModel {

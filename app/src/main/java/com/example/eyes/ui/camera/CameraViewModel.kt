@@ -22,6 +22,7 @@ import com.example.eyes.camera.CurrencyAnalyzer
 import com.example.eyes.camera.toBitmapWithRotation
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.domain.scene.SceneDescription
+import com.example.eyes.domain.scene.SceneDescriptionError
 import com.example.eyes.domain.voice.VoiceCommandRepository
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.domain.i18n.AppLanguage
@@ -1029,14 +1030,29 @@ class CameraViewModel(
                 }
 
                 is SceneDescription.Failure -> {
+                    if (result.error == SceneDescriptionError.OFFLINE) {
+                        val fallback = cameraText.sceneDescriptionOfflineFallback
+                        if (!isHeadsetConnected()) {
+                            ttsService.speak(fallback, language.ttsLocale)
+                        }
+                        hapticService.confirm()
+                        _uiState.update {
+                            it.copy(
+                                statusMessage = cameraText.sceneDescriptionDone,
+                                lastAnnouncement = fallback
+                            )
+                        }
+                        return
+                    }
+                    val userMessage = cameraText.sceneDescriptionError(result.error)
                     if (!isHeadsetConnected()) {
-                        ttsService.speak(result.userMessage, language.ttsLocale)
+                        ttsService.speak(userMessage, language.ttsLocale)
                     }
                     hapticService.error()
                     _uiState.update {
                         it.copy(
                             statusMessage = cameraText.sceneDescriptionFailed,
-                            lastAnnouncement = result.userMessage
+                            lastAnnouncement = userMessage
                         )
                     }
                 }
@@ -1291,6 +1307,12 @@ class CameraViewModel(
         val describingScenePleaseWait: String,
         val sceneDescriptionDone: String,
         val sceneDescriptionFailed: String,
+        val sceneDescriptionErrorApiKeyMissing: String,
+        val sceneDescriptionErrorUnauthorized: String,
+        val sceneDescriptionErrorQuota: String,
+        val sceneDescriptionErrorTimeout: String,
+        val sceneDescriptionErrorGeneric: String,
+        val sceneDescriptionOfflineFallback: String,
         val gptRefusedReason: String,
         val noTextDetectedTryAgain: String,
         val updatingOcrReading: String,
@@ -1425,6 +1447,11 @@ class CameraViewModel(
             describingScenePleaseWait -> target.describingScenePleaseWait
             sceneDescriptionDone -> target.sceneDescriptionDone
             sceneDescriptionFailed -> target.sceneDescriptionFailed
+            sceneDescriptionErrorApiKeyMissing -> target.sceneDescriptionErrorApiKeyMissing
+            sceneDescriptionErrorUnauthorized -> target.sceneDescriptionErrorUnauthorized
+            sceneDescriptionErrorQuota -> target.sceneDescriptionErrorQuota
+            sceneDescriptionErrorTimeout -> target.sceneDescriptionErrorTimeout
+            sceneDescriptionErrorGeneric -> target.sceneDescriptionErrorGeneric
             noTextDetectedTryAgain -> target.noTextDetectedTryAgain
             updatingOcrReading -> target.updatingOcrReading
             objectDetectionWarmupDone -> target.objectDetectionWarmupDone
@@ -1437,6 +1464,16 @@ class CameraViewModel(
         }
 
         fun ocrFailed(reason: String): String = ocrFailedTemplate.format(reason)
+
+        fun sceneDescriptionError(error: SceneDescriptionError): String = when (error) {
+            SceneDescriptionError.API_KEY_MISSING -> sceneDescriptionErrorApiKeyMissing
+            SceneDescriptionError.UNAUTHORIZED -> sceneDescriptionErrorUnauthorized
+            SceneDescriptionError.RATE_LIMIT -> sceneDescriptionErrorQuota
+            SceneDescriptionError.TIMEOUT -> sceneDescriptionErrorTimeout
+            SceneDescriptionError.OFFLINE,
+            SceneDescriptionError.EMPTY_RESPONSE,
+            SceneDescriptionError.UNKNOWN -> sceneDescriptionErrorGeneric
+        }
 
         fun accuracyOcrFallback(reason: String): String = accuracyOcrFallbackTemplate.format(reason)
 
@@ -1526,6 +1563,12 @@ class CameraViewModel(
                     describingScenePleaseWait = resources.getString(R.string.camera_vm_describing_scene_please_wait),
                     sceneDescriptionDone = resources.getString(R.string.camera_vm_scene_description_done),
                     sceneDescriptionFailed = resources.getString(R.string.camera_vm_scene_description_failed),
+                    sceneDescriptionErrorApiKeyMissing = resources.getString(R.string.scene_description_error_api_key_missing),
+                    sceneDescriptionErrorUnauthorized = resources.getString(R.string.scene_description_error_unauthorized),
+                    sceneDescriptionErrorQuota = resources.getString(R.string.scene_description_error_quota),
+                    sceneDescriptionErrorTimeout = resources.getString(R.string.scene_description_error_timeout),
+                    sceneDescriptionErrorGeneric = resources.getString(R.string.scene_description_error_generic),
+                    sceneDescriptionOfflineFallback = resources.getString(R.string.scene_description_offline_fallback),
                     gptRefusedReason = resources.getString(R.string.camera_vm_gpt_refused_reason),
                     noTextDetectedTryAgain = resources.getString(R.string.camera_vm_no_text_detected_try_again),
                     updatingOcrReading = resources.getString(R.string.camera_vm_updating_ocr_reading),
