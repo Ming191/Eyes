@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioManager
 import com.example.eyes.application.home.AnnounceHomeGreetingUseCase
 import com.example.eyes.application.home.BuildHomeStateUseCase
+import com.example.eyes.application.home.HomeTextProvider
 import com.example.eyes.application.navigation.AnnounceDestinationUseCase
 import com.example.eyes.application.navigation.ApplySpeechRateUseCase
 import com.example.eyes.application.navigation.CompleteOnboardingUseCase
@@ -15,6 +16,7 @@ import com.example.eyes.application.settings.UpdateSettingsUseCase
 import com.example.eyes.application.voice.HandleVoiceCommandUseCase
 import com.example.eyes.camera.CameraManager
 import com.example.eyes.data.DataStoreManager
+import com.example.eyes.data.i18n.AndroidHomeTextProvider
 import com.example.eyes.data.navigation.DataStoreNavigationPreferencesRepository
 import com.example.eyes.data.settings.DataStoreSettingsRepository
 import com.example.eyes.data.voice.DataStoreVoiceCommandRepository
@@ -57,6 +59,7 @@ import org.koin.dsl.module
 
 val appModule = module {
     single<LocalizedTextProvider> { AndroidLocalizedTextProvider(androidContext()) }
+    single<HomeTextProvider> { AndroidHomeTextProvider(get()) }
     single {
         androidContext().getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
