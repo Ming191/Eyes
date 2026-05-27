@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.test.core.app.ApplicationProvider
 import com.example.eyes.application.home.AnnounceHomeGreetingUseCase
 import com.example.eyes.application.home.BuildHomeStateUseCase
+import com.example.eyes.data.i18n.AndroidHomeAnnouncementTextProvider
 import com.example.eyes.data.i18n.AndroidHomeTextProvider
 import com.example.eyes.i18n.AndroidLocalizedTextProvider
 import com.example.eyes.infrastructure.system.SpeechOutput
@@ -41,10 +42,11 @@ class HomeScreenSemanticsTest {
         // GIVEN
         val application = ApplicationProvider.getApplicationContext<Application>()
         val localizedTextProvider = AndroidLocalizedTextProvider(application)
+        val homeAnnouncementTextProvider = AndroidHomeAnnouncementTextProvider(localizedTextProvider)
         val homeTextProvider = AndroidHomeTextProvider(localizedTextProvider)
         val viewModel = HomeViewModel(
             buildHomeState = BuildHomeStateUseCase(homeTextProvider),
-            announceHomeGreeting = AnnounceHomeGreetingUseCase(localizedTextProvider, FakeSpeechOutput())
+            announceHomeGreeting = AnnounceHomeGreetingUseCase(homeAnnouncementTextProvider, FakeSpeechOutput())
         )
 
         // WHEN

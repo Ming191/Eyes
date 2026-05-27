@@ -6,10 +6,12 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import com.example.eyes.application.home.AnnounceHomeGreetingUseCase
 import com.example.eyes.application.home.BuildHomeStateUseCase
+import com.example.eyes.application.home.HomeAnnouncementTextProvider
 import com.example.eyes.application.home.HomeTextProvider
 import com.example.eyes.application.navigation.AnnounceDestinationUseCase
 import com.example.eyes.application.navigation.ApplySpeechRateUseCase
 import com.example.eyes.application.navigation.CompleteOnboardingUseCase
+import com.example.eyes.application.navigation.DestinationAnnouncementTextProvider
 import com.example.eyes.application.navigation.ObserveAppNavStateUseCase
 import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
 import com.example.eyes.application.navigation.UpdateAppLanguageUseCase
@@ -23,9 +25,13 @@ import com.example.eyes.application.scene.DescribeSceneUseCase
 import com.example.eyes.application.settings.ObserveSettingsUseCase
 import com.example.eyes.application.settings.UpdateSettingsUseCase
 import com.example.eyes.application.voice.HandleVoiceCommandUseCase
+import com.example.eyes.application.voice.VoiceCommandTextProvider
 import com.example.eyes.infrastructure.camera.CameraManager
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.data.i18n.AndroidHomeTextProvider
+import com.example.eyes.data.i18n.AndroidHomeAnnouncementTextProvider
+import com.example.eyes.data.i18n.AndroidDestinationAnnouncementTextProvider
+import com.example.eyes.data.i18n.AndroidVoiceCommandTextProvider
 import com.example.eyes.data.navigation.DataStoreNavigationPreferencesRepository
 import com.example.eyes.data.scene.SceneRepositorySceneDescriptionRepository
 import com.example.eyes.data.settings.DataStoreSettingsRepository
@@ -68,6 +74,9 @@ import org.koin.dsl.module
 val appModule = module {
     single<LocalizedTextProvider> { AndroidLocalizedTextProvider(androidContext()) }
     single<HomeTextProvider> { AndroidHomeTextProvider(get()) }
+    single<HomeAnnouncementTextProvider> { AndroidHomeAnnouncementTextProvider(get()) }
+    single<DestinationAnnouncementTextProvider> { AndroidDestinationAnnouncementTextProvider(get()) }
+    single<VoiceCommandTextProvider> { AndroidVoiceCommandTextProvider(get()) }
     single {
         androidContext().getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
