@@ -19,8 +19,6 @@ import com.example.eyes.infrastructure.camera.toBitmapWithRotation
 import com.example.eyes.infrastructure.camera.toImageFrame
 import com.example.eyes.domain.audio.AudioRouteProvider
 import com.example.eyes.domain.haptics.HapticFeedback
-import com.example.eyes.domain.scene.SceneDescription
-import com.example.eyes.domain.scene.SceneDescriptionError
 import com.example.eyes.domain.voice.VoiceCommandRepository
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.domain.i18n.AppLanguage
@@ -140,6 +138,16 @@ class CameraViewModel(
         hapticService = hapticService,
         cameraText = { cameraText },
         appLanguage = { appLanguage.get() }
+    )
+    private val sceneCaptureController = SceneCaptureController(
+        uiState = _uiState,
+        describeSceneUseCase = describeSceneUseCase,
+        speechOutput = speechOutput,
+        hapticService = hapticService,
+        audioRouteProvider = audioRouteProvider,
+        cameraText = { cameraText },
+        appLanguage = { appLanguage.get() },
+        updateUiStateAndRecycleReplacedBitmap = ::updateUiStateAndRecycleReplacedOcrBitmap
     )
     private var currencyAnalyzer: CurrencyRecognizerPort? = null
     private val cameraText: CameraText get() = CameraText.from(localizedTextProvider, appLanguage.get())
@@ -767,15 +775,7 @@ class CameraViewModel(
     }
 
     fun onSceneCaptureRequested() {
-        if (_uiState.value.isDescribingScene || _uiState.value.ocrCapturedBitmap != null) return
-        _uiState.update {
-            it.copy(
-                isDescribingScene = true,
-                statusMessage = cameraText.describingScenePleaseWait,
-                lastAnnouncement = cameraText.describingScenePleaseWait
-            )
-        }
-        hapticService.loading()
+        sceneCaptureController.onSceneCaptureRequested()
     }
 
     fun processCapturedSceneImage(imageProxy: ImageProxy) {
@@ -783,57 +783,28 @@ class CameraViewModel(
             val capturedBitmap = try {
                 imageProxy.toBitmapWithRotation()
             } catch (_: Throwable) {
-                _uiState.update {
-                    it.copy(
-                        isDescribingScene = false,
-                        statusMessage = cameraText.cannotCaptureSceneTryAgain,
-                        lastAnnouncement = cameraText.cannotCaptureSceneTryAgain
-                    )
-                }
-                hapticService.error()
+                sceneCaptureController.onSceneCaptureError()
                 return@launch
             } finally {
                 imageProxy.close()
             }
 
-            updateUiStateAndRecycleReplacedOcrBitmap {
-                it.copy(
-                    ocrCapturedBitmap = capturedBitmap,
-                    isDescribingScene = true,
-                    statusMessage = cameraText.describingScenePleaseWait,
-                    lastAnnouncement = cameraText.describingScenePleaseWait
-                )
-            }
+            sceneCaptureController.onSceneBitmapCaptured(capturedBitmap)
 
             try {
-                describeCapturedScene(capturedBitmap)
+                sceneCaptureController.describeCapturedScene(capturedBitmap)
             } finally {
-                _uiState.update { it.copy(isDescribingScene = false) }
+                sceneCaptureController.finishSceneDescription()
             }
         }
     }
 
     fun onSceneCaptureError() {
-        _uiState.update {
-            it.copy(
-                isDescribingScene = false,
-                statusMessage = cameraText.cannotCaptureSceneTryAgain,
-                lastAnnouncement = cameraText.cannotCaptureSceneTryAgain
-            )
-        }
-        hapticService.error()
+        sceneCaptureController.onSceneCaptureError()
     }
 
     fun prepareForNextSceneCapture() {
-        updateUiStateAndRecycleReplacedOcrBitmap {
-            it.copy(
-                ocrCapturedBitmap = null,
-                isDescribingScene = false,
-                statusMessage = cameraText.waitingForSceneFrame,
-                lastAnnouncement = cameraText.waitingForSceneFrame
-            )
-        }
-        speechOutput.stop()
+        sceneCaptureController.prepareForNextSceneCapture()
     }
 
     fun onCurrencyCaptureRequested() {
@@ -937,65 +908,6 @@ class CameraViewModel(
             )
         }
         speechOutput.stop()
-    }
-
-    private suspend fun describeCapturedScene(capturedBitmap: Bitmap) {
-        try {
-            val language = appLanguage.get()
-            when (val result = describeSceneUseCase(imageFrame = capturedBitmap.toImageFrame(), language = language)) {
-                is SceneDescription.Success -> {
-                    if (!audioRouteProvider.isHeadsetConnected()) {
-                        speechOutput.speak(result.text, language.ttsLocale)
-                    }
-                    hapticService.confirm()
-                    _uiState.update {
-                        it.copy(
-                            statusMessage = cameraText.sceneDescriptionDone,
-                            lastAnnouncement = result.text
-                        )
-                    }
-                }
-
-                is SceneDescription.Failure -> {
-                    if (result.error == SceneDescriptionError.OFFLINE) {
-                        val fallback = cameraText.sceneDescriptionOfflineFallback
-                        if (!audioRouteProvider.isHeadsetConnected()) {
-                            speechOutput.speak(fallback, language.ttsLocale)
-                        }
-                        hapticService.confirm()
-                        _uiState.update {
-                            it.copy(
-                                statusMessage = cameraText.sceneDescriptionDone,
-                                lastAnnouncement = fallback
-                            )
-                        }
-                        return
-                    }
-                    val userMessage = cameraText.sceneDescriptionError(result.error)
-                    if (!audioRouteProvider.isHeadsetConnected()) {
-                        speechOutput.speak(userMessage, language.ttsLocale)
-                    }
-                    hapticService.error()
-                    _uiState.update {
-                        it.copy(
-                            statusMessage = cameraText.sceneDescriptionFailed,
-                            lastAnnouncement = userMessage
-                        )
-                    }
-                }
-            }
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            Log.e(TAG, "Describe captured scene failed", error)
-            _uiState.update {
-                it.copy(
-                    statusMessage = cameraText.sceneDescriptionFailed,
-                    lastAnnouncement = cameraText.sceneDescriptionFailed
-                )
-            }
-            hapticService.error()
-        }
     }
 
     fun onScreenDisposed() {
