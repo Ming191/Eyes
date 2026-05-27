@@ -30,7 +30,7 @@ import com.example.eyes.ocr.OcrPostProcessor
 import com.example.eyes.ocr.OcrResult
 import com.example.eyes.ocr.OcrTextBounds
 import com.example.eyes.ocr.OcrTranslator
-import com.example.eyes.objectdetection.YoloExecutorchDetector
+import com.example.eyes.objectdetection.ObjectDetector
 import com.example.eyes.objectdetection.localizedText
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
@@ -115,7 +115,7 @@ class CameraViewModel(
     private val hapticService: HapticService,
     private val dataStoreManager: DataStoreManager,
     private val sceneRepository: SceneRepository,
-    private val objectDetector: YoloExecutorchDetector,
+    private val objectDetector: ObjectDetector,
     private val audioManager: AudioManager,
     private val localizedTextProvider: LocalizedTextProvider
 ) : ViewModel() {

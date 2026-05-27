@@ -15,7 +15,7 @@ class YoloExecutorchDetector(
     private val postprocessor: YoloPostprocessor = YoloPostprocessor(inputSize = inputSize)
 ) : ObjectDetector {
 
-    suspend fun inspectOutputShape(): List<YoloOutputInfo> = withContext(Dispatchers.Default) {
+    override suspend fun inspectOutputShape(): List<YoloOutputInfo> = withContext(Dispatchers.Default) {
         val input = FloatArray(1 * CHANNELS * inputSize * inputSize)
         val inputTensor = Tensor.fromBlob(
             input,
