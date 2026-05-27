@@ -8,6 +8,8 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.R
+import com.example.eyes.application.camera.ObserveCameraPreferencesUseCase
+import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
 import com.example.eyes.application.objectdetection.DetectObjectsUseCase
 import com.example.eyes.application.objectdetection.WarmUpObjectDetectionUseCase
 import com.example.eyes.application.ocr.RecognizeOcrDocumentInput
@@ -16,9 +18,8 @@ import com.example.eyes.application.ocr.RecognizeOcrDocumentUseCase
 import com.example.eyes.application.ports.CurrencyRecognizerFactory
 import com.example.eyes.application.ports.CurrencyRecognizerPort
 import com.example.eyes.application.scene.DescribeSceneUseCase
-import com.example.eyes.infrastructure.camera.toImageFrame
 import com.example.eyes.infrastructure.camera.toBitmapWithRotation
-import com.example.eyes.data.DataStoreManager
+import com.example.eyes.infrastructure.camera.toImageFrame
 import com.example.eyes.domain.audio.AudioRouteProvider
 import com.example.eyes.domain.haptics.HapticFeedback
 import com.example.eyes.domain.scene.SceneDescription
@@ -108,7 +109,8 @@ class CameraViewModel(
     private val ocrGuidanceAnalyzer: MlKitOcrGuidanceAnalyzer,
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticFeedback,
-    private val dataStoreManager: DataStoreManager,
+    private val observeCameraPreferences: ObserveCameraPreferencesUseCase,
+    private val setCameraOcrModeUseCase: SetCameraOcrModeUseCase,
     private val voiceCommandRepository: VoiceCommandRepository,
     private val describeSceneUseCase: DescribeSceneUseCase,
     private val detectObjectsUseCase: DetectObjectsUseCase,
@@ -148,19 +150,15 @@ class CameraViewModel(
 
     init {
         viewModelScope.launch {
-            dataStoreManager.appLanguageFlow.collect { language ->
-                setAppLanguage(language)
-            }
-        }
-        viewModelScope.launch {
-            dataStoreManager.ocrModeFlow.collect { mode ->
-                currentOcrMode.value = mode
-                _uiState.update { it.copy(ocrMode = mode) }
-            }
-        }
-        viewModelScope.launch {
-            dataStoreManager.ocrTranslateToVietnameseFlow.collect { enabled ->
-                _uiState.update { it.copy(ocrTranslateToVietnamese = enabled) }
+            observeCameraPreferences().collect { preferences ->
+                setAppLanguage(preferences.appLanguage)
+                currentOcrMode.value = preferences.ocrMode
+                _uiState.update {
+                    it.copy(
+                        ocrMode = preferences.ocrMode,
+                        ocrTranslateToVietnamese = preferences.ocrTranslateToVietnamese
+                    )
+                }
             }
         }
         viewModelScope.launch {
@@ -375,20 +373,21 @@ class CameraViewModel(
         lastCurrencyPreviewAtMs.set(now)
 
         viewModelScope.launch(Dispatchers.Default) {
+            var bitmap: Bitmap? = null
             try {
                 val analyzer = getCurrencyAnalyzer()
                 if (analyzer == null) {
-                    imageProxy.close()
                     return@launch
                 }
-                analyzer.analyze(imageProxy)
+                bitmap = imageProxy.toBitmapWithRotation()
+                analyzer.analyze(bitmap.toImageFrame())
             } catch (error: CancellationException) {
-                imageProxy.close()
                 throw error
             } catch (error: Throwable) {
                 Log.e(TAG, "Currency preview frame failed", error)
-                imageProxy.close()
             } finally {
+                recycleBitmapIfNeeded(bitmap)
+                imageProxy.close()
                 isProcessingCurrencyPreview.set(false)
             }
         }
@@ -670,7 +669,7 @@ class CameraViewModel(
             lastRawOcrResult.set(recognizedDocument.rawResult)
             lastOcrUsedFallback.set(recognizedDocument.usedFallbackFromAccuracy)
             if (recognizedDocument.usedFallbackFromAccuracy) {
-                dataStoreManager.setOcrMode(OcrMode.QUICK)
+                setCameraOcrModeUseCase(OcrMode.QUICK)
                 val reason = recognizedDocument.fallbackReason ?: cameraText.unknownError
                 speechOutput.speak(
                     cameraText.accuracyOcrFallback(reason),
@@ -830,7 +829,7 @@ class CameraViewModel(
     fun selectOcrMode(mode: OcrMode) {
         if (currentOcrMode.value == mode) return
         viewModelScope.launch {
-            dataStoreManager.setOcrMode(mode)
+            setCameraOcrModeUseCase(mode)
             hapticService.confirm()
             speechOutput.speak(
                 cameraText.switchedOcrMode(mode),
@@ -970,7 +969,7 @@ class CameraViewModel(
 
             runCatching {
                 analyzer.resetBuffer()
-                analyzer.analyze(capturedBitmap)
+                analyzer.analyze(capturedBitmap.toImageFrame())
             }.onFailure { error ->
                 Log.e(TAG, "Currency capture failed", error)
                 _uiState.update {

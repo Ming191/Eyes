@@ -1,11 +1,9 @@
 package com.example.eyes.application.ports
 
-import android.graphics.Bitmap
-import androidx.camera.core.ImageProxy
+import com.example.eyes.domain.image.ImageFrame
 
 interface CurrencyRecognizerPort : AutoCloseable {
-    fun analyze(imageProxy: ImageProxy)
-    fun analyze(bitmap: Bitmap)
+    fun analyze(imageFrame: ImageFrame)
     fun resetBuffer()
     override fun close()
 

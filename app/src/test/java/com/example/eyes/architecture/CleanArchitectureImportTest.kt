@@ -14,13 +14,16 @@ class CleanArchitectureImportTest {
         assertNoForbiddenImports(
             sourceSet = "com/example/eyes/domain",
             forbiddenImports = listOf(
-                "com.example.eyes.data",
-                "com.example.eyes.ui",
-                "com.example.eyes.infrastructure.system",
-                "com.example.eyes.ocr",
-                "com.example.eyes.objectdetection",
-                "com.example.eyes.infrastructure.camera",
-                "com.example.eyes.di",
+                "android.*",
+                "androidx.*",
+                "com.example.eyes.R",
+                "com.example.eyes.data.*",
+                "com.example.eyes.ui.*",
+                "com.example.eyes.infrastructure.*",
+                "com.example.eyes.ocr.*",
+                "com.example.eyes.objectdetection.*",
+                "com.example.eyes.camera.*",
+                "com.example.eyes.di.*",
             ),
         )
     }
@@ -34,22 +37,27 @@ class CleanArchitectureImportTest {
     }
 
     @Test
-    fun application_doesNotImportDataUiOrDi() {
+    fun application_doesNotImportOuterLayersOrAndroid() {
         assertNoForbiddenImports(
             sourceSet = "com/example/eyes/application",
             forbiddenImports = listOf(
-                "com.example.eyes.data",
-                "com.example.eyes.ui",
-                "com.example.eyes.di",
+                "android.*",
+                "androidx.*",
+                "com.example.eyes.R",
+                "com.example.eyes.i18n.LocalizedTextProvider",
+                "com.example.eyes.data.*",
+                "com.example.eyes.ui.*",
+                "com.example.eyes.di.*",
+                "com.example.eyes.infrastructure.*",
             ),
         )
     }
 
     @Test
-    fun ui_doesNotImportRemoteDataImplementations() {
+    fun ui_doesNotImportData() {
         assertNoForbiddenImports(
             sourceSet = "com/example/eyes/ui",
-            forbiddenImports = listOf("com.example.eyes.data.remote"),
+            forbiddenImports = listOf("com.example.eyes.data.*"),
         )
     }
 
@@ -85,7 +93,7 @@ class CleanArchitectureImportTest {
             .map { match -> match.groupValues[1] }
             .filter { importedPackage ->
                 forbiddenImports.any { forbiddenImport ->
-                    importedPackage == forbiddenImport || importedPackage.startsWith("$forbiddenImport.")
+                    importedPackage.matchesForbiddenImport(forbiddenImport)
                 }
             }
             .map { forbiddenImport -> "$relativePath imports $forbiddenImport" }
@@ -101,5 +109,10 @@ class CleanArchitectureImportTest {
 
     private companion object {
         val importRegex = Regex("(?m)^\\s*import\\s+([^\\s]+)")
+
+        fun String.matchesForbiddenImport(forbiddenImport: String): Boolean {
+            val prefix = forbiddenImport.removeSuffix(".*")
+            return this == prefix || this.startsWith("$prefix.")
+        }
     }
 }

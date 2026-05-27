@@ -3,6 +3,7 @@ package com.example.eyes.di
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import com.example.eyes.application.camera.ObserveCameraPreferencesUseCase
 import com.example.eyes.application.home.AnnounceHomeGreetingUseCase
 import com.example.eyes.application.home.BuildHomeStateUseCase
 import com.example.eyes.application.home.HomeAnnouncementTextProvider
@@ -94,6 +95,7 @@ val appModule = module {
     single<NavigationPreferencesRepository> { DataStoreNavigationPreferencesRepository(get()) }
     single<VoiceCommandRepository> { DataStoreVoiceCommandRepository(get()) }
     factory { ObserveSettingsUseCase(get()) }
+    factory { ObserveCameraPreferencesUseCase(get(), get()) }
     factory { UpdateSettingsUseCase(get(), get()) }
     single { CameraManager(androidContext()) }
     factory { SttService(androidContext()) }
@@ -162,7 +164,8 @@ val appModule = module {
             ocrGuidanceAnalyzer = get(),
             speechOutput = get(),
             hapticService = get(),
-            dataStoreManager = get(),
+            observeCameraPreferences = get(),
+            setCameraOcrModeUseCase = get(),
             voiceCommandRepository = get(),
             describeSceneUseCase = get(),
             detectObjectsUseCase = get(),
