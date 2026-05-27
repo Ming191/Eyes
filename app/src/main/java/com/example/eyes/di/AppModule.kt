@@ -22,6 +22,7 @@ import com.example.eyes.domain.navigation.NavigationPreferencesRepository
 import com.example.eyes.domain.settings.SettingsRepository
 import com.example.eyes.domain.voice.VoiceCommandRepository
 import com.example.eyes.domain.voice.CommandParser
+import com.example.eyes.domain.accessibility.AnnouncementController
 import com.example.eyes.data.remote.Gpt4oSceneDescriptionEngine
 import com.example.eyes.i18n.AndroidLocalizedTextProvider
 import com.example.eyes.i18n.LocalizedTextProvider
@@ -47,7 +48,6 @@ import com.example.eyes.ui.navigation.AppNavViewModel
 import com.example.eyes.ui.settings.SettingsViewModel
 import com.example.eyes.voiceguide.AccessibilityStateProvider
 import com.example.eyes.voiceguide.AndroidAccessibilityStateProvider
-import com.example.eyes.voiceguide.AnnouncementController
 import com.example.eyes.voiceguide.ApplicationScope
 import com.example.eyes.voiceguide.DefaultAnnouncementController
 import org.koin.core.qualifier.named

@@ -2,10 +2,10 @@ package com.example.eyes.di
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.example.eyes.domain.accessibility.AnnouncementController
 import com.example.eyes.system.HapticService
 import com.example.eyes.system.TtsService
 import com.example.eyes.voiceguide.AccessibilityStateProvider
-import com.example.eyes.voiceguide.AnnouncementController
 import org.junit.After
 import org.junit.Assert.assertNotNull
 import org.junit.Before

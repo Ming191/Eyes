@@ -1,36 +1,13 @@
 package com.example.eyes.voiceguide
 
+import com.example.eyes.domain.accessibility.AnnouncementCategory
+import com.example.eyes.domain.accessibility.AnnouncementController
 import com.example.eyes.system.SpeechOutput
 import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
-
-enum class AnnouncementCategory {
-    Navigation,
-    Guidance,
-    Status,
-    Error,
-    Safety,
-}
-
-interface AnnouncementController {
-    val voiceGuideEnabled: StateFlow<Boolean>
-
-    fun announce(
-        text: String,
-        category: AnnouncementCategory = AnnouncementCategory.Guidance,
-        locale: Locale? = null,
-        interruptCurrent: Boolean = false
-    ): Boolean
-
-    suspend fun announceAndAwait(
-        text: String,
-        category: AnnouncementCategory = AnnouncementCategory.Guidance,
-        locale: Locale? = null
-    )
-}
 
 class DefaultAnnouncementController(
     voiceGuideEnabledFlow: Flow<Boolean>,

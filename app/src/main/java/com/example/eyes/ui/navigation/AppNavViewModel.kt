@@ -9,6 +9,7 @@ import com.example.eyes.application.navigation.CompleteOnboardingUseCase
 import com.example.eyes.application.navigation.ObserveAppNavStateUseCase
 import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
 import com.example.eyes.application.navigation.UpdateAppLanguageUseCase
+import com.example.eyes.domain.navigation.Destination
 import com.example.eyes.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.system.SpeechOutput
@@ -88,6 +89,12 @@ class AppNavViewModel(
     }
 
     fun announceScreen(destination: TopLevelDestination, appLanguage: AppLanguage) {
-        announceDestinationUseCase(destination, appLanguage)
+        announceDestinationUseCase(destination.toDomainDestination(), appLanguage)
+    }
+
+    private fun TopLevelDestination.toDomainDestination(): Destination = when (this) {
+        TopLevelDestination.HOME -> Destination.HOME
+        TopLevelDestination.CAMERA -> Destination.CAMERA
+        TopLevelDestination.SETTINGS -> Destination.SETTINGS
     }
 }

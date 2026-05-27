@@ -1,11 +1,11 @@
 package com.example.eyes.application.home
 
 import com.example.eyes.R
+import com.example.eyes.domain.accessibility.AnnouncementCategory
+import com.example.eyes.domain.accessibility.AnnouncementController
 import com.example.eyes.i18n.AppLanguage
 import com.example.eyes.i18n.LocalizedTextProvider
 import com.example.eyes.domain.speech.SpeechOutput
-import com.example.eyes.voiceguide.AnnouncementCategory
-import com.example.eyes.voiceguide.AnnouncementController
 
 class AnnounceHomeGreetingUseCase(
     private val localizedTextProvider: LocalizedTextProvider,

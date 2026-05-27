@@ -1,5 +1,6 @@
 package com.example.eyes.voiceguide
 
+import com.example.eyes.domain.accessibility.AnnouncementCategory
 import com.example.eyes.system.SpeechOutput
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
