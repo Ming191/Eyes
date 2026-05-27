@@ -11,6 +11,7 @@ import com.example.eyes.application.navigation.CompleteOnboardingUseCase
 import com.example.eyes.application.navigation.ObserveAppNavStateUseCase
 import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
 import com.example.eyes.application.navigation.UpdateAppLanguageUseCase
+import com.example.eyes.application.scene.DescribeSceneUseCase
 import com.example.eyes.application.settings.ObserveSettingsUseCase
 import com.example.eyes.application.settings.UpdateSettingsUseCase
 import com.example.eyes.application.voice.HandleVoiceCommandUseCase
@@ -18,9 +19,11 @@ import com.example.eyes.camera.CameraManager
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.data.i18n.AndroidHomeTextProvider
 import com.example.eyes.data.navigation.DataStoreNavigationPreferencesRepository
+import com.example.eyes.data.scene.SceneRepositorySceneDescriptionRepository
 import com.example.eyes.data.settings.DataStoreSettingsRepository
 import com.example.eyes.data.voice.DataStoreVoiceCommandRepository
 import com.example.eyes.domain.navigation.NavigationPreferencesRepository
+import com.example.eyes.domain.scene.SceneDescriptionRepository
 import com.example.eyes.domain.settings.SettingsRepository
 import com.example.eyes.domain.voice.VoiceCommandRepository
 import com.example.eyes.domain.voice.CommandParser
@@ -98,6 +101,8 @@ val appModule = module {
     single<ObjectDetector> { get<YoloExecutorchDetector>() }
     single<SceneDescriptionEngine> { Gpt4oSceneDescriptionEngine() }
     single { SceneRepository(get(), get()) }
+    single<SceneDescriptionRepository> { SceneRepositorySceneDescriptionRepository(get()) }
+    factory { DescribeSceneUseCase(get()) }
     viewModel {
         AppNavViewModel(
             observeAppNavState = get(),
@@ -126,7 +131,7 @@ val appModule = module {
             hapticService = get(),
             dataStoreManager = get(),
             voiceCommandRepository = get(),
-            sceneRepository = get(),
+            describeSceneUseCase = get(),
             objectDetector = get(),
             audioManager = get(),
             localizedTextProvider = get()

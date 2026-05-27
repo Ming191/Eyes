@@ -12,11 +12,11 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.R
+import com.example.eyes.application.scene.DescribeSceneUseCase
 import com.example.eyes.camera.CurrencyAnalyzer
 import com.example.eyes.camera.toBitmapWithRotation
 import com.example.eyes.data.DataStoreManager
-import com.example.eyes.data.remote.SceneRepository
-import com.example.eyes.data.remote.SceneDescriptionResult
+import com.example.eyes.domain.scene.SceneDescription
 import com.example.eyes.domain.voice.VoiceCommandRepository
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.i18n.AppLanguage
@@ -116,7 +116,7 @@ class CameraViewModel(
     private val hapticService: HapticService,
     private val dataStoreManager: DataStoreManager,
     private val voiceCommandRepository: VoiceCommandRepository,
-    private val sceneRepository: SceneRepository,
+    private val describeSceneUseCase: DescribeSceneUseCase,
     private val objectDetector: ObjectDetector,
     private val audioManager: AudioManager,
     private val localizedTextProvider: LocalizedTextProvider
@@ -1007,8 +1007,8 @@ class CameraViewModel(
     private suspend fun describeCapturedScene(capturedBitmap: Bitmap) {
         try {
             val language = appLanguage.get()
-            when (val result = sceneRepository.describeScene(bitmap = capturedBitmap, language = language)) {
-                is SceneDescriptionResult.Success -> {
+            when (val result = describeSceneUseCase(bitmap = capturedBitmap, language = language)) {
+                is SceneDescription.Success -> {
                     if (!isHeadsetConnected()) {
                         ttsService.speak(result.text, language.ttsLocale)
                     }
@@ -1021,7 +1021,7 @@ class CameraViewModel(
                     }
                 }
 
-                is SceneDescriptionResult.Failure -> {
+                is SceneDescription.Failure -> {
                     if (!isHeadsetConnected()) {
                         ttsService.speak(result.userMessage, language.ttsLocale)
                     }
