@@ -29,7 +29,6 @@ import com.example.eyes.infrastructure.ocr.MlKitOcrGuidanceAnalyzer
 import com.example.eyes.domain.ocr.OcrGuidanceEvaluator
 import com.example.eyes.domain.ocr.OcrGuidanceStatus
 import com.example.eyes.domain.ocr.OcrMode
-import com.example.eyes.domain.ocr.OcrPostProcessor
 import com.example.eyes.domain.ocr.OcrResult
 import com.example.eyes.domain.ocr.OcrTextBounds
 import com.example.eyes.domain.speech.SpeechOutput
@@ -119,7 +118,6 @@ class CameraViewModel(
     private val isProcessingOcrGuidance = AtomicBoolean(false)
     private val isProcessingObjectDetection = AtomicBoolean(false)
     private val isProcessingCurrencyPreview = AtomicBoolean(false)
-    private val lastOcrSwipeAtMs = AtomicReference(0L)
     private val lastOcrGuidanceAtMs = AtomicLong(0L)
     private val lastObjectDetectionAtMs = AtomicLong(0L)
     private val lastCurrencyPreviewAtMs = AtomicLong(0L)
@@ -136,6 +134,13 @@ class CameraViewModel(
     private val lastOcrUsedFallback = AtomicBoolean(false)
     private val ocrGuidanceTracker = OcrGuidanceTracker()
     private val currencyTextMapper = CurrencyTextMapper(localizedTextProvider) { appLanguage.get() }
+    private val ocrDocumentController = OcrDocumentController(
+        uiState = _uiState,
+        speechOutput = speechOutput,
+        hapticService = hapticService,
+        cameraText = { cameraText },
+        appLanguage = { appLanguage.get() }
+    )
     private var currencyAnalyzer: CurrencyRecognizerPort? = null
     private val cameraText: CameraText get() = CameraText.from(localizedTextProvider, appLanguage.get())
 
@@ -613,7 +618,7 @@ class CameraViewModel(
                     appLanguage.get().ttsLocale
                 )
             }
-            enterOcrDocumentMode(
+            ocrDocumentController.enterOcrDocumentMode(
                 result = recognizedDocument.resultForSpeech,
                 usedFallback = recognizedDocument.usedFallbackFromAccuracy,
                 canTranslateCurrentDocument = recognizedDocument.canTranslateDocument
@@ -646,25 +651,11 @@ class CameraViewModel(
     }
 
     fun nextOcrSentence() {
-        if (!canHandleOcrSwipe()) return
-        val state = _uiState.value
-        if (!state.hasNextOcrSentence) {
-            speechOutput.speak(cameraText.endOfText, appLanguage.get().ttsLocale)
-            return
-        }
-        _uiState.update { it.copy(ocrCurrentIndex = it.ocrCurrentIndex + 1) }
-        speakCurrentOcrSentence()
+        ocrDocumentController.nextOcrSentence()
     }
 
     fun prevOcrSentence() {
-        if (!canHandleOcrSwipe()) return
-        val state = _uiState.value
-        if (!state.hasPrevOcrSentence) {
-            speechOutput.speak(cameraText.startOfText, appLanguage.get().ttsLocale)
-            return
-        }
-        _uiState.update { it.copy(ocrCurrentIndex = it.ocrCurrentIndex - 1) }
-        speakCurrentOcrSentence()
+        ocrDocumentController.prevOcrSentence()
     }
 
     fun selectMode(mode: CameraMode) {
@@ -1056,63 +1047,6 @@ class CameraViewModel(
         }
     }
 
-    private fun enterOcrDocumentMode(
-        result: OcrResult,
-        usedFallback: Boolean,
-        canTranslateCurrentDocument: Boolean
-    ) {
-        val sentences = result.sentences.ifEmpty { OcrPostProcessor.splitToSentences(result.fullText) }
-        val finalSentences = sentences.ifEmpty { listOf(result.fullText.trim()).filter { it.isNotBlank() } }
-
-        if (finalSentences.isEmpty()) {
-            _uiState.update { it.copy(isOcrScanning = false, statusMessage = cameraText.noTextDetectedTryAgain) }
-            hapticService.error()
-            return
-        }
-
-        _uiState.update {
-            it.copy(
-                isOcrScanning = false,
-                ocrSentences = finalSentences,
-                ocrCurrentIndex = 0,
-                canTranslateCurrentOcrDocument = canTranslateCurrentDocument,
-                statusMessage = if (usedFallback) {
-                    cameraText.gptFallbackStatus(finalSentences.size)
-                } else {
-                    cameraText.capturedParagraphs(finalSentences.size)
-                },
-                lastAnnouncement = finalSentences.first()
-            )
-        }
-        hapticService.confirm()
-        speakCurrentOcrSentence()
-    }
-
-    private fun speakCurrentOcrSentence() {
-        val state = _uiState.value
-        if (!state.isOcrDocumentMode) return
-        val sentence = state.currentOcrSentence
-        val locale = if (looksEnglish(sentence)) Locale.US else VIETNAMESE_LOCALE
-        speechOutput.speak(
-            cameraText.ocrSentencePosition(state.ocrCurrentIndex + 1, state.ocrSentences.size, sentence),
-            locale
-        )
-    }
-
-    private fun looksEnglish(text: String): Boolean {
-        if (text.isBlank()) return false
-        if (VI_DIACRITIC_REGEX.containsMatchIn(text)) return false
-        return EN_LETTER_REGEX.containsMatchIn(text)
-    }
-
-    private fun canHandleOcrSwipe(): Boolean {
-        val now = System.currentTimeMillis()
-        val last = lastOcrSwipeAtMs.get()
-        if (now - last < OCR_SWIPE_DEBOUNCE_MS) return false
-        lastOcrSwipeAtMs.set(now)
-        return true
-    }
-
     private fun updateUiStateAndRecycleReplacedOcrBitmap(
         transform: (CameraUiState) -> CameraUiState
     ) {
@@ -1130,18 +1064,11 @@ class CameraViewModel(
 
     private companion object {
         private const val TAG = "CameraViewModel"
-        private const val OCR_SWIPE_DEBOUNCE_MS = 320L
         private const val OCR_GUIDANCE_INTERVAL_MS = 700L
         private const val OBJECT_DETECTION_INTERVAL_MS = 1_000L
         private const val CURRENCY_PREVIEW_INTERVAL_MS = 1_500L
         private const val OBJECT_ANNOUNCEMENT_INTERVAL_MS = 3_000L
         private const val OBJECT_ANNOUNCEMENT_REPEAT_MS = 6_000L
         private const val CURRENCY_NO_DETECTION_REPEAT_MS = 10_000L
-        private val VIETNAMESE_LOCALE: Locale = Locale.Builder().setLanguage("vi").setRegion("VN").build()
-        private val VI_DIACRITIC_REGEX = Regex(
-            "[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
-            RegexOption.IGNORE_CASE
-        )
-        private val EN_LETTER_REGEX = Regex("[A-Za-z]")
     }
 }
