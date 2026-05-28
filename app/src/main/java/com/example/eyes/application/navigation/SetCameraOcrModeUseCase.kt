@@ -1,6 +1,6 @@
 package com.example.eyes.application.navigation
 
-import com.example.eyes.domain.navigation.NavigationPreferencesRepository
+import com.example.eyes.application.ports.NavigationPreferencesRepository
 import com.example.eyes.domain.ocr.OcrMode
 
 class SetCameraOcrModeUseCase(

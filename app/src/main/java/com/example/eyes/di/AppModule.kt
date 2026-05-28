@@ -31,6 +31,8 @@ import com.example.eyes.application.voice.HandleVoiceCommandUseCase
 import com.example.eyes.application.voice.VoiceCommandTextProvider
 import com.example.eyes.infrastructure.camera.CameraManager
 import com.example.eyes.infrastructure.camera.AndroidCameraImageConverter
+import com.example.eyes.infrastructure.camera.CameraImageConverter
+import com.example.eyes.infrastructure.camera.CameraSessionController
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.data.i18n.AndroidHomeTextProvider
 import com.example.eyes.data.i18n.AndroidHomeAnnouncementTextProvider
@@ -40,17 +42,18 @@ import com.example.eyes.data.navigation.DataStoreNavigationPreferencesRepository
 import com.example.eyes.data.scene.SceneRepositorySceneDescriptionRepository
 import com.example.eyes.data.settings.DataStoreSettingsRepository
 import com.example.eyes.data.voice.DataStoreVoiceCommandRepository
-import com.example.eyes.domain.navigation.NavigationPreferencesRepository
-import com.example.eyes.domain.audio.AudioRouteProvider
-import com.example.eyes.domain.haptics.HapticFeedback
-import com.example.eyes.domain.scene.SceneDescriptionRepository
-import com.example.eyes.domain.settings.SettingsRepository
-import com.example.eyes.domain.voice.VoiceCommandRepository
+import com.example.eyes.application.ports.NavigationPreferencesRepository
+import com.example.eyes.application.ports.AudioRouteProvider
+import com.example.eyes.application.ports.HapticFeedback
+import com.example.eyes.application.ports.SceneDescriptionRepository
+import com.example.eyes.application.ports.SettingsRepository
+import com.example.eyes.application.ports.VoiceCommandRepository
 import com.example.eyes.domain.voice.CommandParser
-import com.example.eyes.domain.voice.SpeechRecognitionPort
-import com.example.eyes.domain.accessibility.AnnouncementController
-import com.example.eyes.i18n.AndroidLocalizedTextProvider
-import com.example.eyes.i18n.LocalizedTextProvider
+import com.example.eyes.application.ports.SpeechRecognitionPort
+import com.example.eyes.application.ports.AnnouncementPort
+import com.example.eyes.application.ports.SpeechOutput
+import com.example.eyes.infrastructure.i18n.AndroidLocalizedTextProvider
+import com.example.eyes.infrastructure.i18n.LocalizedTextProvider
 import com.example.eyes.infrastructure.openai.Gpt4oOcrEngine
 import com.example.eyes.infrastructure.openai.Gpt4oSceneDescriptionEngine
 import com.example.eyes.infrastructure.openai.GptTranslationEngine
@@ -67,15 +70,13 @@ import com.example.eyes.infrastructure.system.HapticService
 import com.example.eyes.infrastructure.system.SttService
 import com.example.eyes.infrastructure.system.TtsService
 import com.example.eyes.ui.camera.CameraViewModel
-import com.example.eyes.ui.camera.CameraImageConverter
-import com.example.eyes.ui.camera.CameraSessionController
 import com.example.eyes.ui.home.HomeViewModel
 import com.example.eyes.ui.navigation.AppNavViewModel
 import com.example.eyes.ui.settings.SettingsViewModel
-import com.example.eyes.voiceguide.AccessibilityStateProvider
-import com.example.eyes.voiceguide.AndroidAccessibilityStateProvider
-import com.example.eyes.voiceguide.ApplicationScope
-import com.example.eyes.voiceguide.DefaultAnnouncementController
+import com.example.eyes.infrastructure.accessibility.AccessibilityStateProvider
+import com.example.eyes.infrastructure.accessibility.AndroidAccessibilityStateProvider
+import com.example.eyes.infrastructure.coroutines.ApplicationScope
+import com.example.eyes.infrastructure.voiceguide.DefaultAnnouncementPort
 import org.koin.core.qualifier.named
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
@@ -88,10 +89,10 @@ val appModule = module {
     single<DestinationAnnouncementTextProvider> { AndroidDestinationAnnouncementTextProvider(get()) }
     single<VoiceCommandTextProvider> { AndroidVoiceCommandTextProvider(get()) }
     single { TtsService(androidContext()) }
-    single<com.example.eyes.domain.speech.SpeechOutput> { get<TtsService>() }
+    single<SpeechOutput> { get<TtsService>() }
     single { ApplicationScope() }
     single<AccessibilityStateProvider> { AndroidAccessibilityStateProvider(androidContext()) }
-    single<AnnouncementController> { DefaultAnnouncementController(get<DataStoreManager>().voiceGuideEnabledFlow, get(), get(), get()) }
+    single<AnnouncementPort> { DefaultAnnouncementPort(get<DataStoreManager>().voiceGuideEnabledFlow, get(), get(), get()) }
     single { HapticService(androidContext()) }
     single<HapticFeedback> { get<HapticService>() }
     single<AudioRouteProvider> { AndroidAudioRouteProvider(androidContext()) }

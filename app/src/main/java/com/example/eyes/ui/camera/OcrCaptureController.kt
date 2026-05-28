@@ -5,11 +5,12 @@ import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
 import com.example.eyes.application.ocr.OcrFallbackReason
 import com.example.eyes.application.ocr.RecognizeOcrDocumentInput
 import com.example.eyes.application.ocr.RecognizeOcrDocumentUseCase
-import com.example.eyes.domain.haptics.HapticFeedback
+import com.example.eyes.application.ports.HapticFeedback
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.domain.ocr.OcrResult
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.application.ports.SpeechOutput
+import com.example.eyes.infrastructure.camera.CameraImageConverter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow

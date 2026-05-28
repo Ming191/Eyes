@@ -1,17 +1,16 @@
 package com.example.eyes.ui.voice
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.application.voice.HandleVoiceCommandUseCase
 import com.example.eyes.application.voice.VoiceCommandAction
 import com.example.eyes.application.voice.VoiceNavigationTargetKind
-import com.example.eyes.domain.haptics.HapticFeedback
-import com.example.eyes.domain.settings.SettingsRepository
+import com.example.eyes.application.ports.HapticFeedback
+import com.example.eyes.application.ports.SettingsRepository
 import com.example.eyes.domain.voice.CommandParser
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.domain.i18n.AppLanguage
-import com.example.eyes.domain.voice.SpeechRecognitionPort
+import com.example.eyes.application.ports.SpeechRecognitionPort
 import com.example.eyes.domain.voice.SttErrorReason
 import com.example.eyes.domain.voice.SttResult
 import com.example.eyes.domain.voice.SttState
@@ -86,25 +85,6 @@ class VoiceCommandViewModel(
         }
     }
 
-    /**
-     * Called when the screen is first composed. Does NOT speak a greeting -
-     * doing so racing audio focus with the SpeechRecognizer and gets the
-     * greeting silently dropped on most devices. The on-screen status text
-     * and a haptic confirm convey "we're listening".
-     */
-    fun onScreenShown() {
-        startListening()
-    }
-
-    fun onMicrophonePermissionResult(granted: Boolean) {
-        if (granted) {
-            startListening()
-        } else {
-            _uiState.update { it.copy(sttState = SttState.Error(SttErrorReason.PermissionDenied)) }
-            hapticService.error()
-        }
-    }
-
     fun startListening() {
         if (!isAppLanguageLoaded) {
             pendingStartListening = true
@@ -114,10 +94,6 @@ class VoiceCommandViewModel(
         hapticService.confirm()
         _uiState.update { it.copy(partialText = "", finalText = "", lastCommand = null) }
         speechRecognition.startListening(appLanguage)
-    }
-
-    fun stopListening() {
-        speechRecognition.stopListening()
     }
 
     fun handleRecognizedText(text: String) {
@@ -141,10 +117,6 @@ class VoiceCommandViewModel(
     fun handleRecognitionUnavailable() {
         _uiState.update { it.copy(sttState = SttState.Error(SttErrorReason.NotAvailable)) }
         hapticService.error()
-    }
-
-    fun toggleHelp() {
-        _uiState.update { it.copy(helpExpanded = !it.helpExpanded) }
     }
 
     private fun handleSttResult(result: SttResult) {

@@ -13,16 +13,17 @@ import com.example.eyes.application.objectdetection.WarmUpObjectDetectionUseCase
 import com.example.eyes.application.ocr.RecognizeOcrDocumentUseCase
 import com.example.eyes.application.ports.OcrGuidanceAnalyzerPort
 import com.example.eyes.application.scene.DescribeSceneUseCase
-import com.example.eyes.domain.audio.AudioRouteProvider
-import com.example.eyes.domain.haptics.HapticFeedback
-import com.example.eyes.domain.voice.VoiceCommandRepository
+import com.example.eyes.application.ports.AudioRouteProvider
+import com.example.eyes.application.ports.HapticFeedback
+import com.example.eyes.application.ports.VoiceCommandRepository
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.domain.i18n.AppLanguage
-import com.example.eyes.i18n.LocalizedTextProvider
+import com.example.eyes.infrastructure.i18n.LocalizedTextProvider
 import com.example.eyes.domain.ocr.OcrGuidanceStatus
 import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.domain.ocr.OcrTextBounds
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.application.ports.SpeechOutput
+import com.example.eyes.infrastructure.camera.CameraImageConverter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -86,7 +87,7 @@ data class DetectionOverlayItem(
 
 class CameraViewModel(
     private val recognizeOcrDocumentUseCase: RecognizeOcrDocumentUseCase,
-    private val ocrGuidanceAnalyzer: OcrGuidanceAnalyzerPort,
+    ocrGuidanceAnalyzer: OcrGuidanceAnalyzerPort,
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticFeedback,
     private val observeCameraPreferences: ObserveCameraPreferencesUseCase,

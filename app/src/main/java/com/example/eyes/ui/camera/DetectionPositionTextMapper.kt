@@ -3,7 +3,7 @@ package com.example.eyes.ui.camera
 import com.example.eyes.R
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.objectdetection.DetectionPosition
-import com.example.eyes.i18n.LocalizedTextProvider
+import com.example.eyes.infrastructure.i18n.LocalizedTextProvider
 
 internal fun DetectionPosition.localizedText(
     localizedTextProvider: LocalizedTextProvider,

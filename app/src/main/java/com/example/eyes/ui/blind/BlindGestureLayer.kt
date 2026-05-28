@@ -9,22 +9,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.application.ports.SpeechOutput
 import kotlin.math.abs
-import kotlinx.coroutines.withTimeoutOrNull
 
 val LocalBlindFocusManager = compositionLocalOf<BlindFocusManager?> { null }
 val LocalBlindFocusRouteKey = compositionLocalOf { BlindFocusManager.GLOBAL_ROUTE_KEY }
@@ -128,7 +128,7 @@ private fun FocusBoundsOverlay(
     }
 }
 
-private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.handleExploreByTouch(
+private suspend fun AwaitPointerEventScope.handleExploreByTouch(
     manager: BlindFocusManager
 ) {
     while (true) {
@@ -140,7 +140,7 @@ private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.han
     }
 }
 
-private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.waitForUpOrCancellation(
+private suspend fun AwaitPointerEventScope.waitForUpOrCancellation(
     pass: PointerEventPass
 ): PointerInputChange? {
     while (true) {

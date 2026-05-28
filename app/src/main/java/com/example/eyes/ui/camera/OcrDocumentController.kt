@@ -1,10 +1,10 @@
 package com.example.eyes.ui.camera
 
-import com.example.eyes.domain.haptics.HapticFeedback
+import com.example.eyes.application.ports.HapticFeedback
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrPostProcessor
 import com.example.eyes.domain.ocr.OcrResult
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.application.ports.SpeechOutput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import java.util.Locale

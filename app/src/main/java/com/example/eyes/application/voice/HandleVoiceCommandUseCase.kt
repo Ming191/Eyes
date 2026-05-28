@@ -1,8 +1,8 @@
 package com.example.eyes.application.voice
 
 import com.example.eyes.domain.voice.VoiceCommand
-import com.example.eyes.domain.voice.VoiceCommandRepository
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.application.ports.VoiceCommandRepository
+import com.example.eyes.application.ports.SpeechOutput
 import com.example.eyes.domain.i18n.AppLanguage
 
 enum class VoiceNavigationTargetKind {

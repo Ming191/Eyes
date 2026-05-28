@@ -12,7 +12,7 @@ import com.example.eyes.application.navigation.UpdateAppLanguageUseCase
 import com.example.eyes.domain.navigation.Destination
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrMode
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.application.ports.SpeechOutput
 import com.example.eyes.ui.camera.CameraMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,7 +36,7 @@ class AppNavViewModel(
     private val applySpeechRateUseCase: ApplySpeechRateUseCase,
     private val setCameraOcrModeUseCase: SetCameraOcrModeUseCase,
     private val announceDestinationUseCase: AnnounceDestinationUseCase,
-    private val speechOutput: SpeechOutput,
+    speechOutput: SpeechOutput,
 ) : ViewModel() {
 
     private val _requestedCameraMode = MutableStateFlow<CameraMode?>(null)

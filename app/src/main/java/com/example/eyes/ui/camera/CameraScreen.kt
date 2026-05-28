@@ -5,28 +5,20 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AttachMoney
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ImageSearch
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
@@ -46,10 +38,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
@@ -74,7 +63,7 @@ fun CameraScreen(
     viewModel: CameraViewModel = koinViewModel()
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
-    val cameraManager: CameraSessionController = koinInject()
+    val cameraManager: com.example.eyes.infrastructure.camera.CameraSessionController = koinInject()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val screenDescription = stringResource(
         R.string.camera_screen_description,
@@ -455,96 +444,6 @@ private fun OcrEngineModeSelector(
             }
         }
     }
-}
-
-@Composable
-private fun CameraStatusPanel(
-    uiState: CameraUiState,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val panelDescription = stringResource(R.string.camera_status_panel_description)
-    val titleRowDescription = stringResource(R.string.camera_status_title_row_description)
-    val hideStatusDescription = stringResource(R.string.camera_hide_status_description)
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(max = 132.dp)
-            .semantics {
-                contentDescription = panelDescription
-                stateDescription = "${uiState.title}. ${uiState.statusMessage}. ${uiState.lastAnnouncement}."
-                liveRegion = LiveRegionMode.Polite
-            }
-            .blindFocusable(
-                id = "camera_status_panel",
-                label = "${uiState.title}. ${uiState.statusMessage}. ${uiState.lastAnnouncement}.",
-                onActivate = {},
-                actions = listOf(
-                    BlindAction(label = hideStatusDescription, onActivate = { onDismiss() })
-                )
-            ),
-        shape = MaterialTheme.shapes.large,
-        tonalElevation = 4.dp,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            androidx.compose.foundation.layout.Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = titleRowDescription },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = uiState.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier
-                        .weight(1f)
-                        .semantics {
-                            contentDescription = uiState.title
-                            heading()
-                        }
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                FilledTonalIconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .semantics { contentDescription = hideStatusDescription }
-                        .blindFocusable(
-                            id = "camera_hide_status",
-                            label = hideStatusDescription,
-                            onActivate = onDismiss
-                        )
-                ) {
-                    Icon(imageVector = Icons.Rounded.Close, contentDescription = null)
-                }
-            }
-            Text(
-                text = uiState.statusMessage,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.semantics { contentDescription = uiState.statusMessage }
-            )
-            Text(
-                text = uiState.lastAnnouncement,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.semantics { contentDescription = uiState.lastAnnouncement }
-            )
-        }
-    }
-}
-
-@Composable
-private fun CameraMode.localizedLabel(): String = when (this) {
-    CameraMode.OCR -> stringResource(R.string.camera_mode_ocr_label)
-    CameraMode.SCENE_DESCRIPTION -> stringResource(R.string.camera_mode_scene_description_label)
-    CameraMode.OBJECT_DETECTION -> stringResource(R.string.camera_mode_object_detection_label)
-    CameraMode.CURRENCY -> stringResource(R.string.camera_mode_currency_label)
 }
 
 @Composable

@@ -9,8 +9,8 @@ import com.example.eyes.application.home.AnnounceHomeGreetingUseCase
 import com.example.eyes.application.home.BuildHomeStateUseCase
 import com.example.eyes.data.i18n.AndroidHomeAnnouncementTextProvider
 import com.example.eyes.data.i18n.AndroidHomeTextProvider
-import com.example.eyes.i18n.AndroidLocalizedTextProvider
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.infrastructure.i18n.AndroidLocalizedTextProvider
+import com.example.eyes.application.ports.SpeechOutput
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule

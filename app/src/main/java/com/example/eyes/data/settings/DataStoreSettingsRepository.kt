@@ -1,7 +1,7 @@
 package com.example.eyes.data.settings
 
 import com.example.eyes.data.DataStoreManager
-import com.example.eyes.domain.settings.SettingsRepository
+import com.example.eyes.application.ports.SettingsRepository
 import com.example.eyes.domain.i18n.AppLanguage
 
 class DataStoreSettingsRepository(

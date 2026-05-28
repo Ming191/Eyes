@@ -3,12 +3,13 @@ package com.example.eyes.ui.camera
 import android.graphics.Bitmap
 import android.util.Log
 import com.example.eyes.application.scene.DescribeSceneUseCase
-import com.example.eyes.domain.audio.AudioRouteProvider
-import com.example.eyes.domain.haptics.HapticFeedback
+import com.example.eyes.application.ports.AudioRouteProvider
+import com.example.eyes.application.ports.HapticFeedback
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.scene.SceneDescription
 import com.example.eyes.domain.scene.SceneDescriptionError
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.application.ports.SpeechOutput
+import com.example.eyes.infrastructure.camera.CameraImageConverter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update

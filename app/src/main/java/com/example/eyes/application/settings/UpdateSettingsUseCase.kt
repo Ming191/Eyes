@@ -1,7 +1,7 @@
 package com.example.eyes.application.settings
 
-import com.example.eyes.domain.settings.SettingsRepository
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.application.ports.SettingsRepository
+import com.example.eyes.application.ports.SpeechOutput
 import com.example.eyes.domain.i18n.AppLanguage
 
 class UpdateSettingsUseCase(

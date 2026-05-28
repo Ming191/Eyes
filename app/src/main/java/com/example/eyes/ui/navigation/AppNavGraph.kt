@@ -40,7 +40,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.eyes.R
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.application.ports.SpeechOutput
+import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.ui.blind.BlindAction
 import com.example.eyes.ui.blind.BlindGestureLayer
 import com.example.eyes.ui.blind.LocalBlindFocusManager
@@ -81,7 +82,6 @@ fun AppNavGraph(
             else -> OnboardingNavHost(
                 appLanguage = uiState.appLanguage,
                 currentSpokenText = currentSpokenText,
-                speechOutput = speechOutput,
                 onLanguageSelected = viewModel::setAppLanguage,
                 onFinish = viewModel::completeOnboarding
             )
@@ -104,10 +104,9 @@ private fun LoadingScreen() {
 
 @Composable
 private fun OnboardingNavHost(
-    appLanguage: com.example.eyes.domain.i18n.AppLanguage,
+    appLanguage: AppLanguage,
     currentSpokenText: String?,
-    speechOutput: SpeechOutput,
-    onLanguageSelected: (com.example.eyes.domain.i18n.AppLanguage) -> Unit,
+    onLanguageSelected: (AppLanguage) -> Unit,
     onFinish: () -> Unit
 ) {
     key("onboarding") {
@@ -142,7 +141,7 @@ private fun OnboardingNavHost(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun MainNavigationScaffold(
     viewModel: AppNavViewModel,
-    appLanguage: com.example.eyes.domain.i18n.AppLanguage,
+    appLanguage: AppLanguage,
     currentSpokenText: String?
 ) {
     key("main") {

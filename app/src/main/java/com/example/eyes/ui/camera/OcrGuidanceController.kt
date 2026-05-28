@@ -4,11 +4,12 @@ import android.graphics.Bitmap
 import android.util.Log
 import androidx.camera.core.ImageProxy
 import com.example.eyes.application.ports.OcrGuidanceAnalyzerPort
-import com.example.eyes.domain.haptics.HapticFeedback
+import com.example.eyes.application.ports.HapticFeedback
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrGuidanceEvaluator
 import com.example.eyes.domain.ocr.OcrGuidanceStatus
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.domain.ocr.OcrGuidanceTracker
+import com.example.eyes.application.ports.SpeechOutput
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +25,7 @@ internal class OcrGuidanceController(
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticFeedback,
     private val bitmapStore: CameraBitmapStore,
-    private val imageConverter: CameraImageConverter,
+    private val imageConverter: com.example.eyes.infrastructure.camera.CameraImageConverter,
     private val cameraText: () -> CameraText,
     private val appLanguage: () -> AppLanguage
 ) {

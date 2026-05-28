@@ -5,7 +5,7 @@ import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrGuidanceEvaluator.OcrGuidanceText
 import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.domain.scene.SceneDescriptionError
-import com.example.eyes.i18n.LocalizedTextProvider
+import com.example.eyes.infrastructure.i18n.LocalizedTextProvider
 
 data class CameraText(
     val ocrGuidanceSearch: String,
