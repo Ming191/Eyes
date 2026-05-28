@@ -3,6 +3,7 @@ package com.example.eyes.i18n
 import android.content.Context
 import android.content.res.Configuration
 import android.os.LocaleList
+import com.example.eyes.domain.i18n.AppLanguage
 
 interface LocalizedTextProvider {
     val applicationContext: Context

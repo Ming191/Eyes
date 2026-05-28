@@ -1,80 +1,51 @@
 package com.example.eyes.data.remote
 
-import android.content.Context
 import android.graphics.Bitmap
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.util.Log
-import com.example.eyes.R
-import com.example.eyes.i18n.AppLanguage
-import com.example.eyes.i18n.LocalizedTextProvider
+import com.example.eyes.domain.i18n.AppLanguage
+import com.example.eyes.domain.scene.SceneDescription
+import com.example.eyes.domain.scene.SceneDescriptionError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-sealed interface SceneDescriptionResult {
-    data class Success(val text: String) : SceneDescriptionResult
-    data class Failure(val userMessage: String) : SceneDescriptionResult
-}
-
 class SceneRepository(
-    private val localizedTextProvider: LocalizedTextProvider,
     private val sceneDescriptionEngine: SceneDescriptionEngine,
-    private val networkChecker: () -> Boolean = { isNetworkAvailable(localizedTextProvider.applicationContext) }
+    private val networkChecker: () -> Boolean
 ) {
 
-    suspend fun describeScene(bitmap: Bitmap, language: AppLanguage): SceneDescriptionResult = withContext(Dispatchers.IO) {
-        val offlineFallback = localizedTextProvider.getString(
-            R.string.scene_description_offline_fallback,
-            language
-        )
+    suspend fun describeScene(bitmap: Bitmap, language: AppLanguage): SceneDescription = withContext(Dispatchers.IO) {
         if (!networkChecker()) {
-            return@withContext SceneDescriptionResult.Success(offlineFallback)
+            return@withContext SceneDescription.Failure(SceneDescriptionError.OFFLINE)
         }
 
         try {
             val description = sceneDescriptionEngine.describe(bitmap = bitmap, language = language).trim()
             if (description.isBlank()) {
-                return@withContext SceneDescriptionResult.Failure(
-                    localizedTextProvider.getString(R.string.scene_description_error_generic, language)
-                )
+                return@withContext SceneDescription.Failure(SceneDescriptionError.EMPTY_RESPONSE)
             }
-            SceneDescriptionResult.Success(description)
+            SceneDescription.Success(description)
         } catch (error: CancellationException) {
             throw error
         } catch (error: SceneDescriptionEngineException) {
             Log.e(TAG, "Scene description engine failed: ${error.type}", error)
-            SceneDescriptionResult.Failure(
-                messageForErrorType(type = error.type, language = language)
-            )
+            SceneDescription.Failure(error.type.toSceneDescriptionError())
         } catch (error: Throwable) {
             Log.e(TAG, "Scene description failed", error)
-            SceneDescriptionResult.Failure(
-                localizedTextProvider.getString(R.string.scene_description_error_generic, language)
-            )
+            SceneDescription.Failure(SceneDescriptionError.UNKNOWN)
         }
     }
 
-    private fun messageForErrorType(type: SceneDescriptionErrorType, language: AppLanguage): String {
-        val resId = when (type) {
-            SceneDescriptionErrorType.API_KEY_MISSING -> R.string.scene_description_error_api_key_missing
-            SceneDescriptionErrorType.UNAUTHORIZED -> R.string.scene_description_error_unauthorized
-            SceneDescriptionErrorType.RATE_LIMIT -> R.string.scene_description_error_quota
-            SceneDescriptionErrorType.TIMEOUT -> R.string.scene_description_error_timeout
-            SceneDescriptionErrorType.EMPTY_RESPONSE,
-            SceneDescriptionErrorType.UNKNOWN -> R.string.scene_description_error_generic
-        }
-        return localizedTextProvider.getString(resId, language)
+    private fun SceneDescriptionErrorType.toSceneDescriptionError(): SceneDescriptionError = when (this) {
+        SceneDescriptionErrorType.API_KEY_MISSING -> SceneDescriptionError.API_KEY_MISSING
+        SceneDescriptionErrorType.UNAUTHORIZED -> SceneDescriptionError.UNAUTHORIZED
+        SceneDescriptionErrorType.RATE_LIMIT -> SceneDescriptionError.RATE_LIMIT
+        SceneDescriptionErrorType.TIMEOUT -> SceneDescriptionError.TIMEOUT
+        SceneDescriptionErrorType.EMPTY_RESPONSE -> SceneDescriptionError.EMPTY_RESPONSE
+        SceneDescriptionErrorType.UNKNOWN -> SceneDescriptionError.UNKNOWN
     }
 
     private companion object {
         private const val TAG = "SceneRepository"
-
-        private fun isNetworkAvailable(context: Context): Boolean {
-            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            val network = connectivityManager.activeNetwork ?: return false
-            val capabilities = connectivityManager.getNetworkCapabilities(network)
-            return capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-        }
     }
 }

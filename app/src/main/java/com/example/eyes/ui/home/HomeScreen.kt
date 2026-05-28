@@ -42,9 +42,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun HomeScreen(
     onOpenOcrQuick: () -> Unit,
-    onOpenOcrAccuracy: () -> Unit,
     onOpenCameraMode: (CameraMode) -> Unit,
-    onOpenSettings: () -> Unit,
     onOpenEmergency: (String?) -> Unit,
     viewModel: HomeViewModel = koinViewModel(),
     voiceCommandViewModel: VoiceCommandViewModel = koinViewModel()
@@ -128,13 +126,11 @@ fun HomeScreen(
         onActionSelected = { action ->
             when (action) {
                 HomeActionType.ReadTextQuick -> onOpenOcrQuick()
-                HomeActionType.ReadTextAccuracy -> onOpenOcrAccuracy()
                 HomeActionType.DescribeScene -> onOpenCameraMode(CameraMode.SCENE_DESCRIPTION)
                 HomeActionType.DetectObjects -> onOpenCameraMode(CameraMode.OBJECT_DETECTION)
                 HomeActionType.RecognizeCurrency -> onOpenCameraMode(CameraMode.CURRENCY)
                 HomeActionType.EmergencyCall -> onOpenEmergency(null)
                 HomeActionType.Voice -> requestMicrophoneOrStart()
-                HomeActionType.Settings -> onOpenSettings()
             }
         },
         onEmergencyNumberSelected = { number ->

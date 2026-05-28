@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import com.example.eyes.system.SpeechOutput
+import com.example.eyes.domain.speech.SpeechOutput
 import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.theme.EyesTheme
 
@@ -28,5 +28,4 @@ fun homeScreenDefaultPreview() {
 
 private class FakeSpeechOutput : SpeechOutput {
     override fun speak(text: String) = Unit
-    override fun speak(text: String, priority: SpeechOutput.Priority) = Unit
 }

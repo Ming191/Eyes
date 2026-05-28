@@ -2,7 +2,12 @@ package com.example.eyes.ui.home
 
 import androidx.test.core.app.ApplicationProvider
 import android.app.Application
-import com.example.eyes.system.SpeechOutput
+import com.example.eyes.application.home.AnnounceHomeGreetingUseCase
+import com.example.eyes.application.home.BuildHomeStateUseCase
+import com.example.eyes.data.i18n.AndroidHomeAnnouncementTextProvider
+import com.example.eyes.data.i18n.AndroidHomeTextProvider
+import com.example.eyes.i18n.AndroidLocalizedTextProvider
+import com.example.eyes.domain.speech.SpeechOutput
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -13,8 +18,15 @@ class HomeViewModelTest {
 
     @Test
     fun onScreenShown_callsSpeakOnce_withExpectedVietnameseMessage() {
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        val localizedTextProvider = AndroidLocalizedTextProvider(application)
+        val homeAnnouncementTextProvider = AndroidHomeAnnouncementTextProvider(localizedTextProvider)
+        val homeTextProvider = AndroidHomeTextProvider(localizedTextProvider)
         val fakeSpeechOutput = FakeSpeechOutput()
-        val viewModel = HomeViewModel(ApplicationProvider.getApplicationContext<Application>(), fakeSpeechOutput)
+        val viewModel = HomeViewModel(
+            buildHomeState = BuildHomeStateUseCase(homeTextProvider),
+            announceHomeGreeting = AnnounceHomeGreetingUseCase(homeAnnouncementTextProvider, fakeSpeechOutput)
+        )
 
         viewModel.onScreenShown()
         viewModel.onScreenShown()
@@ -29,9 +41,6 @@ class HomeViewModelTest {
     private class FakeSpeechOutput : SpeechOutput {
         val spokenTexts = mutableListOf<String>()
         override fun speak(text: String) {
-            spokenTexts.add(text)
-        }
-        override fun speak(text: String, priority: SpeechOutput.Priority) {
             spokenTexts.add(text)
         }
     }

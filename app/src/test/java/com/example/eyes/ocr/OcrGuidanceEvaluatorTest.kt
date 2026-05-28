@@ -1,4 +1,4 @@
-package com.example.eyes.ocr
+package com.example.eyes.domain.ocr
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val language by dataStoreManager.appLanguageFlow.collectAsStateWithLifecycle(initialValue = com.example.eyes.i18n.AppLanguage.VI)
+            val language by dataStoreManager.appLanguageFlow.collectAsStateWithLifecycle(initialValue = com.example.eyes.domain.i18n.AppLanguage.VI)
             val baseContext = LocalContext.current
             val activityResultRegistryOwner = checkNotNull(LocalActivityResultRegistryOwner.current)
             val configuration = LocalConfiguration.current

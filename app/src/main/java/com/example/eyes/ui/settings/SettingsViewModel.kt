@@ -1,20 +1,13 @@
 package com.example.eyes.ui.settings
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.eyes.R
-import com.example.eyes.data.DataStoreManager
-import com.example.eyes.i18n.AndroidLocalizedTextProvider
-import com.example.eyes.i18n.AppLanguage
-import com.example.eyes.i18n.LocalizedTextProvider
-import com.example.eyes.system.HapticService
-import com.example.eyes.system.SpeechOutput
-import com.example.eyes.voiceguide.AnnouncementCategory
-import com.example.eyes.voiceguide.AnnouncementController
+import com.example.eyes.application.settings.ObserveSettingsUseCase
+import com.example.eyes.application.settings.UpdateSettingsUseCase
+import com.example.eyes.domain.i18n.AppLanguage
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -27,39 +20,17 @@ data class SettingsUiState(
 )
 
 class SettingsViewModel(
-    private val localizedTextProvider: LocalizedTextProvider,
-    private val dataStoreManager: DataStoreManager,
-    private val speechOutput: SpeechOutput,
-    private val hapticService: HapticService,
-    private val announcementController: AnnouncementController
+    observeSettings: ObserveSettingsUseCase,
+    private val updateSettings: UpdateSettingsUseCase
 ) : ViewModel() {
-    constructor(
-        context: Context,
-        dataStoreManager: DataStoreManager,
-        speechOutput: SpeechOutput,
-        hapticService: HapticService,
-        announcementController: AnnouncementController
-    ) : this(
-        localizedTextProvider = AndroidLocalizedTextProvider(context),
-        dataStoreManager = dataStoreManager,
-        speechOutput = speechOutput,
-        hapticService = hapticService,
-        announcementController = announcementController
-    )
 
-    val uiState: StateFlow<SettingsUiState> = combine(
-        dataStoreManager.ttsSpeedFlow,
-        dataStoreManager.alertSensitivityFlow,
-        dataStoreManager.ocrTranslateToVietnameseFlow,
-        dataStoreManager.appLanguageFlow,
-        dataStoreManager.voiceGuideEnabledFlow
-    ) { ttsSpeed, alertSensitivity, autoTranslate, appLanguage, voiceGuideEnabled ->
+    val uiState: StateFlow<SettingsUiState> = observeSettings().map { settings ->
         SettingsUiState(
-            ttsSpeed = ttsSpeed,
-            alertSensitivity = alertSensitivity,
-            autoTranslateEnglishOcrToVietnamese = autoTranslate,
-            appLanguage = appLanguage,
-            voiceGuideEnabled = voiceGuideEnabled
+            ttsSpeed = settings.ttsSpeed,
+            alertSensitivity = settings.alertSensitivity,
+            autoTranslateEnglishOcrToVietnamese = settings.autoTranslateEnglishOcrToVietnamese,
+            appLanguage = settings.appLanguage,
+            voiceGuideEnabled = settings.voiceGuideEnabled
         )
     }.stateIn(
         scope = viewModelScope,
@@ -69,63 +40,20 @@ class SettingsViewModel(
 
     fun setTtsSpeed(value: Float) {
         viewModelScope.launch {
-            speechOutput.setSpeechRate(value)
-            dataStoreManager.setTtsSpeed(value)
-        }
-    }
-
-    fun setAlertSensitivity(value: Float) {
-        viewModelScope.launch {
-            dataStoreManager.setAlertSensitivity(value)
+            updateSettings.setTtsSpeed(value)
         }
     }
 
     fun setAutoTranslateEnglishOcrToVietnamese(enabled: Boolean) {
         viewModelScope.launch {
-            dataStoreManager.setOcrTranslateToVietnamese(enabled)
+            updateSettings.setAutoTranslateEnglishOcrToVietnamese(enabled)
         }
     }
 
     fun setAppLanguage(language: AppLanguage) {
         viewModelScope.launch {
-            dataStoreManager.setAppLanguage(language)
+            updateSettings.setAppLanguage(language)
         }
     }
 
-    fun setVoiceGuideEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            val language = uiState.value.appLanguage
-            val text = localizedTextProvider.getString(
-                if (enabled) R.string.settings_voice_guide_enabled_announcement
-                else R.string.settings_voice_guide_disabled_announcement,
-                language
-            )
-            dataStoreManager.setVoiceGuideEnabled(enabled)
-            announcementController.announce(
-                text = text,
-                priority = SpeechOutput.Priority.HIGH,
-                category = AnnouncementCategory.SystemFeedback,
-                locale = language.ttsLocale
-            )
-        }
-    }
-
-    fun previewFeedback(state: SettingsUiState) {
-        val speedLabel = String.format(state.appLanguage.ttsLocale, "%.2f", state.ttsSpeed)
-        val sensitivityLabel = (state.alertSensitivity * 100).toInt()
-        speechOutput.setSpeechRate(state.ttsSpeed)
-        val text = localizedTextProvider.getString(
-            R.string.settings_preview_feedback_en,
-            state.appLanguage,
-            speedLabel,
-            sensitivityLabel
-        )
-        announcementController.announce(
-            text = text,
-            priority = SpeechOutput.Priority.HIGH,
-            category = AnnouncementCategory.SystemFeedback,
-            locale = state.appLanguage.ttsLocale
-        )
-        hapticService.confirm()
-    }
 }

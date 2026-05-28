@@ -1,40 +1,13 @@
 package com.example.eyes.voiceguide
 
-import com.example.eyes.system.SpeechOutput
+import com.example.eyes.domain.accessibility.AnnouncementCategory
+import com.example.eyes.domain.accessibility.AnnouncementController
+import com.example.eyes.domain.speech.SpeechOutput
 import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
-
-enum class AnnouncementCategory {
-    Navigation,
-    Guidance,
-    Status,
-    Error,
-    Safety,
-    VoiceCommand,
-    SystemFeedback
-}
-
-interface AnnouncementController {
-    val voiceGuideEnabled: StateFlow<Boolean>
-
-    fun announce(
-        text: String,
-        priority: SpeechOutput.Priority = SpeechOutput.Priority.NORMAL,
-        category: AnnouncementCategory = AnnouncementCategory.Guidance,
-        locale: Locale? = null,
-        interruptCurrent: Boolean = false
-    ): Boolean
-
-    suspend fun announceAndAwait(
-        text: String,
-        priority: SpeechOutput.Priority = SpeechOutput.Priority.NORMAL,
-        category: AnnouncementCategory = AnnouncementCategory.Guidance,
-        locale: Locale? = null
-    )
-}
 
 class DefaultAnnouncementController(
     voiceGuideEnabledFlow: Flow<Boolean>,
@@ -51,7 +24,6 @@ class DefaultAnnouncementController(
 
     override fun announce(
         text: String,
-        priority: SpeechOutput.Priority,
         category: AnnouncementCategory,
         locale: Locale?,
         interruptCurrent: Boolean
@@ -62,25 +34,24 @@ class DefaultAnnouncementController(
             speechOutput.stop()
         }
         if (locale == null) {
-            speechOutput.speak(text, priority)
+            speechOutput.speak(text)
         } else {
-            speechOutput.speak(text, priority, locale)
+            speechOutput.speak(text, locale)
         }
         return true
     }
 
     override suspend fun announceAndAwait(
         text: String,
-        priority: SpeechOutput.Priority,
         category: AnnouncementCategory,
         locale: Locale?
     ) {
         if (!shouldSpeak(text, category)) return
         remember(text)
         if (locale == null) {
-            speechOutput.speakAndAwait(text, priority)
+            speechOutput.speakAndAwait(text)
         } else {
-            speechOutput.speakAndAwait(text, priority, locale)
+            speechOutput.speakAndAwait(text, locale)
         }
     }
 

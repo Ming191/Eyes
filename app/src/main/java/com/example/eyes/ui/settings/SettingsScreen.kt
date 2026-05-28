@@ -27,7 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.R
-import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.ui.blind.BlindAction
 import com.example.eyes.ui.blind.blindFocusable
 import com.example.eyes.ui.theme.EyesTheme

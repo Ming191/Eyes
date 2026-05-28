@@ -44,7 +44,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.example.eyes.R
-import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.ui.blind.BlindAction
 import com.example.eyes.ui.blind.blindFocusable
 import com.example.eyes.ui.permission.PermissionScreen

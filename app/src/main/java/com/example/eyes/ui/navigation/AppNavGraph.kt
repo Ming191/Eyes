@@ -40,7 +40,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.eyes.R
-import com.example.eyes.system.SpeechOutput
+import com.example.eyes.domain.speech.SpeechOutput
 import com.example.eyes.ui.blind.BlindAction
 import com.example.eyes.ui.blind.BlindGestureLayer
 import com.example.eyes.ui.blind.LocalBlindFocusManager
@@ -50,7 +50,7 @@ import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.camera.CameraScreen
 import com.example.eyes.ui.emergency.EmergencyScreen
 import com.example.eyes.ui.home.HomeScreen
-import com.example.eyes.ocr.OcrMode
+import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.ui.onboarding.OnboardingScreen
 import com.example.eyes.ui.settings.SettingsScreen
 import org.koin.compose.koinInject
@@ -104,10 +104,10 @@ private fun LoadingScreen() {
 
 @Composable
 private fun OnboardingNavHost(
-    appLanguage: com.example.eyes.i18n.AppLanguage,
+    appLanguage: com.example.eyes.domain.i18n.AppLanguage,
     currentSpokenText: String?,
     speechOutput: SpeechOutput,
-    onLanguageSelected: (com.example.eyes.i18n.AppLanguage) -> Unit,
+    onLanguageSelected: (com.example.eyes.domain.i18n.AppLanguage) -> Unit,
     onFinish: () -> Unit
 ) {
     key("onboarding") {
@@ -142,7 +142,7 @@ private fun OnboardingNavHost(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun MainNavigationScaffold(
     viewModel: AppNavViewModel,
-    appLanguage: com.example.eyes.i18n.AppLanguage,
+    appLanguage: com.example.eyes.domain.i18n.AppLanguage,
     currentSpokenText: String?
 ) {
     key("main") {
@@ -258,16 +258,9 @@ private fun MainNavigationScaffold(
                                     viewModel.requestOpenCameraOcr(OcrMode.QUICK)
                                     navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
                                 },
-                                onOpenOcrAccuracy = {
-                                    viewModel.requestOpenCameraOcr(OcrMode.ACCURACY)
-                                    navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
-                                },
-                                onOpenCameraMode = { mode ->
+	                            onOpenCameraMode = { mode ->
                                     viewModel.requestOpenCamera(mode)
                                     navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
-                                },
-                                onOpenSettings = {
-                                    navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
                                 },
                                 onOpenEmergency = {
                                     navController.navigate(EmergencyRoute)

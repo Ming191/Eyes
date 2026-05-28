@@ -1,24 +1,24 @@
 package com.example.eyes.ui.navigation
 
-import android.content.Context
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.eyes.data.DataStoreManager
-import com.example.eyes.R
-import com.example.eyes.i18n.AndroidLocalizedTextProvider
-import com.example.eyes.i18n.AppLanguage
-import com.example.eyes.i18n.LocalizedTextProvider
-import com.example.eyes.ocr.OcrMode
-import com.example.eyes.system.SpeechOutput
+import com.example.eyes.application.navigation.AnnounceDestinationUseCase
+import com.example.eyes.application.navigation.ApplySpeechRateUseCase
+import com.example.eyes.application.navigation.CompleteOnboardingUseCase
+import com.example.eyes.application.navigation.ObserveAppNavStateUseCase
+import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
+import com.example.eyes.application.navigation.UpdateAppLanguageUseCase
+import com.example.eyes.domain.navigation.Destination
+import com.example.eyes.domain.i18n.AppLanguage
+import com.example.eyes.domain.ocr.OcrMode
+import com.example.eyes.domain.speech.SpeechOutput
 import com.example.eyes.ui.camera.CameraMode
-import com.example.eyes.voiceguide.AnnouncementCategory
-import com.example.eyes.voiceguide.AnnouncementController
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -30,34 +30,23 @@ data class AppNavUiState(
 )
 
 class AppNavViewModel(
-    private val dataStoreManager: DataStoreManager,
+    observeAppNavState: ObserveAppNavStateUseCase,
+    private val completeOnboardingUseCase: CompleteOnboardingUseCase,
+    private val updateAppLanguageUseCase: UpdateAppLanguageUseCase,
+    private val applySpeechRateUseCase: ApplySpeechRateUseCase,
+    private val setCameraOcrModeUseCase: SetCameraOcrModeUseCase,
+    private val announceDestinationUseCase: AnnounceDestinationUseCase,
     private val speechOutput: SpeechOutput,
-    private val announcementController: AnnouncementController,
-    private val localizedTextProvider: LocalizedTextProvider
 ) : ViewModel() {
-    constructor(
-        dataStoreManager: DataStoreManager,
-        speechOutput: SpeechOutput,
-        announcementController: AnnouncementController,
-        context: Context
-    ) : this(
-        dataStoreManager = dataStoreManager,
-        speechOutput = speechOutput,
-        announcementController = announcementController,
-        localizedTextProvider = AndroidLocalizedTextProvider(context)
-    )
 
     private val _requestedCameraMode = MutableStateFlow<CameraMode?>(null)
     val requestedCameraMode: StateFlow<CameraMode?> = _requestedCameraMode.asStateFlow()
     val currentSpokenText = speechOutput.currentSpokenText
-    val uiState: StateFlow<AppNavUiState> = combine(
-        dataStoreManager.onboardingCompletedFlow,
-        dataStoreManager.appLanguageFlow
-    ) { completed, appLanguage ->
+    val uiState: StateFlow<AppNavUiState> = observeAppNavState().map { state ->
             AppNavUiState(
                 isLoading = false,
-                onboardingCompleted = completed,
-                appLanguage = appLanguage
+                onboardingCompleted = state.onboardingCompleted,
+                appLanguage = state.appLanguage
             )
         }
         .stateIn(
@@ -68,21 +57,19 @@ class AppNavViewModel(
 
     init {
         viewModelScope.launch {
-            dataStoreManager.ttsSpeedFlow.collect { speed ->
-                speechOutput.setSpeechRate(speed)
-            }
+            applySpeechRateUseCase()
         }
     }
 
     fun completeOnboarding() {
         viewModelScope.launch {
-            dataStoreManager.setOnboardingCompleted(true)
+            completeOnboardingUseCase()
         }
     }
 
     fun setAppLanguage(language: AppLanguage) {
         viewModelScope.launch {
-            dataStoreManager.setAppLanguage(language)
+            updateAppLanguageUseCase(language)
         }
     }
 
@@ -93,7 +80,7 @@ class AppNavViewModel(
     fun requestOpenCameraOcr(ocrMode: OcrMode) {
         _requestedCameraMode.value = CameraMode.OCR
         viewModelScope.launch {
-            dataStoreManager.setOcrMode(ocrMode)
+            setCameraOcrModeUseCase(ocrMode)
         }
     }
 
@@ -102,17 +89,12 @@ class AppNavViewModel(
     }
 
     fun announceScreen(destination: TopLevelDestination, appLanguage: AppLanguage) {
-        val textRes = when (destination) {
-            TopLevelDestination.HOME -> R.string.voice_guide_home_intro
-            TopLevelDestination.CAMERA -> R.string.voice_guide_camera_intro
-            TopLevelDestination.SETTINGS -> R.string.voice_guide_settings_intro
-        }
-        announcementController.announce(
-            text = localizedTextProvider.getString(textRes, appLanguage),
-            priority = SpeechOutput.Priority.HIGH,
-            category = AnnouncementCategory.Navigation,
-            locale = appLanguage.ttsLocale,
-            interruptCurrent = true
-        )
+        announceDestinationUseCase(destination.toDomainDestination(), appLanguage)
+    }
+
+    private fun TopLevelDestination.toDomainDestination(): Destination = when (this) {
+        TopLevelDestination.HOME -> Destination.HOME
+        TopLevelDestination.CAMERA -> Destination.CAMERA
+        TopLevelDestination.SETTINGS -> Destination.SETTINGS
     }
 }

@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import com.example.eyes.system.SpeechOutput
+import com.example.eyes.domain.speech.SpeechOutput
 import java.util.Locale
 
 class BlindFocusManager(
@@ -86,34 +86,34 @@ class BlindFocusManager(
     fun focusNextAction() {
         val item = activeItems().getOrNull(focusedIndex) ?: return
         if (item.actions.isEmpty()) {
-            speakInterrupting(noActionsLabelProvider(), SpeechOutput.Priority.NORMAL)
+            speakInterrupting(noActionsLabelProvider())
             return
         }
 
         selectedActionIndex = if (selectedActionIndex < item.actions.lastIndex) selectedActionIndex + 1 else 0
-        speakInterrupting(item.actions[selectedActionIndex].label, SpeechOutput.Priority.NORMAL)
+        speakInterrupting(item.actions[selectedActionIndex].label)
     }
 
     fun focusPreviousAction() {
         val item = activeItems().getOrNull(focusedIndex) ?: return
         if (item.actions.isEmpty()) {
-            speakInterrupting(noActionsLabelProvider(), SpeechOutput.Priority.NORMAL)
+            speakInterrupting(noActionsLabelProvider())
             return
         }
 
         selectedActionIndex = if (selectedActionIndex > 0) selectedActionIndex - 1 else item.actions.lastIndex
-        speakInterrupting(item.actions[selectedActionIndex].label, SpeechOutput.Priority.NORMAL)
+        speakInterrupting(item.actions[selectedActionIndex].label)
     }
 
     fun activateFocused() {
         val item = activeItems().getOrNull(focusedIndex) ?: return
         val action = item.actions.getOrNull(selectedActionIndex)
         if (action != null) {
-            speakInterrupting(action.activateLabel ?: action.label, SpeechOutput.Priority.HIGH)
+            speakInterrupting(action.activateLabel ?: action.label)
             action.onActivate()
             selectedActionIndex = -1
         } else {
-            speakInterrupting(item.activateLabel ?: item.label, SpeechOutput.Priority.HIGH)
+            speakInterrupting(item.activateLabel ?: item.label)
             item.onActivate()
         }
     }
@@ -138,7 +138,7 @@ class BlindFocusManager(
         if (!force && item.id == lastSpokenItemId) return
 
         lastSpokenItemId = item.id
-        speakInterrupting(item.label, SpeechOutput.Priority.NORMAL)
+        speakInterrupting(item.label)
     }
 
     private fun sortItems() {
@@ -172,9 +172,9 @@ class BlindFocusManager(
         return items.filter { it.routeKey == GLOBAL_ROUTE_KEY || it.routeKey == activeRouteKey }
     }
 
-    private fun speakInterrupting(text: String, priority: SpeechOutput.Priority) {
+    private fun speakInterrupting(text: String) {
         speechOutput.stop()
-        speechOutput.speak(text, priority, localeProvider())
+        localeProvider()?.let { speechOutput.speak(text, it) } ?: speechOutput.speak(text)
     }
 
     companion object {

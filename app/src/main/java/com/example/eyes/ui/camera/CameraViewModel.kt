@@ -1,42 +1,36 @@
-﻿package com.example.eyes.ui.camera
+package com.example.eyes.ui.camera
 
-import android.annotation.SuppressLint
 import android.graphics.Bitmap
-import android.graphics.RectF
-import android.media.AudioDeviceInfo
-import android.media.AudioManager
-import android.os.Build
 import android.util.Log
 import androidx.camera.core.ImageProxy
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.eyes.R
-import com.example.eyes.camera.CurrencyAnalyzer
-import com.example.eyes.camera.toBitmapWithRotation
-import com.example.eyes.data.DataStoreManager
-import com.example.eyes.data.remote.SceneRepository
-import com.example.eyes.data.remote.SceneDescriptionResult
+import com.example.eyes.application.camera.ObserveCameraPreferencesUseCase
+import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
+import com.example.eyes.application.objectdetection.DetectObjectsUseCase
+import com.example.eyes.application.objectdetection.WarmUpObjectDetectionUseCase
+import com.example.eyes.application.ocr.RecognizeOcrDocumentInput
+import com.example.eyes.application.ocr.RecognizeOcrDocumentUseCase
+import com.example.eyes.application.ports.CurrencyRecognizerFactory
+import com.example.eyes.application.scene.DescribeSceneUseCase
+import com.example.eyes.infrastructure.camera.toBitmapWithRotation
+import com.example.eyes.infrastructure.camera.toImageFrame
+import com.example.eyes.domain.audio.AudioRouteProvider
+import com.example.eyes.domain.haptics.HapticFeedback
+import com.example.eyes.domain.voice.VoiceCommandRepository
 import com.example.eyes.domain.voice.VoiceCommand
-import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.i18n.LocalizedTextProvider
-import com.example.eyes.ocr.MlKitOcrGuidanceAnalyzer
-import com.example.eyes.ocr.OcrEngine
-import com.example.eyes.ocr.OcrGuidanceEvaluator
-import com.example.eyes.ocr.OcrGuidanceEvaluator.OcrGuidanceText
-import com.example.eyes.ocr.OcrGuidanceStatus
-import com.example.eyes.ocr.OcrMode
-import com.example.eyes.ocr.OcrPostProcessor
-import com.example.eyes.ocr.OcrResult
-import com.example.eyes.ocr.OcrTextBounds
-import com.example.eyes.ocr.OcrTranslator
-import com.example.eyes.objectdetection.YoloExecutorchDetector
-import com.example.eyes.objectdetection.localizedText
-import com.example.eyes.system.HapticService
-import com.example.eyes.system.TtsService
+import com.example.eyes.infrastructure.ocr.MlKitOcrGuidanceAnalyzer
+import com.example.eyes.domain.ocr.OcrGuidanceEvaluator
+import com.example.eyes.domain.ocr.OcrGuidanceStatus
+import com.example.eyes.domain.ocr.OcrMode
+import com.example.eyes.domain.ocr.OcrResult
+import com.example.eyes.domain.ocr.OcrTextBounds
+import com.example.eyes.domain.speech.SpeechOutput
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,7 +38,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
@@ -81,14 +74,11 @@ data class CameraUiState(
 }
 
 @Immutable
-enum class CameraMode(
-    val labelVi: String,
-    val descriptionVi: String
-) {
-    OCR("Đọc văn bản", "đọc văn bản OCR"),
-    SCENE_DESCRIPTION("Mô tả ảnh", "mô tả ảnh xung quanh"),
-    OBJECT_DETECTION("Nhận diện vật thể", "nhận diện vật thể"),
-    CURRENCY("Nhận diện tiền", "nhận diện mệnh giá tiền")
+enum class CameraMode {
+    OCR,
+    SCENE_DESCRIPTION,
+    OBJECT_DETECTION,
+    CURRENCY
 }
 
 @Immutable
@@ -103,23 +93,19 @@ data class DetectionOverlayItem(
     val sourceAspectRatio: Float
 )
 
-private data class OcrRecognitionOutcome(
-    val result: Result<OcrResult>,
-    val usedFallbackFromAccuracy: Boolean,
-    val fallbackReason: String? = null
-)
-
 class CameraViewModel(
-    private val quickOcrEngine: OcrEngine,
-    private val accuracyOcrEngine: OcrEngine,
+    private val recognizeOcrDocumentUseCase: RecognizeOcrDocumentUseCase,
     private val ocrGuidanceAnalyzer: MlKitOcrGuidanceAnalyzer,
-    private val translator: OcrTranslator,
-    private val ttsService: TtsService,
-    private val hapticService: HapticService,
-    private val dataStoreManager: DataStoreManager,
-    private val sceneRepository: SceneRepository,
-    private val objectDetector: YoloExecutorchDetector,
-    private val audioManager: AudioManager,
+    private val speechOutput: SpeechOutput,
+    private val hapticService: HapticFeedback,
+    private val observeCameraPreferences: ObserveCameraPreferencesUseCase,
+    private val setCameraOcrModeUseCase: SetCameraOcrModeUseCase,
+    private val voiceCommandRepository: VoiceCommandRepository,
+    private val describeSceneUseCase: DescribeSceneUseCase,
+    private val detectObjectsUseCase: DetectObjectsUseCase,
+    private val warmUpObjectDetectionUseCase: WarmUpObjectDetectionUseCase,
+    private val audioRouteProvider: AudioRouteProvider,
+    private val currencyRecognizerFactory: CurrencyRecognizerFactory,
     private val localizedTextProvider: LocalizedTextProvider
 ) : ViewModel() {
 
@@ -127,50 +113,71 @@ class CameraViewModel(
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
     private val isProcessingOcrGuidance = AtomicBoolean(false)
-    private val isProcessingObjectDetection = AtomicBoolean(false)
-    private val isProcessingCurrencyPreview = AtomicBoolean(false)
-    private val lastOcrSwipeAtMs = AtomicReference(0L)
     private val lastOcrGuidanceAtMs = AtomicLong(0L)
-    private val lastOcrGuidanceSpeechAtMs = AtomicLong(0L)
-    private val lastObjectDetectionAtMs = AtomicLong(0L)
-    private val lastCurrencyPreviewAtMs = AtomicLong(0L)
-    private val lastObjectAnnouncementAtMs = AtomicLong(0L)
-    private val lastCurrencyNoDetectionAtMs = AtomicLong(0L)
-    private val lastObjectAnnouncement = AtomicReference("")
-    private val lastCurrencyAnnouncement = AtomicReference("")
 
     private val currentOcrMode = MutableStateFlow(OcrMode.QUICK)
 
-    private val latestFrame = AtomicReference<Bitmap?>(null)
+    private val bitmapStore = CameraBitmapStore()
     private val appLanguage = AtomicReference(AppLanguage.VI)
     private val lastRawOcrResult = AtomicReference<OcrResult?>(null)
     private val lastOcrUsedFallback = AtomicBoolean(false)
-    private val lastOcrGuidanceBounds = AtomicReference<OcrTextBounds?>(null)
-    private val stableOcrGuidanceFrames = AtomicInteger(0)
-    private val lastAnnouncedOcrGuidanceStatus = AtomicReference<OcrGuidanceStatus?>(null)
-    private var reprocessOcrJob: Job? = null
-    private var currencyAnalyzer: CurrencyAnalyzer? = null
+    private val ocrGuidanceTracker = OcrGuidanceTracker()
+    private val currencyTextMapper = CurrencyTextMapper(localizedTextProvider) { appLanguage.get() }
+    private val ocrDocumentController = OcrDocumentController(
+        uiState = _uiState,
+        speechOutput = speechOutput,
+        hapticService = hapticService,
+        cameraText = { cameraText },
+        appLanguage = { appLanguage.get() }
+    )
+    private val sceneCaptureController = SceneCaptureController(
+        uiState = _uiState,
+        describeSceneUseCase = describeSceneUseCase,
+        speechOutput = speechOutput,
+        hapticService = hapticService,
+        audioRouteProvider = audioRouteProvider,
+        cameraText = { cameraText },
+        appLanguage = { appLanguage.get() },
+        updateUiStateAndRecycleReplacedBitmap = ::updateUiStateAndRecycleReplacedOcrBitmap
+    )
+    private val objectDetectionController = ObjectDetectionController(
+        uiState = _uiState,
+        detectObjectsUseCase = detectObjectsUseCase,
+        warmUpObjectDetectionUseCase = warmUpObjectDetectionUseCase,
+        speechOutput = speechOutput,
+        bitmapStore = bitmapStore,
+        localizedTextProvider = localizedTextProvider,
+        cameraText = { cameraText },
+        appLanguage = { appLanguage.get() }
+    )
+    private val currencyRecognitionController = CurrencyRecognitionController(
+        uiState = _uiState,
+        currencyRecognizerFactory = currencyRecognizerFactory,
+        speechOutput = speechOutput,
+        hapticService = hapticService,
+        bitmapStore = bitmapStore,
+        currencyTextMapper = currencyTextMapper,
+        cameraText = { cameraText },
+        appLanguage = { appLanguage.get() },
+        updateUiStateAndRecycleReplacedBitmap = ::updateUiStateAndRecycleReplacedOcrBitmap
+    )
     private val cameraText: CameraText get() = CameraText.from(localizedTextProvider, appLanguage.get())
 
     init {
         viewModelScope.launch {
-            dataStoreManager.appLanguageFlow.collect { language ->
-                setAppLanguage(language)
+            observeCameraPreferences().collect { preferences ->
+                setAppLanguage(preferences.appLanguage)
+                currentOcrMode.value = preferences.ocrMode
+                _uiState.update {
+                    it.copy(
+                        ocrMode = preferences.ocrMode,
+                        ocrTranslateToVietnamese = preferences.ocrTranslateToVietnamese
+                    )
+                }
             }
         }
         viewModelScope.launch {
-            dataStoreManager.ocrModeFlow.collect { mode ->
-                currentOcrMode.value = mode
-                _uiState.update { it.copy(ocrMode = mode) }
-            }
-        }
-        viewModelScope.launch {
-            dataStoreManager.ocrTranslateToVietnameseFlow.collect { enabled ->
-                _uiState.update { it.copy(ocrTranslateToVietnamese = enabled) }
-            }
-        }
-        viewModelScope.launch {
-            dataStoreManager.lastVoiceCommandFlow.collect { command ->
+            voiceCommandRepository.lastVoiceCommandFlow.collect { command ->
                 when (command) {
                     VoiceCommand.ReadText -> applyVoiceCameraCommand(
                         mode = CameraMode.OCR,
@@ -193,10 +200,10 @@ class CameraViewModel(
 
                     else -> return@collect
                 }
-                dataStoreManager.clearLastVoiceCommand()
+                voiceCommandRepository.clearLastVoiceCommand()
             }
         }
-        warmUpObjectDetectionModel()
+        objectDetectionController.warmUp(viewModelScope)
     }
 
     fun setAppLanguage(language: AppLanguage) {
@@ -208,120 +215,13 @@ class CameraViewModel(
         refreshLanguageBoundUiText(previousText, cameraText)
     }
 
-    private fun warmUpObjectDetectionModel() {
-        viewModelScope.launch(Dispatchers.Default) {
-            try {
-                val outputs = objectDetector.inspectOutputShape()
-                if (_uiState.value.activeMode == CameraMode.OBJECT_DETECTION) {
-                    val message = cameraText.objectDetectionWarmupDone
-                    Log.i(TAG, "Object detection warmup done: $outputs")
-                    _uiState.update {
-                        it.copy(
-                            statusMessage = message,
-                            debugMetrics = outputs.joinToString(prefix = "YOLO: ") { output ->
-                                "#${output.index} ${output.shape} ${output.dtype} n=${output.elementCount}"
-                            }
-                        )
-                    }
-                }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Throwable) {
-                if (_uiState.value.activeMode == CameraMode.OBJECT_DETECTION) {
-                    val message = cameraText.objectDetectionWarmupFailed
-                    Log.e(TAG, "Object detection warmup failed", error)
-                    _uiState.update {
-                        it.copy(
-                            statusMessage = message,
-                            debugMetrics = "YOLO: ${error.message ?: error::class.java.simpleName}"
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private fun getCurrencyAnalyzer(): CurrencyAnalyzer? {
-        currencyAnalyzer?.let { return it }
-        return try {
-            CurrencyAnalyzer(localizedTextProvider.applicationContext, ::onCurrencyResult).also { analyzer ->
-                currencyAnalyzer = analyzer
-            }
-        } catch (error: Throwable) {
-            Log.e(TAG, "Currency model load failed", error)
-            val message = cameraText.currencyModelLoadError
-            _uiState.update {
-                it.copy(
-                    statusMessage = message,
-                    lastAnnouncement = message,
-                    currencyDisplay = "",
-                    currencyConfidence = 0f
-                )
-            }
-            null
-        }
-    }
-
-    private fun onCurrencyResult(label: String, confidence: Float) {
-        if (_uiState.value.activeMode != CameraMode.CURRENCY) return
-        val safeConfidence = confidence.coerceIn(0f, 1f)
-
-        if (label == CurrencyAnalyzer.EMPTY_LABEL) {
-            val hadResult = _uiState.value.currencyDisplay.isNotEmpty()
-            if (hadResult) {
-                resetCurrencyAnnouncementDebounce()
-                currencyAnalyzer?.resetBuffer()
-            }
-            maybeSpeakNoCurrencyDetected()
-            _uiState.update { state ->
-                if (state.activeMode != CameraMode.CURRENCY) {
-                    state
-                } else {
-                    state.copy(
-                        currencyDisplay = "",
-                        currencyConfidence = 0f,
-                        isCurrencyScanning = false,
-                        statusMessage = cameraText.noCurrencyDetected,
-                        lastAnnouncement = cameraText.noCurrencyDetected
-                    )
-                }
-            }
-            return
-        }
-
-        val display = currencyDisplay(label)
-        val spoken = currencySpoken(label)
-        val confidencePercent = String.format(Locale.getDefault(), "%.0f%%", safeConfidence * 100f)
-
-        if (lastCurrencyAnnouncement.get() != label) {
-            lastCurrencyAnnouncement.set(label)
-            hapticService.confirm()
-            ttsService.speak(spoken, TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
-        }
-
-        _uiState.update { state ->
-            if (state.activeMode != CameraMode.CURRENCY) {
-                state
-            } else {
-                state.copy(
-                    currencyDisplay = display,
-                    currencyConfidence = safeConfidence,
-                    isCurrencyScanning = false,
-                    statusMessage = cameraText.currencyDetectedStatus(display, confidencePercent),
-                    lastAnnouncement = spoken,
-                    debugMetrics = cameraText.currencyDebug(confidencePercent)
-                )
-            }
-        }
-    }
-
     private fun applyVoiceCameraCommand(
         mode: CameraMode,
         title: String = cameraText.ocrTitle,
         summary: String = cameraText.ocrSummary,
         statusMessage: String
     ) {
-        resetObjectAnnouncementDebounce()
+        objectDetectionController.resetAnnouncementDebounce()
         resetCurrencyAnnouncementDebounce()
         _uiState.update {
             it
@@ -362,76 +262,18 @@ class CameraViewModel(
     fun processFrame(imageProxy: ImageProxy) {
         when (_uiState.value.activeMode) {
             CameraMode.OCR -> processOcrGuidanceImageProxy(imageProxy)
-            CameraMode.SCENE_DESCRIPTION -> processScenePreviewImageProxy(imageProxy)
+            CameraMode.SCENE_DESCRIPTION -> imageProxy.close()
             CameraMode.OBJECT_DETECTION -> processObjectDetectionImageProxy(imageProxy)
             CameraMode.CURRENCY -> processCurrencyPreviewImageProxy(imageProxy)
         }
     }
 
-    private fun processScenePreviewImageProxy(imageProxy: ImageProxy) {
-        imageProxy.close()
-    }
-
     private fun processCurrencyPreviewImageProxy(imageProxy: ImageProxy) {
-        val now = System.currentTimeMillis()
-        if (now - lastCurrencyPreviewAtMs.get() < CURRENCY_PREVIEW_INTERVAL_MS) {
-            imageProxy.close()
-            return
-        }
-        if (!isProcessingCurrencyPreview.compareAndSet(false, true)) {
-            imageProxy.close()
-            return
-        }
-        lastCurrencyPreviewAtMs.set(now)
-
-        viewModelScope.launch(Dispatchers.Default) {
-            try {
-                val analyzer = getCurrencyAnalyzer()
-                if (analyzer == null) {
-                    imageProxy.close()
-                    return@launch
-                }
-                analyzer.analyze(imageProxy)
-            } catch (error: CancellationException) {
-                imageProxy.close()
-                throw error
-            } catch (error: Throwable) {
-                Log.e(TAG, "Currency preview frame failed", error)
-                imageProxy.close()
-            } finally {
-                isProcessingCurrencyPreview.set(false)
-            }
-        }
+        currencyRecognitionController.processPreviewImageProxy(imageProxy, viewModelScope)
     }
 
     private fun processObjectDetectionImageProxy(imageProxy: ImageProxy) {
-        val now = System.currentTimeMillis()
-        if (now - lastObjectDetectionAtMs.get() < OBJECT_DETECTION_INTERVAL_MS) {
-            imageProxy.close()
-            return
-        }
-        if (!isProcessingObjectDetection.compareAndSet(false, true)) {
-            imageProxy.close()
-            return
-        }
-        lastObjectDetectionAtMs.set(now)
-
-        viewModelScope.launch(Dispatchers.Default) {
-            var bitmap: Bitmap? = null
-            try {
-                bitmap = imageProxy.toBitmapWithRotation()
-                replaceLatestFrame(bitmap)
-                processObjectDetection(bitmap)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Object detection frame failed", e)
-            } finally {
-                recycleBitmapIfNeeded(bitmap)
-                imageProxy.close()
-                isProcessingObjectDetection.set(false)
-            }
-        }
+        objectDetectionController.processImageProxy(imageProxy, viewModelScope)
     }
 
     private fun processOcrGuidanceImageProxy(imageProxy: ImageProxy) {
@@ -456,9 +298,9 @@ class CameraViewModel(
             var bitmap: Bitmap? = null
             try {
                 bitmap = imageProxy.toBitmapWithRotation()
-                replaceLatestFrame(bitmap)
+                bitmapStore.replaceLatestFrame(bitmap)
                 val frame = ocrGuidanceAnalyzer.analyze(bitmap)
-                val stableCount = updateOcrGuidanceStability(frame.textBounds)
+                val stableCount = ocrGuidanceTracker.updateStability(frame.textBounds)
                 val evaluation = OcrGuidanceEvaluator.evaluate(
                     frame = frame,
                     stableFrameCount = stableCount,
@@ -483,157 +325,21 @@ class CameraViewModel(
                         lastAnnouncement = evaluation.message
                     )
                 }
-                maybeAnnounceOcrGuidance(evaluation.status, evaluation.message)
+                announceOcrGuidanceIfNeeded(evaluation.status, evaluation.message)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "OCR guidance failed", e)
             } finally {
-                recycleBitmapIfNeeded(bitmap)
+                bitmapStore.recycle(bitmap)
                 imageProxy.close()
                 isProcessingOcrGuidance.set(false)
             }
         }
     }
 
-    private suspend fun processObjectDetection(bitmap: Bitmap) {
-        try {
-            val detections = objectDetector.detect(bitmap)
-            if (_uiState.value.activeMode != CameraMode.OBJECT_DETECTION) return
-
-            val overlayItems = detections.map { detection ->
-                detection.toOverlayItem(bitmap.width, bitmap.height)
-            }
-            Log.i(TAG, "Object detection frame: ${overlayItems.size} detections")
-            val announcement = if (overlayItems.isNotEmpty()) {
-                overlayItems.joinToString(separator = ". ") { item ->
-                    cameraText.objectDetectionAnnouncement(item.label, item.positionText)
-                }
-            } else {
-                cameraText.objectDetectionNoObjects
-            }
-            if (_uiState.value.activeMode != CameraMode.OBJECT_DETECTION) return
-            maybeSpeakObjectDetection(announcement, overlayItems.isNotEmpty())
-            _uiState.update { state ->
-                if (state.activeMode != CameraMode.OBJECT_DETECTION) {
-                    state
-                } else {
-                    state.copy(
-                        objectDetections = overlayItems,
-                        lastAnnouncement = announcement,
-                        debugMetrics = cameraText.objectDetectionDebug(overlayItems.size)
-                    )
-                }
-            }
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Throwable) {
-            Log.e(TAG, "Object detection failed", error)
-            _uiState.update { state ->
-                if (state.activeMode != CameraMode.OBJECT_DETECTION) {
-                    state
-                } else {
-                    state.copy(
-                        objectDetections = emptyList(),
-                        debugMetrics = "YOLO detect: ${error.message ?: error::class.java.simpleName}"
-                    )
-                }
-            }
-        }
-    }
-
-    private fun resetObjectAnnouncementDebounce() {
-        lastObjectAnnouncement.set("")
-        lastObjectAnnouncementAtMs.set(0L)
-    }
-
     private fun resetCurrencyAnnouncementDebounce() {
-        lastCurrencyAnnouncement.set("")
-        lastCurrencyNoDetectionAtMs.set(0L)
-    }
-
-    private fun maybeSpeakNoCurrencyDetected() {
-        val now = System.currentTimeMillis()
-        if (now - lastCurrencyNoDetectionAtMs.get() < CURRENCY_NO_DETECTION_REPEAT_MS) return
-
-        lastCurrencyNoDetectionAtMs.set(now)
-        ttsService.speak(
-            cameraText.noCurrencyDetected,
-            TtsService.Priority.NORMAL,
-            appLanguage.get().ttsLocale
-        )
-    }
-
-    private fun maybeSpeakObjectDetection(
-        announcement: String,
-        hasObjects: Boolean
-    ) {
-        if (!hasObjects) return
-        val now = System.currentTimeMillis()
-        val previous = lastObjectAnnouncement.get()
-        if (announcement == previous && now - lastObjectAnnouncementAtMs.get() < OBJECT_ANNOUNCEMENT_REPEAT_MS) return
-        if (announcement != previous && now - lastObjectAnnouncementAtMs.get() < OBJECT_ANNOUNCEMENT_INTERVAL_MS) return
-
-        lastObjectAnnouncement.set(announcement)
-        lastObjectAnnouncementAtMs.set(now)
-        Log.i(TAG, "Object detection TTS: $announcement")
-        ttsService.speak(
-            text = announcement,
-            priority = TtsService.Priority.NORMAL,
-            locale = appLanguage.get().ttsLocale
-        )
-    }
-
-    private fun com.example.eyes.objectdetection.Detection.toOverlayItem(
-        frameWidth: Int,
-        frameHeight: Int
-    ): DetectionOverlayItem {
-        val box: RectF = boundingBox
-        return DetectionOverlayItem(
-            label = localizedObjectDetectionLabel(classId, label),
-            confidence = confidence,
-            positionText = position.localizedText(localizedTextProvider, appLanguage.get()),
-            left = box.left / frameWidth,
-            top = box.top / frameHeight,
-            right = box.right / frameWidth,
-            bottom = box.bottom / frameHeight,
-            sourceAspectRatio = frameWidth.toFloat() / frameHeight.toFloat()
-        )
-    }
-
-    private fun localizedObjectDetectionLabel(classId: Int, fallback: String): String {
-        val labels = localizedTextProvider.getStringArray(R.array.object_detection_coco_labels, appLanguage.get())
-        return labels.getOrNull(classId) ?: fallback
-    }
-
-    private fun currencyDisplay(label: String): String {
-        return when (label) {
-            "1000" -> localizedTextProvider.getString(R.string.currency_display_1000, appLanguage.get())
-            "2000" -> localizedTextProvider.getString(R.string.currency_display_2000, appLanguage.get())
-            "5000" -> localizedTextProvider.getString(R.string.currency_display_5000, appLanguage.get())
-            "10000" -> localizedTextProvider.getString(R.string.currency_display_10000, appLanguage.get())
-            "20000" -> localizedTextProvider.getString(R.string.currency_display_20000, appLanguage.get())
-            "50000" -> localizedTextProvider.getString(R.string.currency_display_50000, appLanguage.get())
-            "100000" -> localizedTextProvider.getString(R.string.currency_display_100000, appLanguage.get())
-            "200000" -> localizedTextProvider.getString(R.string.currency_display_200000, appLanguage.get())
-            "500000" -> localizedTextProvider.getString(R.string.currency_display_500000, appLanguage.get())
-            else -> label
-        }
-    }
-
-    private fun currencySpoken(label: String): String {
-        return when (label) {
-            "1000" -> localizedTextProvider.getString(R.string.currency_spoken_1000, appLanguage.get())
-            "2000" -> localizedTextProvider.getString(R.string.currency_spoken_2000, appLanguage.get())
-            "5000" -> localizedTextProvider.getString(R.string.currency_spoken_5000, appLanguage.get())
-            "10000" -> localizedTextProvider.getString(R.string.currency_spoken_10000, appLanguage.get())
-            "20000" -> localizedTextProvider.getString(R.string.currency_spoken_20000, appLanguage.get())
-            "50000" -> localizedTextProvider.getString(R.string.currency_spoken_50000, appLanguage.get())
-            "100000" -> localizedTextProvider.getString(R.string.currency_spoken_100000, appLanguage.get())
-            "200000" -> localizedTextProvider.getString(R.string.currency_spoken_200000, appLanguage.get())
-            "500000" -> localizedTextProvider.getString(R.string.currency_spoken_500000, appLanguage.get())
-            else -> label
-        }
+        currencyRecognitionController.resetAnnouncementDebounce()
     }
 
     fun processCapturedOcrImage(imageProxy: ImageProxy) {
@@ -657,31 +363,42 @@ class CameraViewModel(
                 )
             }
 
-            val outcome = recognizeByMode(bitmap = bitmap, mode = currentOcrMode.value)
-            val result = outcome.result.getOrElse { error ->
+            val recognizedDocument = runCatching {
+                recognizeOcrDocumentUseCase(
+                    RecognizeOcrDocumentInput(
+                        imageFrame = bitmap.toImageFrame(),
+                        mode = currentOcrMode.value,
+                        translateToVietnamese = _uiState.value.ocrTranslateToVietnamese,
+                        strings = cameraText.ocrDocumentStrings(),
+                        onTranslateFailure = {
+                            speechOutput.speak(
+                                cameraText.cannotTranslateReadingOriginal,
+                                appLanguage.get().ttsLocale
+                            )
+                        }
+                    )
+                )
+            }.getOrElse { error ->
                 _uiState.update {
                     it.copy(isOcrScanning = false, statusMessage = cameraText.ocrFailed(error.message ?: cameraText.unknownReason))
                 }
                 hapticService.error()
                 return@launch
             }
-            lastRawOcrResult.set(result)
-            lastOcrUsedFallback.set(outcome.usedFallbackFromAccuracy)
-            val canTranslateDocument = looksEnglish(result.fullText)
-            val translatedResult = maybeTranslateForSpeech(result)
-            if (outcome.usedFallbackFromAccuracy) {
-                dataStoreManager.setOcrMode(OcrMode.QUICK)
-                val reason = outcome.fallbackReason ?: cameraText.unknownError
-                ttsService.speak(
+            lastRawOcrResult.set(recognizedDocument.rawResult)
+            lastOcrUsedFallback.set(recognizedDocument.usedFallbackFromAccuracy)
+            if (recognizedDocument.usedFallbackFromAccuracy) {
+                setCameraOcrModeUseCase(OcrMode.QUICK)
+                val reason = recognizedDocument.fallbackReason ?: cameraText.unknownError
+                speechOutput.speak(
                     cameraText.accuracyOcrFallback(reason),
-                    TtsService.Priority.URGENT,
                     appLanguage.get().ttsLocale
                 )
             }
-            enterOcrDocumentMode(
-                result = translatedResult,
-                usedFallback = outcome.usedFallbackFromAccuracy,
-                canTranslateCurrentDocument = canTranslateDocument
+            ocrDocumentController.enterOcrDocumentMode(
+                result = recognizedDocument.resultForSpeech,
+                usedFallback = recognizedDocument.usedFallbackFromAccuracy,
+                canTranslateCurrentDocument = recognizedDocument.canTranslateDocument
             )
         }
     }
@@ -693,7 +410,7 @@ class CameraViewModel(
 
     fun onOcrCaptureRequested() {
         if (!_uiState.value.isOcrReadyToCapture) {
-            ttsService.speak(cameraText.imageMayBeUnclearCapturing, TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
+            speechOutput.speak(cameraText.imageMayBeUnclearCapturing, appLanguage.get().ttsLocale)
         }
     }
 
@@ -707,47 +424,33 @@ class CameraViewModel(
                 lastAnnouncement = cameraText.readyForNewCapture
             )
         }
-        ttsService.stop()
+        speechOutput.stop()
     }
 
     fun nextOcrSentence() {
-        if (!canHandleOcrSwipe()) return
-        val state = _uiState.value
-        if (!state.hasNextOcrSentence) {
-            ttsService.speak(cameraText.endOfText, TtsService.Priority.URGENT, appLanguage.get().ttsLocale)
-            return
-        }
-        _uiState.update { it.copy(ocrCurrentIndex = it.ocrCurrentIndex + 1) }
-        speakCurrentOcrSentence()
+        ocrDocumentController.nextOcrSentence()
     }
 
     fun prevOcrSentence() {
-        if (!canHandleOcrSwipe()) return
-        val state = _uiState.value
-        if (!state.hasPrevOcrSentence) {
-            ttsService.speak(cameraText.startOfText, TtsService.Priority.URGENT, appLanguage.get().ttsLocale)
-            return
-        }
-        _uiState.update { it.copy(ocrCurrentIndex = it.ocrCurrentIndex - 1) }
-        speakCurrentOcrSentence()
+        ocrDocumentController.prevOcrSentence()
     }
 
     fun selectMode(mode: CameraMode) {
         if (_uiState.value.activeMode == mode) return
         if (_uiState.value.activeMode == CameraMode.CURRENCY && mode != CameraMode.CURRENCY) {
-            currencyAnalyzer?.resetBuffer()
+            currencyRecognitionController.resetBuffer()
         }
         resetOcrGuidanceTracking()
-        resetObjectAnnouncementDebounce()
+        objectDetectionController.resetAnnouncementDebounce()
         resetCurrencyAnnouncementDebounce()
         when (mode) {
             CameraMode.OCR -> {
                 hapticService.confirm()
-                if (!isHeadsetConnected()) {
+                if (!audioRouteProvider.isHeadsetConnected()) {
                     val modeLabel = cameraText.ocrModeLabel(currentOcrMode.value)
-                    ttsService.speak(cameraText.switchedToOcrMode(modeLabel), TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
+                    speechOutput.speak(cameraText.switchedToOcrMode(modeLabel), appLanguage.get().ttsLocale)
                 }
-                ttsService.warmupLocale(Locale.US)
+                speechOutput.warmupLocale(Locale.US)
                 _uiState.update {
                     it.resetOcrRuntime()
                         .resetDetectionAndCurrency()
@@ -765,10 +468,9 @@ class CameraViewModel(
 
             CameraMode.SCENE_DESCRIPTION -> {
                 hapticService.confirm()
-                if (!isHeadsetConnected()) {
-                    ttsService.speak(
+                if (!audioRouteProvider.isHeadsetConnected()) {
+                    speechOutput.speak(
                         cameraText.switchedToSceneDescriptionMode,
-                        TtsService.Priority.HIGH,
                         appLanguage.get().ttsLocale
                     )
                 }
@@ -788,8 +490,8 @@ class CameraViewModel(
 
             CameraMode.OBJECT_DETECTION -> {
                 hapticService.confirm()
-                if (!isHeadsetConnected()) {
-                    ttsService.speak(cameraText.switchedToObjectDetectionMode, TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
+                if (!audioRouteProvider.isHeadsetConnected()) {
+                    speechOutput.speak(cameraText.switchedToObjectDetectionMode, appLanguage.get().ttsLocale)
                 }
                 _uiState.update {
                     it.resetOcrRuntime()
@@ -807,10 +509,10 @@ class CameraViewModel(
             }
 
             CameraMode.CURRENCY -> {
-                currencyAnalyzer?.resetBuffer()
+                currencyRecognitionController.resetBuffer()
                 hapticService.confirm()
-                if (!isHeadsetConnected()) {
-                    ttsService.speak(cameraText.switchedToCurrencyMode, TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
+                if (!audioRouteProvider.isHeadsetConnected()) {
+                    speechOutput.speak(cameraText.switchedToCurrencyMode, appLanguage.get().ttsLocale)
                 }
                 _uiState.update {
                     it.resetOcrRuntime()
@@ -832,253 +534,62 @@ class CameraViewModel(
     fun selectOcrMode(mode: OcrMode) {
         if (currentOcrMode.value == mode) return
         viewModelScope.launch {
-            dataStoreManager.setOcrMode(mode)
+            setCameraOcrModeUseCase(mode)
             hapticService.confirm()
-            ttsService.speak(
+            speechOutput.speak(
                 cameraText.switchedOcrMode(mode),
-                TtsService.Priority.NORMAL,
                 appLanguage.get().ttsLocale
             )
-        }
-    }
-
-    fun setOcrTranslateToVietnamese(enabled: Boolean) {
-        reprocessOcrJob?.cancel()
-        reprocessOcrJob = viewModelScope.launch {
-            dataStoreManager.setOcrTranslateToVietnamese(enabled)
-            ttsService.speak(
-                if (enabled) {
-                    cameraText.enabledEnglishToVietnameseTranslation
-                } else {
-                    cameraText.disabledEnglishToVietnameseTranslation
-                },
-                TtsService.Priority.NORMAL,
-                appLanguage.get().ttsLocale
-            )
-            reprocessCurrentOcrForTranslationToggle(enabled)
         }
     }
 
     fun onSceneCaptureRequested() {
-        if (_uiState.value.isDescribingScene || _uiState.value.ocrCapturedBitmap != null) return
-        _uiState.update {
-            it.copy(
-                isDescribingScene = true,
-                statusMessage = cameraText.describingScenePleaseWait,
-                lastAnnouncement = cameraText.describingScenePleaseWait
-            )
-        }
-        hapticService.loading()
+        sceneCaptureController.onSceneCaptureRequested()
     }
 
     fun processCapturedSceneImage(imageProxy: ImageProxy) {
         viewModelScope.launch(Dispatchers.Default) {
             val capturedBitmap = try {
                 imageProxy.toBitmapWithRotation()
-            } catch (error: Throwable) {
-                _uiState.update {
-                    it.copy(
-                        isDescribingScene = false,
-                        statusMessage = cameraText.cannotCaptureSceneTryAgain,
-                        lastAnnouncement = cameraText.cannotCaptureSceneTryAgain
-                    )
-                }
-                hapticService.error()
+            } catch (_: Throwable) {
+                sceneCaptureController.onSceneCaptureError()
                 return@launch
             } finally {
                 imageProxy.close()
             }
 
-            updateUiStateAndRecycleReplacedOcrBitmap {
-                it.copy(
-                    ocrCapturedBitmap = capturedBitmap,
-                    isDescribingScene = true,
-                    statusMessage = cameraText.describingScenePleaseWait,
-                    lastAnnouncement = cameraText.describingScenePleaseWait
-                )
-            }
+            sceneCaptureController.onSceneBitmapCaptured(capturedBitmap)
 
             try {
-                describeCapturedScene(capturedBitmap)
+                sceneCaptureController.describeCapturedScene(capturedBitmap)
             } finally {
-                _uiState.update { it.copy(isDescribingScene = false) }
+                sceneCaptureController.finishSceneDescription()
             }
         }
     }
 
     fun onSceneCaptureError() {
-        _uiState.update {
-            it.copy(
-                isDescribingScene = false,
-                statusMessage = cameraText.cannotCaptureSceneTryAgain,
-                lastAnnouncement = cameraText.cannotCaptureSceneTryAgain
-            )
-        }
-        hapticService.error()
+        sceneCaptureController.onSceneCaptureError()
     }
 
     fun prepareForNextSceneCapture() {
-        updateUiStateAndRecycleReplacedOcrBitmap {
-            it.copy(
-                ocrCapturedBitmap = null,
-                isDescribingScene = false,
-                statusMessage = cameraText.waitingForSceneFrame,
-                lastAnnouncement = cameraText.waitingForSceneFrame
-            )
-        }
-        ttsService.stop()
+        sceneCaptureController.prepareForNextSceneCapture()
     }
 
     fun onCurrencyCaptureRequested() {
-        val state = _uiState.value
-        if (state.isCurrencyScanning || state.ocrCapturedBitmap != null) return
-        _uiState.update {
-            it.copy(
-                isCurrencyScanning = true,
-                statusMessage = cameraText.processingCurrencyImage,
-                lastAnnouncement = cameraText.processingCurrencyImage
-            )
-        }
-        hapticService.loading()
-        ttsService.speak(
-            cameraText.processingCurrencyImage,
-            TtsService.Priority.NORMAL,
-            appLanguage.get().ttsLocale
-        )
+        currencyRecognitionController.onCaptureRequested()
     }
 
     fun processCapturedCurrencyImage(imageProxy: ImageProxy) {
-        viewModelScope.launch(Dispatchers.Default) {
-            val capturedBitmap = try {
-                imageProxy.toBitmapWithRotation()
-            } catch (error: Throwable) {
-                _uiState.update {
-                    it.copy(
-                        isCurrencyScanning = false,
-                        statusMessage = cameraText.cannotCaptureCurrencyTryAgain,
-                        lastAnnouncement = cameraText.cannotCaptureCurrencyTryAgain
-                    )
-                }
-                hapticService.error()
-                return@launch
-            } finally {
-                imageProxy.close()
-            }
-
-            updateUiStateAndRecycleReplacedOcrBitmap {
-                it.copy(
-                    ocrCapturedBitmap = capturedBitmap,
-                    isCurrencyScanning = true,
-                    currencyDisplay = "",
-                    currencyConfidence = 0f,
-                    statusMessage = cameraText.processingCurrencyImage,
-                    lastAnnouncement = cameraText.processingCurrencyImage
-                )
-            }
-
-            val analyzer = getCurrencyAnalyzer()
-            if (analyzer == null) {
-                _uiState.update {
-                    it.copy(
-                        isCurrencyScanning = false,
-                        statusMessage = cameraText.currencyModelInitError,
-                        lastAnnouncement = cameraText.currencyModelInitError
-                    )
-                }
-                hapticService.error()
-                return@launch
-            }
-
-            runCatching {
-                analyzer.resetBuffer()
-                analyzer.analyze(capturedBitmap)
-            }.onFailure { error ->
-                Log.e(TAG, "Currency capture failed", error)
-                _uiState.update {
-                    it.copy(
-                        isCurrencyScanning = false,
-                        statusMessage = cameraText.cannotCaptureCurrencyTryAgain,
-                        lastAnnouncement = cameraText.cannotCaptureCurrencyTryAgain
-                    )
-                }
-                hapticService.error()
-            }
-        }
+        currencyRecognitionController.processCapturedImage(imageProxy, viewModelScope)
     }
 
     fun onCurrencyCaptureError() {
-        _uiState.update {
-            it.copy(
-                isCurrencyScanning = false,
-                statusMessage = cameraText.cannotCaptureCurrencyTryAgain,
-                lastAnnouncement = cameraText.cannotCaptureCurrencyTryAgain
-            )
-        }
-        hapticService.error()
+        currencyRecognitionController.onCaptureError()
     }
 
     fun prepareForNextCurrencyCapture() {
-        resetCurrencyAnnouncementDebounce()
-        currencyAnalyzer?.resetBuffer()
-        updateUiStateAndRecycleReplacedOcrBitmap {
-            it.copy(
-                ocrCapturedBitmap = null,
-                isCurrencyScanning = false,
-                currencyDisplay = "",
-                currencyConfidence = 0f,
-                statusMessage = cameraText.waitingForClearMoneyImage,
-                lastAnnouncement = cameraText.waitingForClearMoneyImage
-            )
-        }
-        ttsService.stop()
-    }
-
-    private suspend fun describeCapturedScene(capturedBitmap: Bitmap) {
-        try {
-            val language = appLanguage.get()
-            when (val result = sceneRepository.describeScene(bitmap = capturedBitmap, language = language)) {
-                is SceneDescriptionResult.Success -> {
-                    if (!isHeadsetConnected()) {
-                        ttsService.speak(result.text, TtsService.Priority.HIGH, language.ttsLocale)
-                    }
-                    hapticService.confirm()
-                    _uiState.update {
-                        it.copy(
-                            statusMessage = cameraText.sceneDescriptionDone,
-                            lastAnnouncement = result.text
-                        )
-                    }
-                }
-
-                is SceneDescriptionResult.Failure -> {
-                    if (!isHeadsetConnected()) {
-                        ttsService.speak(result.userMessage, TtsService.Priority.HIGH, language.ttsLocale)
-                    }
-                    hapticService.error()
-                    _uiState.update {
-                        it.copy(
-                            statusMessage = cameraText.sceneDescriptionFailed,
-                            lastAnnouncement = result.userMessage
-                        )
-                    }
-                }
-            }
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            Log.e(TAG, "Describe captured scene failed", error)
-            _uiState.update {
-                it.copy(
-                    statusMessage = cameraText.sceneDescriptionFailed,
-                    lastAnnouncement = cameraText.sceneDescriptionFailed
-                )
-            }
-            hapticService.error()
-        }
-    }
-
-    fun toggleStatusCardVisibility() {
-        _uiState.update { it.copy(isStatusCardVisible = !it.isStatusCardVisible) }
+        currencyRecognitionController.prepareForNextCapture()
     }
 
     fun onScreenDisposed() {
@@ -1087,65 +598,33 @@ class CameraViewModel(
             _uiState.value.activeMode == CameraMode.SCENE_DESCRIPTION ||
             _uiState.value.activeMode == CameraMode.CURRENCY
         ) {
-            ttsService.stop()
+            speechOutput.stop()
         }
         lastRawOcrResult.set(null)
         lastOcrUsedFallback.set(false)
         resetOcrGuidanceTracking()
         resetCurrencyAnnouncementDebounce()
-        currencyAnalyzer?.resetBuffer()
+        currencyRecognitionController.resetBuffer()
         updateUiStateAndRecycleReplacedOcrBitmap { it.copy(ocrCapturedBitmap = null) }
     }
 
     override fun onCleared() {
-        quickOcrEngine.close()
-        accuracyOcrEngine.close()
+        recognizeOcrDocumentUseCase.close()
         ocrGuidanceAnalyzer.close()
-        currencyAnalyzer?.close()
-        recycleBitmapIfNeeded(_uiState.value.ocrCapturedBitmap)
+        currencyRecognitionController.close()
+        bitmapStore.recycle(_uiState.value.ocrCapturedBitmap)
+        bitmapStore.clear()
         super.onCleared()
     }
 
-    private fun updateOcrGuidanceStability(bounds: OcrTextBounds?): Int {
-        if (bounds == null) {
-            lastOcrGuidanceBounds.set(null)
-            stableOcrGuidanceFrames.set(0)
-            return 0
-        }
-
-        val previous = lastOcrGuidanceBounds.get()
-        val stable = previous != null && bounds.isStableComparedTo(previous)
-        val nextCount = if (stable) stableOcrGuidanceFrames.incrementAndGet() else 1
-        stableOcrGuidanceFrames.set(nextCount)
-        lastOcrGuidanceBounds.set(bounds)
-        return nextCount
-    }
-
-    private fun maybeAnnounceOcrGuidance(status: OcrGuidanceStatus, message: String) {
-        if (status != OcrGuidanceStatus.READY) {
-            lastAnnouncedOcrGuidanceStatus.set(null)
-            return
-        }
-
-        val now = System.currentTimeMillis()
-        val previousStatus = lastAnnouncedOcrGuidanceStatus.get()
-        val elapsed = now - lastOcrGuidanceSpeechAtMs.get()
-        if (previousStatus == status && elapsed < OCR_GUIDANCE_SPEECH_INTERVAL_MS) return
-
-        lastAnnouncedOcrGuidanceStatus.set(status)
-        lastOcrGuidanceSpeechAtMs.set(now)
-
-        if (previousStatus != OcrGuidanceStatus.READY) {
-            hapticService.confirm()
-            ttsService.speak(message, TtsService.Priority.HIGH, appLanguage.get().ttsLocale)
-        }
+    private fun announceOcrGuidanceIfNeeded(status: OcrGuidanceStatus, message: String) {
+        if (!ocrGuidanceTracker.shouldAnnounce(status)) return
+        hapticService.confirm()
+        speechOutput.speak(message, appLanguage.get().ttsLocale)
     }
 
     private fun resetOcrGuidanceTracking() {
-        lastOcrGuidanceBounds.set(null)
-        stableOcrGuidanceFrames.set(0)
-        lastAnnouncedOcrGuidanceStatus.set(null)
-        lastOcrGuidanceSpeechAtMs.set(0L)
+        ocrGuidanceTracker.reset()
         lastOcrGuidanceAtMs.set(0L)
     }
 
@@ -1162,188 +641,6 @@ class CameraViewModel(
         }
     }
 
-    private fun OcrTextBounds.isStableComparedTo(other: OcrTextBounds): Boolean {
-        val centerDelta = kotlin.math.abs(centerX - other.centerX) + kotlin.math.abs(centerY - other.centerY)
-        val areaDelta = kotlin.math.abs(area - other.area)
-        return centerDelta < OCR_GUIDANCE_STABLE_CENTER_DELTA && areaDelta < OCR_GUIDANCE_STABLE_AREA_DELTA
-    }
-
-    private suspend fun recognizeByMode(bitmap: Bitmap, mode: OcrMode): OcrRecognitionOutcome {
-        return when (mode) {
-            OcrMode.QUICK -> OcrRecognitionOutcome(
-                result = runCatching { quickOcrEngine.recognize(bitmap) },
-                usedFallbackFromAccuracy = false
-            )
-            OcrMode.ACCURACY -> {
-                val accuracyResult = runCatching { accuracyOcrEngine.recognize(bitmap) }
-                val text = accuracyResult.getOrNull()?.fullText.orEmpty()
-                val refused = accuracyResult.isSuccess && looksLikeGptRefusal(text)
-                if (accuracyResult.isSuccess && !refused) {
-                    OcrRecognitionOutcome(
-                        result = accuracyResult,
-                        usedFallbackFromAccuracy = false
-                    )
-                } else {
-                    val reason = when {
-                        refused -> cameraText.gptRefusedReason
-                        accuracyResult.exceptionOrNull() != null -> buildFallbackReason(accuracyResult.exceptionOrNull()!!)
-                        else -> cameraText.unknownReason
-                    }
-                    OcrRecognitionOutcome(
-                        result = runCatching { quickOcrEngine.recognize(bitmap) },
-                        usedFallbackFromAccuracy = true,
-                        fallbackReason = reason
-                    )
-                }
-            }
-        }
-    }
-
-    private fun enterOcrDocumentMode(
-        result: OcrResult,
-        usedFallback: Boolean,
-        canTranslateCurrentDocument: Boolean
-    ) {
-        val sentences = if (result.sentences.isNotEmpty()) result.sentences else OcrPostProcessor.splitToSentences(result.fullText)
-        val finalSentences = sentences.ifEmpty { listOf(result.fullText.trim()).filter { it.isNotBlank() } }
-
-        if (finalSentences.isEmpty()) {
-            _uiState.update { it.copy(isOcrScanning = false, statusMessage = cameraText.noTextDetectedTryAgain) }
-            hapticService.error()
-            return
-        }
-
-        _uiState.update {
-            it.copy(
-                isOcrScanning = false,
-                ocrSentences = finalSentences,
-                ocrCurrentIndex = 0,
-                canTranslateCurrentOcrDocument = canTranslateCurrentDocument,
-                statusMessage = if (usedFallback) {
-                    cameraText.gptFallbackStatus(finalSentences.size)
-                } else {
-                    cameraText.capturedParagraphs(finalSentences.size)
-                },
-                lastAnnouncement = finalSentences.first()
-            )
-        }
-        hapticService.confirm()
-        speakCurrentOcrSentence()
-    }
-
-    private suspend fun maybeTranslateForSpeech(result: OcrResult): OcrResult {
-        val enabled = _uiState.value.ocrTranslateToVietnamese
-        if (!enabled) return OcrPostProcessor.process(result.fullText)
-        if (!shouldAutoTranslateToVietnamese(result.fullText)) return OcrPostProcessor.process(result.fullText)
-        return translateToVietnameseOrFallback(result.fullText)
-    }
-
-    private suspend fun reprocessCurrentOcrForTranslationToggle(enabled: Boolean) {
-        val state = _uiState.value
-        val rawResult = lastRawOcrResult.get() ?: return
-        if (state.activeMode != CameraMode.OCR || !state.isOcrDocumentMode) return
-
-        _uiState.update { it.copy(statusMessage = cameraText.updatingOcrReading) }
-        val processed = if (enabled && shouldAutoTranslateToVietnamese(rawResult.fullText)) {
-            translateToVietnameseOrFallback(rawResult.fullText)
-        } else {
-            OcrPostProcessor.process(rawResult.fullText)
-        }
-        enterOcrDocumentMode(
-            result = processed,
-            usedFallback = lastOcrUsedFallback.get(),
-            canTranslateCurrentDocument = shouldAutoTranslateToVietnamese(rawResult.fullText)
-        )
-    }
-
-    private fun speakCurrentOcrSentence() {
-        val state = _uiState.value
-        if (!state.isOcrDocumentMode) return
-        val sentence = state.currentOcrSentence
-        val locale = if (looksEnglish(sentence)) Locale.US else VIETNAMESE_LOCALE
-        ttsService.speak(
-            cameraText.ocrSentencePosition(state.ocrCurrentIndex + 1, state.ocrSentences.size, sentence),
-            TtsService.Priority.URGENT,
-            locale
-        )
-    }
-
-    private fun looksLikeGptRefusal(text: String): Boolean {
-        val normalized = text.trim().lowercase()
-        if (normalized.isBlank()) return true
-        val refusalMarkers = listOf(
-            "i'm sorry, i can't assist with that",
-            "i can't assist with that",
-            "i cannot assist with that",
-            "i'm sorry",
-            "i cannot help with that request"
-        )
-        return refusalMarkers.any { normalized.startsWith(it) }
-    }
-
-    private fun buildFallbackReason(error: Throwable): String {
-        val message = error.message?.trim().orEmpty()
-        return when {
-            message.contains("401") -> cameraText.apiKeyReason
-            message.contains("403") -> cameraText.modelPermissionReason
-            message.contains("429") -> cameraText.quotaReason
-            message.contains("timeout", ignoreCase = true) -> cameraText.timeoutReason
-            message.isNotBlank() -> message
-            else -> error::class.simpleName ?: cameraText.unknownError
-        }
-    }
-
-    private fun looksEnglish(text: String): Boolean {
-        if (text.isBlank()) return false
-        if (VI_DIACRITIC_REGEX.containsMatchIn(text)) return false
-        return EN_LETTER_REGEX.containsMatchIn(text)
-    }
-
-    private fun shouldAutoTranslateToVietnamese(text: String): Boolean {
-        if (text.isBlank()) return false
-        val latinCount = EN_LETTER_REGEX.findAll(text).count()
-        if (latinCount < 6) return false
-        val viCount = VI_DIACRITIC_REGEX.findAll(text).count()
-        return viCount == 0 || latinCount >= viCount * 3
-    }
-
-    private suspend fun translateToVietnameseOrFallback(sourceText: String): OcrResult {
-        return runCatching {
-            val translated = translator.translateToVietnamese(sourceText)
-            if (looksUntranslated(sourceText, translated)) {
-                throw IllegalStateException(cameraText.translationUnchangedReason)
-            }
-            OcrPostProcessor.process(translated)
-        }.getOrElse {
-            ttsService.speak(
-                cameraText.cannotTranslateReadingOriginal,
-                TtsService.Priority.HIGH,
-                appLanguage.get().ttsLocale
-            )
-            OcrPostProcessor.process(sourceText)
-        }
-    }
-
-    private fun looksUntranslated(source: String, translated: String): Boolean {
-        val sourceNorm = OcrPostProcessor.normalizeText(source).lowercase()
-        val translatedNorm = OcrPostProcessor.normalizeText(translated).lowercase()
-        if (sourceNorm.isBlank() || translatedNorm.isBlank()) return true
-
-        val sourceWordCount = sourceNorm.split(Regex("\\s+")).count { it.isNotBlank() }
-        if (sourceWordCount < 3) return false
-
-        val similarity = OcrPostProcessor.similarityRatio(sourceNorm, translatedNorm)
-        return similarity >= 0.92f && !VI_DIACRITIC_REGEX.containsMatchIn(translatedNorm)
-    }
-
-    private fun canHandleOcrSwipe(): Boolean {
-        val now = System.currentTimeMillis()
-        val last = lastOcrSwipeAtMs.get()
-        if (now - last < OCR_SWIPE_DEBOUNCE_MS) return false
-        lastOcrSwipeAtMs.set(now)
-        return true
-    }
-
     private fun updateUiStateAndRecycleReplacedOcrBitmap(
         transform: (CameraUiState) -> CameraUiState
     ) {
@@ -1355,364 +652,12 @@ class CameraViewModel(
             nextBitmap = updatedState.ocrCapturedBitmap
             updatedState
         }
-        if (previousBitmap !== nextBitmap) recycleBitmapIfNeeded(previousBitmap)
+        if (previousBitmap !== nextBitmap) bitmapStore.recycle(previousBitmap)
     }
 
-    private fun recycleBitmapIfNeeded(bitmap: Bitmap?) {
-        if (bitmap != null && !bitmap.isRecycled) bitmap.recycle()
-    }
-
-    private fun replaceLatestFrame(bitmap: Bitmap) {
-        val copy = bitmap.copy(Bitmap.Config.ARGB_8888, false)
-        val previous = latestFrame.getAndSet(copy)
-        recycleBitmapIfNeeded(previous)
-    }
-
-    @SuppressLint("ObsoleteSdkInt")
-    private fun isHeadsetConnected(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { device ->
-                device.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
-                    device.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
-                    device.type == AudioDeviceInfo.TYPE_USB_HEADSET ||
-                    device.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
-                    device.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
-            }
-        } else {
-            @Suppress("DEPRECATION")
-            audioManager.isWiredHeadsetOn || audioManager.isBluetoothA2dpOn
-        }
-    }
-
-    private data class CameraText(
-        val ocrGuidanceSearch: String,
-        val ocrGuidanceTooDark: String,
-        val ocrGuidanceTooBright: String,
-        val ocrGuidanceMoveCloser: String,
-        val ocrGuidanceMoveBack: String,
-        val ocrGuidanceTextClipped: String,
-        val ocrGuidanceMoveLeft: String,
-        val ocrGuidanceMoveRight: String,
-        val ocrGuidanceMoveUp: String,
-        val ocrGuidanceMoveDown: String,
-        val ocrGuidanceReady: String,
-        val ocrGuidanceHoldSteady: String,
-        val initialStatus: String,
-        val initialAnnouncement: String,
-        val initialDebug: String,
-        val ocrTitle: String,
-        val ocrSummary: String,
-        val sceneDescriptionTitle: String,
-        val sceneDescriptionSummary: String,
-        val currencyTitle: String,
-        val currencySummary: String,
-        val currencyInstruction: String,
-        val currencyModelLoadError: String,
-        val currencyModelInitError: String,
-        val currencyDetectedStatusTemplate: String,
-        val currencyDebugTemplate: String,
-        val currencyDebugWaiting: String,
-        val noCurrencyDetected: String,
-        val waitingForClearTextFrame: String,
-        val waitingForSceneFrame: String,
-        val waitingForClearMoneyImage: String,
-        val frameUnclearRetrying: String,
-        val cannotProcessCapturedImage: String,
-        val processingOcrImage: String,
-        val processingCurrencyImage: String,
-        val unknownReason: String,
-        val unknownError: String,
-        val cannotCaptureOcrTryAgain: String,
-        val cannotCaptureCurrencyTryAgain: String,
-        val imageMayBeUnclearCapturing: String,
-        val readyToCaptureOcr: String,
-        val readyForNewCapture: String,
-        val endOfText: String,
-        val startOfText: String,
-        val switchedToReadTextMode: String,
-        val ocrDebugWaiting: String,
-        val enabledEnglishToVietnameseTranslation: String,
-        val disabledEnglishToVietnameseTranslation: String,
-        val cannotCaptureSceneTryAgain: String,
-        val describingScenePleaseWait: String,
-        val sceneDescriptionDone: String,
-        val sceneDescriptionFailed: String,
-        val gptRefusedReason: String,
-        val noTextDetectedTryAgain: String,
-        val updatingOcrReading: String,
-        val apiKeyReason: String,
-        val modelPermissionReason: String,
-        val quotaReason: String,
-        val timeoutReason: String,
-        val translationUnchangedReason: String,
-        val cannotTranslateReadingOriginal: String,
-        val ocrFailedTemplate: String,
-        val accuracyOcrFallbackTemplate: String,
-        val quickModeLabel: String,
-        val accurateModeLabel: String,
-        val switchedToOcrModeTemplate: String,
-        val switchedToQuickMode: String,
-        val switchedToAccurateMode: String,
-        val gptFallbackStatusTemplate: String,
-        val capturedParagraphsTemplate: String,
-        val ocrSentencePositionTemplate: String,
-        val objectDetectionWarmupDone: String,
-        val objectDetectionWarmupFailed: String,
-        val objectDetectionAnnouncementTemplate: String,
-        val objectDetectionNoObjects: String,
-        val objectDetectionDebugTemplate: String,
-        val objectDetectionTitle: String,
-        val objectDetectionSummary: String,
-        val objectDetectionStatus: String,
-        val switchedToSceneDescriptionMode: String,
-        val switchedToObjectDetectionMode: String,
-        val switchedToCurrencyMode: String
-    ) {
-        fun initialUiState(): CameraUiState = CameraUiState(
-            activeMode = CameraMode.OBJECT_DETECTION,
-            ocrGuidanceMessage = ocrGuidanceSearch,
-            title = objectDetectionTitle,
-            summary = objectDetectionSummary,
-            statusMessage = objectDetectionStatus,
-            lastAnnouncement = initialAnnouncement,
-            debugMetrics = initialDebug
-        )
-
-        fun translateTitle(value: String, target: CameraText): String = when (value) {
-            ocrTitle -> target.ocrTitle
-            objectDetectionTitle -> target.objectDetectionTitle
-            sceneDescriptionTitle -> target.sceneDescriptionTitle
-            currencyTitle -> target.currencyTitle
-            else -> value
-        }
-
-        fun translateSummary(value: String, target: CameraText): String = when (value) {
-            ocrSummary -> target.ocrSummary
-            objectDetectionSummary -> target.objectDetectionSummary
-            sceneDescriptionSummary -> target.sceneDescriptionSummary
-            currencySummary -> target.currencySummary
-            else -> value
-        }
-
-        fun translateStatus(value: String, target: CameraText): String = translateKnownRuntimeText(value, target)
-
-        fun translateAnnouncement(value: String, target: CameraText): String = translateKnownRuntimeText(value, target)
-
-        fun translateOcrGuidance(value: String, target: CameraText): String = when (value) {
-            ocrGuidanceSearch -> target.ocrGuidanceSearch
-            ocrGuidanceTooDark -> target.ocrGuidanceTooDark
-            ocrGuidanceTooBright -> target.ocrGuidanceTooBright
-            ocrGuidanceMoveCloser -> target.ocrGuidanceMoveCloser
-            ocrGuidanceMoveBack -> target.ocrGuidanceMoveBack
-            ocrGuidanceTextClipped -> target.ocrGuidanceTextClipped
-            ocrGuidanceMoveLeft -> target.ocrGuidanceMoveLeft
-            ocrGuidanceMoveRight -> target.ocrGuidanceMoveRight
-            ocrGuidanceMoveUp -> target.ocrGuidanceMoveUp
-            ocrGuidanceMoveDown -> target.ocrGuidanceMoveDown
-            ocrGuidanceReady -> target.ocrGuidanceReady
-            ocrGuidanceHoldSteady -> target.ocrGuidanceHoldSteady
-            processingOcrImage -> target.processingOcrImage
-            processingCurrencyImage -> target.processingCurrencyImage
-            else -> value
-        }
-
-        fun ocrGuidanceText(): OcrGuidanceText = OcrGuidanceText(
-            searching = ocrGuidanceSearch,
-            tooDark = ocrGuidanceTooDark,
-            tooBright = ocrGuidanceTooBright,
-            moveCloser = ocrGuidanceMoveCloser,
-            moveBack = ocrGuidanceMoveBack,
-            textClipped = ocrGuidanceTextClipped,
-            moveLeft = ocrGuidanceMoveLeft,
-            moveRight = ocrGuidanceMoveRight,
-            moveUp = ocrGuidanceMoveUp,
-            moveDown = ocrGuidanceMoveDown,
-            ready = ocrGuidanceReady,
-            holdSteady = ocrGuidanceHoldSteady
-        )
-
-        fun translateDebug(value: String, target: CameraText): String = when (value) {
-            initialDebug -> target.initialDebug
-            ocrDebugWaiting -> target.ocrDebugWaiting
-            currencyDebugWaiting -> target.currencyDebugWaiting
-            else -> value
-        }
-
-        private fun translateKnownRuntimeText(value: String, target: CameraText): String = when (value) {
-            initialStatus -> target.initialStatus
-            initialAnnouncement -> target.initialAnnouncement
-            waitingForClearTextFrame -> target.waitingForClearTextFrame
-            waitingForSceneFrame -> target.waitingForSceneFrame
-            waitingForClearMoneyImage -> target.waitingForClearMoneyImage
-            currencyInstruction -> target.currencyInstruction
-            currencyModelLoadError -> target.currencyModelLoadError
-            currencyModelInitError -> target.currencyModelInitError
-            frameUnclearRetrying -> target.frameUnclearRetrying
-            cannotProcessCapturedImage -> target.cannotProcessCapturedImage
-            processingOcrImage -> target.processingOcrImage
-            processingCurrencyImage -> target.processingCurrencyImage
-            cannotCaptureOcrTryAgain -> target.cannotCaptureOcrTryAgain
-            cannotCaptureCurrencyTryAgain -> target.cannotCaptureCurrencyTryAgain
-            cannotCaptureSceneTryAgain -> target.cannotCaptureSceneTryAgain
-            readyToCaptureOcr -> target.readyToCaptureOcr
-            readyForNewCapture -> target.readyForNewCapture
-            switchedToReadTextMode -> target.switchedToReadTextMode
-            describingScenePleaseWait -> target.describingScenePleaseWait
-            sceneDescriptionDone -> target.sceneDescriptionDone
-            sceneDescriptionFailed -> target.sceneDescriptionFailed
-            noTextDetectedTryAgain -> target.noTextDetectedTryAgain
-            updatingOcrReading -> target.updatingOcrReading
-            objectDetectionWarmupDone -> target.objectDetectionWarmupDone
-            objectDetectionWarmupFailed -> target.objectDetectionWarmupFailed
-            objectDetectionStatus -> target.objectDetectionStatus
-            switchedToSceneDescriptionMode -> target.switchedToSceneDescriptionMode
-            switchedToObjectDetectionMode -> target.switchedToObjectDetectionMode
-            switchedToCurrencyMode -> target.switchedToCurrencyMode
-            else -> value
-        }
-
-        fun ocrFailed(reason: String): String = ocrFailedTemplate.format(reason)
-
-        fun accuracyOcrFallback(reason: String): String = accuracyOcrFallbackTemplate.format(reason)
-
-        fun ocrModeLabel(mode: OcrMode): String = when (mode) {
-            OcrMode.QUICK -> quickModeLabel
-            OcrMode.ACCURACY -> accurateModeLabel
-        }
-
-        fun switchedToOcrMode(modeLabel: String): String = switchedToOcrModeTemplate.format(modeLabel)
-
-        fun switchedOcrMode(mode: OcrMode): String = if (mode == OcrMode.QUICK) {
-            switchedToQuickMode
-        } else {
-            switchedToAccurateMode
-        }
-
-        fun gptFallbackStatus(count: Int): String = gptFallbackStatusTemplate.format(count)
-
-        fun capturedParagraphs(count: Int): String = capturedParagraphsTemplate.format(count)
-
-        fun ocrSentencePosition(index: Int, total: Int, sentence: String): String =
-            ocrSentencePositionTemplate.format(index, total, sentence)
-
-        fun objectDetectionAnnouncement(label: String, position: String): String =
-            objectDetectionAnnouncementTemplate.format(label, position)
-
-        fun objectDetectionDebug(count: Int): String = objectDetectionDebugTemplate.format(count)
-
-        fun currencyDetectedStatus(display: String, confidence: String): String =
-            currencyDetectedStatusTemplate.format(display, confidence)
-
-        fun currencyDebug(confidence: String): String = currencyDebugTemplate.format(confidence)
-
-        companion object {
-            fun from(localizedTextProvider: LocalizedTextProvider, language: AppLanguage): CameraText {
-                val resources = localizedTextProvider.localizedContext(language).resources
-                return CameraText(
-                    ocrGuidanceSearch = resources.getString(R.string.camera_vm_ocr_guidance_search),
-                    ocrGuidanceTooDark = resources.getString(R.string.camera_vm_ocr_guidance_too_dark),
-                    ocrGuidanceTooBright = resources.getString(R.string.camera_vm_ocr_guidance_too_bright),
-                    ocrGuidanceMoveCloser = resources.getString(R.string.camera_vm_ocr_guidance_move_closer),
-                    ocrGuidanceMoveBack = resources.getString(R.string.camera_vm_ocr_guidance_move_back),
-                    ocrGuidanceTextClipped = resources.getString(R.string.camera_vm_ocr_guidance_text_clipped),
-                    ocrGuidanceMoveLeft = resources.getString(R.string.camera_vm_ocr_guidance_move_left),
-                    ocrGuidanceMoveRight = resources.getString(R.string.camera_vm_ocr_guidance_move_right),
-                    ocrGuidanceMoveUp = resources.getString(R.string.camera_vm_ocr_guidance_move_up),
-                    ocrGuidanceMoveDown = resources.getString(R.string.camera_vm_ocr_guidance_move_down),
-                    ocrGuidanceReady = resources.getString(R.string.camera_vm_ocr_guidance_ready),
-                    ocrGuidanceHoldSteady = resources.getString(R.string.camera_vm_ocr_guidance_hold_steady),
-                    initialStatus = resources.getString(R.string.camera_vm_initial_status),
-                    initialAnnouncement = resources.getString(R.string.camera_vm_initial_announcement),
-                    initialDebug = resources.getString(R.string.camera_vm_initial_debug),
-                    ocrTitle = resources.getString(R.string.camera_vm_ocr_title),
-                    ocrSummary = resources.getString(R.string.camera_vm_ocr_summary),
-                    sceneDescriptionTitle = resources.getString(R.string.camera_vm_scene_description_title),
-                    sceneDescriptionSummary = resources.getString(R.string.camera_vm_scene_description_summary),
-                    currencyTitle = resources.getString(R.string.camera_vm_currency_title),
-                    currencySummary = resources.getString(R.string.camera_vm_currency_summary),
-                    currencyInstruction = resources.getString(R.string.currency_instruction),
-                    currencyModelLoadError = resources.getString(R.string.currency_model_load_error),
-                    currencyModelInitError = resources.getString(R.string.currency_model_init_error),
-                    currencyDetectedStatusTemplate = resources.getString(R.string.currency_detected_status),
-                    currencyDebugTemplate = resources.getString(R.string.camera_vm_currency_debug_template),
-                    currencyDebugWaiting = resources.getString(R.string.camera_vm_currency_debug_waiting),
-                    noCurrencyDetected = resources.getString(R.string.camera_vm_no_currency_detected),
-                    waitingForClearTextFrame = resources.getString(R.string.camera_vm_waiting_for_clear_text_frame),
-                    waitingForSceneFrame = resources.getString(R.string.camera_vm_waiting_for_scene_frame),
-                    waitingForClearMoneyImage = resources.getString(R.string.camera_vm_waiting_for_clear_money_image),
-                    frameUnclearRetrying = resources.getString(R.string.camera_vm_frame_unclear_retrying),
-                    cannotProcessCapturedImage = resources.getString(R.string.camera_vm_cannot_process_captured_image),
-                    processingOcrImage = resources.getString(R.string.camera_vm_processing_ocr_image),
-                    processingCurrencyImage = resources.getString(R.string.camera_vm_processing_currency_image),
-                    unknownReason = resources.getString(R.string.camera_vm_unknown_reason),
-                    unknownError = resources.getString(R.string.camera_vm_unknown_error),
-                    cannotCaptureOcrTryAgain = resources.getString(R.string.camera_vm_cannot_capture_ocr_try_again),
-                    cannotCaptureCurrencyTryAgain = resources.getString(R.string.camera_vm_cannot_capture_currency_try_again),
-                    imageMayBeUnclearCapturing = resources.getString(R.string.camera_vm_image_may_be_unclear_capturing),
-                    readyToCaptureOcr = resources.getString(R.string.camera_vm_ready_to_capture_ocr),
-                    readyForNewCapture = resources.getString(R.string.camera_vm_ready_for_new_capture),
-                    endOfText = resources.getString(R.string.camera_vm_end_of_text),
-                    startOfText = resources.getString(R.string.camera_vm_start_of_text),
-                    switchedToReadTextMode = resources.getString(R.string.camera_vm_switched_to_read_text_mode),
-                    ocrDebugWaiting = resources.getString(R.string.camera_vm_ocr_debug_waiting),
-                    enabledEnglishToVietnameseTranslation = resources.getString(R.string.camera_vm_enabled_english_to_vietnamese_translation),
-                    disabledEnglishToVietnameseTranslation = resources.getString(R.string.camera_vm_disabled_english_to_vietnamese_translation),
-                    cannotCaptureSceneTryAgain = resources.getString(R.string.camera_vm_cannot_capture_scene_try_again),
-                    describingScenePleaseWait = resources.getString(R.string.camera_vm_describing_scene_please_wait),
-                    sceneDescriptionDone = resources.getString(R.string.camera_vm_scene_description_done),
-                    sceneDescriptionFailed = resources.getString(R.string.camera_vm_scene_description_failed),
-                    gptRefusedReason = resources.getString(R.string.camera_vm_gpt_refused_reason),
-                    noTextDetectedTryAgain = resources.getString(R.string.camera_vm_no_text_detected_try_again),
-                    updatingOcrReading = resources.getString(R.string.camera_vm_updating_ocr_reading),
-                    apiKeyReason = resources.getString(R.string.camera_vm_api_key_reason),
-                    modelPermissionReason = resources.getString(R.string.camera_vm_model_permission_reason),
-                    quotaReason = resources.getString(R.string.camera_vm_quota_reason),
-                    timeoutReason = resources.getString(R.string.camera_vm_timeout_reason),
-                    translationUnchangedReason = resources.getString(R.string.camera_vm_translation_unchanged_reason),
-                    cannotTranslateReadingOriginal = resources.getString(R.string.camera_vm_cannot_translate_reading_original),
-                    ocrFailedTemplate = resources.getString(R.string.camera_vm_ocr_failed_template),
-                    accuracyOcrFallbackTemplate = resources.getString(R.string.camera_vm_accuracy_ocr_fallback_template),
-                    quickModeLabel = resources.getString(R.string.camera_vm_quick_mode_label),
-                    accurateModeLabel = resources.getString(R.string.camera_vm_accurate_mode_label),
-                    switchedToOcrModeTemplate = resources.getString(R.string.camera_vm_switched_to_ocr_mode_template),
-                    switchedToQuickMode = resources.getString(R.string.camera_vm_switched_to_quick_mode),
-                    switchedToAccurateMode = resources.getString(R.string.camera_vm_switched_to_accurate_mode),
-                    gptFallbackStatusTemplate = resources.getString(R.string.camera_vm_gpt_fallback_status_template),
-                    capturedParagraphsTemplate = resources.getString(R.string.camera_vm_captured_paragraphs_template),
-                    ocrSentencePositionTemplate = resources.getString(R.string.camera_vm_ocr_sentence_position_template),
-                    objectDetectionWarmupDone = resources.getString(R.string.camera_vm_object_detection_warmup_done),
-                    objectDetectionWarmupFailed = resources.getString(R.string.camera_vm_object_detection_warmup_failed),
-                    objectDetectionAnnouncementTemplate = resources.getString(R.string.camera_vm_object_detection_announcement_template),
-                    objectDetectionNoObjects = resources.getString(R.string.camera_vm_object_detection_no_objects),
-                    objectDetectionDebugTemplate = resources.getString(R.string.camera_vm_object_detection_debug_template),
-                    objectDetectionTitle = resources.getString(R.string.camera_vm_object_detection_title),
-                    objectDetectionSummary = resources.getString(R.string.camera_vm_object_detection_summary),
-                    objectDetectionStatus = resources.getString(R.string.camera_vm_object_detection_status),
-                    switchedToSceneDescriptionMode = resources.getString(R.string.camera_vm_switched_to_scene_description_mode),
-                    switchedToObjectDetectionMode = resources.getString(R.string.camera_vm_switched_to_object_detection_mode),
-                    switchedToCurrencyMode = resources.getString(R.string.camera_vm_switched_to_currency_mode)
-                )
-            }
-        }
-    }
 
     private companion object {
         private const val TAG = "CameraViewModel"
-        private const val OCR_SWIPE_DEBOUNCE_MS = 320L
         private const val OCR_GUIDANCE_INTERVAL_MS = 700L
-        private const val OCR_GUIDANCE_SPEECH_INTERVAL_MS = 4_000L
-        private const val OBJECT_DETECTION_INTERVAL_MS = 1_000L
-        private const val CURRENCY_PREVIEW_INTERVAL_MS = 1_500L
-        private const val OBJECT_ANNOUNCEMENT_INTERVAL_MS = 3_000L
-        private const val OBJECT_ANNOUNCEMENT_REPEAT_MS = 6_000L
-        private const val CURRENCY_NO_DETECTION_REPEAT_MS = 10_000L
-        private const val OCR_GUIDANCE_STABLE_CENTER_DELTA = 0.12f
-        private const val OCR_GUIDANCE_STABLE_AREA_DELTA = 0.15f
-        private val VIETNAMESE_LOCALE: Locale = Locale.Builder().setLanguage("vi").setRegion("VN").build()
-        private val VI_DIACRITIC_REGEX = Regex(
-            "[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
-            RegexOption.IGNORE_CASE
-        )
-        private val EN_LETTER_REGEX = Regex("[A-Za-z]")
     }
 }

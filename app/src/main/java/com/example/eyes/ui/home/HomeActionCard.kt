@@ -115,25 +115,21 @@ fun HomeActionCard(
 
 private fun HomeAction.icon(): ImageVector = when (type) {
     HomeActionType.ReadTextQuick,
-    HomeActionType.ReadTextAccuracy -> Icons.Rounded.TextFields
     HomeActionType.DescribeScene -> Icons.Rounded.ImageSearch
     HomeActionType.DetectObjects -> Icons.Rounded.Visibility
     HomeActionType.RecognizeCurrency -> Icons.Rounded.AttachMoney
     HomeActionType.EmergencyCall -> Icons.Rounded.Call
     HomeActionType.Voice -> Icons.Rounded.Mic
-    HomeActionType.Settings -> Icons.Rounded.Tune
 }
 
 @Composable
 private fun HomeAction.compactLabel(): String = when (type) {
     HomeActionType.ReadTextQuick -> stringResource(R.string.home_compact_action_ocr_quick)
-    HomeActionType.ReadTextAccuracy -> stringResource(R.string.home_compact_action_ocr_accurate)
     HomeActionType.DescribeScene -> stringResource(R.string.home_compact_action_describe_scene)
     HomeActionType.DetectObjects -> stringResource(R.string.home_compact_action_detect_objects)
     HomeActionType.RecognizeCurrency -> stringResource(R.string.home_compact_action_recognize_currency)
     HomeActionType.EmergencyCall -> stringResource(R.string.home_compact_action_emergency)
     HomeActionType.Voice -> title
-    HomeActionType.Settings -> title
 }
 
 @Preview(showBackground = true)

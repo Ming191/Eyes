@@ -1,20 +1,20 @@
-﻿package com.example.eyes.ui.voice
+package com.example.eyes.ui.voice
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.eyes.R
-import com.example.eyes.data.DataStoreManager
+import com.example.eyes.application.voice.HandleVoiceCommandUseCase
+import com.example.eyes.application.voice.VoiceCommandAction
+import com.example.eyes.application.voice.VoiceNavigationTargetKind
+import com.example.eyes.domain.haptics.HapticFeedback
+import com.example.eyes.domain.settings.SettingsRepository
 import com.example.eyes.domain.voice.CommandParser
 import com.example.eyes.domain.voice.VoiceCommand
-import com.example.eyes.i18n.AppLanguage
-import com.example.eyes.i18n.LocalizedTextProvider
-import com.example.eyes.system.HapticService
-import com.example.eyes.system.SpeechOutput
-import com.example.eyes.system.SttErrorReason
-import com.example.eyes.system.SttResult
-import com.example.eyes.system.SttService
-import com.example.eyes.system.SttState
+import com.example.eyes.domain.i18n.AppLanguage
+import com.example.eyes.domain.voice.SpeechRecognitionPort
+import com.example.eyes.domain.voice.SttErrorReason
+import com.example.eyes.domain.voice.SttResult
+import com.example.eyes.domain.voice.SttState
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,12 +41,11 @@ data class VoiceCommandUiState(
 )
 
 class VoiceCommandViewModel(
-    private val sttService: SttService,
+    private val speechRecognition: SpeechRecognitionPort,
     private val commandParser: CommandParser,
-    private val speechOutput: SpeechOutput,
-    private val hapticService: HapticService,
-    private val dataStoreManager: DataStoreManager,
-    private val localizedTextProvider: LocalizedTextProvider
+    private val hapticService: HapticFeedback,
+    private val settingsRepository: SettingsRepository,
+    private val handleVoiceCommand: HandleVoiceCommandUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(VoiceCommandUiState())
@@ -56,8 +55,6 @@ class VoiceCommandViewModel(
     private val _navigation = Channel<VoiceNavigationTarget>(Channel.BUFFERED)
     val navigation = _navigation.receiveAsFlow()
 
-    /** Text of the last response we spoke, used by the Repeat command. */
-    private var lastSpokenText: String = ""
     private var appLanguage: AppLanguage = AppLanguage.VI
     private var isAppLanguageLoaded = false
     private var pendingStartListening = false
@@ -65,20 +62,20 @@ class VoiceCommandViewModel(
     init {
         // Mirror recognizer state into UI state.
         viewModelScope.launch {
-            sttService.state.collect { sttState ->
+            speechRecognition.state.collect { sttState ->
                 _uiState.update { it.copy(sttState = sttState) }
             }
         }
 
         // React to recognizer results.
         viewModelScope.launch {
-            sttService.results.collect { result ->
+            speechRecognition.results.collect { result ->
                 handleSttResult(result)
             }
         }
 
         viewModelScope.launch {
-            dataStoreManager.appLanguageFlow.collect { language ->
+            settingsRepository.appLanguageFlow.collect { language ->
                 appLanguage = language
                 isAppLanguageLoaded = true
                 if (pendingStartListening) {
@@ -116,11 +113,11 @@ class VoiceCommandViewModel(
         if (_uiState.value.sttState != SttState.Idle && _uiState.value.sttState !is SttState.Error) return
         hapticService.confirm()
         _uiState.update { it.copy(partialText = "", finalText = "", lastCommand = null) }
-        sttService.startListening(appLanguage)
+        speechRecognition.startListening(appLanguage)
     }
 
     fun stopListening() {
-        sttService.stopListening()
+        speechRecognition.stopListening()
     }
 
     fun handleRecognizedText(text: String) {
@@ -180,93 +177,37 @@ class VoiceCommandViewModel(
 
     private fun handleParsedCommand(command: VoiceCommand) {
         viewModelScope.launch {
-            // Persist the command so feature screens can pick it up.
-            dataStoreManager.setLastVoiceCommand(command)
-
-            when (command) {
-                VoiceCommand.ReadText -> {
-                    speakAndRemember(voiceText.readText)
-                    navigateAfterSpeech(VoiceNavigationTarget.Camera)
-                }
-
-                VoiceCommand.DescribeScene -> {
-                    speakAndRemember(voiceText.describeScene)
-                    navigateAfterSpeech(VoiceNavigationTarget.Camera)
-                }
-
-                VoiceCommand.RecognizeCurrency -> {
-                    speakAndRemember(voiceText.recognizeCurrency)
-                    navigateAfterSpeech(VoiceNavigationTarget.Camera)
-                }
-
-                VoiceCommand.Repeat -> {
-                    if (lastSpokenText.isBlank()) {
-                        speechOutput.speakAndAwait(voiceText.nothingToRepeat, appLanguage.ttsLocale)
-                    } else {
-                        speechOutput.speakAndAwait(lastSpokenText, appLanguage.ttsLocale)
-                    }
-                    restartListeningAfterSpeech()
-                }
-
-                VoiceCommand.Stop -> {
-                    speechOutput.stop()
-                    speakAndRemember(voiceText.stopped)
-                    navigateAfterSpeech(VoiceNavigationTarget.Home)
-                }
-
-                VoiceCommand.Help -> {
-                    _uiState.update { it.copy(helpExpanded = true) }
-                    speakAndRemember(voiceText.help)
-                    restartListeningAfterSpeech()
-                }
-
-                is VoiceCommand.Unknown -> {
-                    speakAndRemember(voiceText.unknown)
-                    restartListeningAfterSpeech()
-                }
-            }
+            handleCommandAction(handleVoiceCommand(command, appLanguage))
         }
     }
 
-    private suspend fun navigateAfterSpeech(target: VoiceNavigationTarget) {
+    private fun handleCommandAction(action: VoiceCommandAction) {
+        if (action.shouldExpandHelp) {
+            _uiState.update { it.copy(helpExpanded = true) }
+        }
+        action.navigationTarget?.let { target ->
+            navigateAfterSpeech(target.toUiTarget())
+        }
+        if (action.shouldRestartListening) {
+            restartListeningAfterSpeech()
+        }
+    }
+
+    private fun navigateAfterSpeech(target: VoiceNavigationTarget) {
         _navigation.trySend(target)
     }
 
     private fun restartListeningAfterSpeech() {
-        sttService.startListening(appLanguage)
-    }
-
-    /**
-     * Speak [text] and remember it for the Repeat command.
-     */
-    private val voiceText: VoiceText
-        get() = VoiceText(
-            readText = localizedTextProvider.getString(R.string.voice_vm_read_text_ack, appLanguage),
-            describeScene = localizedTextProvider.getString(R.string.voice_vm_describe_scene_ack, appLanguage),
-            recognizeCurrency = localizedTextProvider.getString(R.string.voice_vm_recognize_currency_ack, appLanguage),
-            nothingToRepeat = localizedTextProvider.getString(R.string.voice_vm_nothing_to_repeat, appLanguage),
-            stopped = localizedTextProvider.getString(R.string.voice_vm_stopped_ack, appLanguage),
-            help = localizedTextProvider.getString(R.string.voice_vm_help_text, appLanguage),
-            unknown = localizedTextProvider.getString(R.string.voice_vm_unknown_command, appLanguage)
-        )
-
-    private suspend fun speakAndRemember(text: String) {
-        lastSpokenText = text
-        speechOutput.speakAndAwait(text, appLanguage.ttsLocale)
+        speechRecognition.startListening(appLanguage)
     }
 
     override fun onCleared() {
         super.onCleared()
-        sttService.cancel()
+        speechRecognition.cancel()
     }
 
-    private data class VoiceText(
-        val readText: String,
-        val describeScene: String,
-        val recognizeCurrency: String,
-        val nothingToRepeat: String,
-        val stopped: String,
-        val help: String,
-        val unknown: String
-    )
+    private fun VoiceNavigationTargetKind.toUiTarget(): VoiceNavigationTarget = when (this) {
+        VoiceNavigationTargetKind.Camera -> VoiceNavigationTarget.Camera
+        VoiceNavigationTargetKind.Home -> VoiceNavigationTarget.Home
+    }
 }

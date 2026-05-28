@@ -1,7 +1,7 @@
 package com.example.eyes.ui.blind
 
 import androidx.compose.ui.geometry.Rect
-import com.example.eyes.system.SpeechOutput
+import com.example.eyes.domain.speech.SpeechOutput
 import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -133,11 +133,7 @@ class BlindFocusManagerTest {
             spokenTexts += text
         }
 
-        override fun speak(text: String, priority: SpeechOutput.Priority) {
-            spokenTexts += text
-        }
-
-        override fun speak(text: String, priority: SpeechOutput.Priority, locale: Locale?) {
+        override fun speak(text: String, locale: Locale) {
             spokenTexts += text
         }
     }

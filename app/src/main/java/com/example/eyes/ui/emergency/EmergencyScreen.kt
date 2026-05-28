@@ -23,9 +23,9 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.eyes.R
-import com.example.eyes.i18n.AppLanguage
+import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.i18n.LocalizedTextProvider
-import com.example.eyes.system.SpeechOutput
+import com.example.eyes.domain.speech.SpeechOutput
 import com.example.eyes.ui.blind.LocalBlindFocusManager
 import com.example.eyes.ui.blind.blindFocusable
 import org.koin.compose.koinInject
@@ -53,7 +53,7 @@ fun EmergencyScreen(
 
     LaunchedEffect(appLanguage) {
         speechOutput.stop()
-        speechOutput.speak(ttsText, SpeechOutput.Priority.HIGH, appLanguage.ttsLocale)
+        speechOutput.speak(ttsText, appLanguage.ttsLocale)
         focusManager?.focusItem(EMERGENCY_FIRST_BUTTON_ID)
     }
 
