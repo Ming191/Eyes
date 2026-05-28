@@ -2,6 +2,7 @@ package com.example.eyes.ui.camera
 
 import androidx.camera.core.ImageProxy
 import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
+import com.example.eyes.application.ocr.OcrFallbackReason
 import com.example.eyes.application.ocr.RecognizeOcrDocumentInput
 import com.example.eyes.application.ocr.RecognizeOcrDocumentUseCase
 import com.example.eyes.domain.haptics.HapticFeedback
@@ -61,14 +62,7 @@ internal class OcrCaptureController(
                     RecognizeOcrDocumentInput(
                         imageFrame = imageConverter.toImageFrame(bitmap),
                         mode = currentOcrMode.value,
-                        translateToVietnamese = uiState.value.ocrTranslateToVietnamese,
-                        strings = cameraText().ocrDocumentStrings(),
-                        onTranslateFailure = {
-                            speechOutput.speak(
-                                cameraText().cannotTranslateReadingOriginal,
-                                appLanguage().ttsLocale
-                            )
-                        }
+                        translateToVietnamese = uiState.value.ocrTranslateToVietnamese
                     )
                 )
             }.getOrElse { error ->
@@ -80,9 +74,15 @@ internal class OcrCaptureController(
             }
             lastRawOcrResult.set(recognizedDocument.rawResult)
             lastOcrUsedFallback.set(recognizedDocument.usedFallbackFromAccuracy)
+            if (recognizedDocument.translationFailed) {
+                speechOutput.speak(
+                    cameraText().cannotTranslateReadingOriginal,
+                    appLanguage().ttsLocale
+                )
+            }
             if (recognizedDocument.usedFallbackFromAccuracy) {
                 setCameraOcrModeUseCase(OcrMode.QUICK)
-                val reason = recognizedDocument.fallbackReason ?: cameraText().unknownError
+                val reason = recognizedDocument.fallbackReason.toLocalizedReason()
                 speechOutput.speak(
                     cameraText().accuracyOcrFallback(reason),
                     appLanguage().ttsLocale
@@ -122,5 +122,16 @@ internal class OcrCaptureController(
     fun clearLastResult() {
         lastRawOcrResult.set(null)
         lastOcrUsedFallback.set(false)
+    }
+
+    private fun OcrFallbackReason?.toLocalizedReason(): String = when (this) {
+        OcrFallbackReason.GptRefused -> cameraText().gptRefusedReason
+        OcrFallbackReason.ApiKey -> cameraText().apiKeyReason
+        OcrFallbackReason.ModelPermission -> cameraText().modelPermissionReason
+        OcrFallbackReason.Quota -> cameraText().quotaReason
+        OcrFallbackReason.Timeout -> cameraText().timeoutReason
+        is OcrFallbackReason.EngineError -> message ?: cameraText().unknownError
+        OcrFallbackReason.Unknown,
+        null -> cameraText().unknownReason
     }
 }

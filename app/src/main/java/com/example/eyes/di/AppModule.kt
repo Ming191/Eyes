@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import com.example.eyes.application.camera.ObserveCameraPreferencesUseCase
+import com.example.eyes.application.currency.RecognizeCurrencyUseCase
 import com.example.eyes.application.home.AnnounceHomeGreetingUseCase
 import com.example.eyes.application.home.BuildHomeStateUseCase
 import com.example.eyes.application.home.HomeAnnouncementTextProvider
@@ -125,6 +126,7 @@ val appModule = module {
     single { YoloExecutorchDetector(get()) }
     single<ObjectDetectorPort> { get<YoloExecutorchDetector>() }
     single<CurrencyRecognizerFactory> { CurrencyAnalyzerFactory(androidContext()) }
+    factory { RecognizeCurrencyUseCase(get()) }
     factory { DetectObjectsUseCase(get()) }
     factory { WarmUpObjectDetectionUseCase(get()) }
     single<SceneDescriptionEngine> { Gpt4oSceneDescriptionEngine() }
@@ -176,7 +178,7 @@ val appModule = module {
             detectObjectsUseCase = get(),
             warmUpObjectDetectionUseCase = get(),
             audioRouteProvider = get(),
-            currencyRecognizerFactory = get(),
+            recognizeCurrencyUseCase = get(),
             imageConverter = get(),
             localizedTextProvider = get()
         )

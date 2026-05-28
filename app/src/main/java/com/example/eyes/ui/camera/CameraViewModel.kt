@@ -6,11 +6,11 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.application.camera.ObserveCameraPreferencesUseCase
+import com.example.eyes.application.currency.RecognizeCurrencyUseCase
 import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
 import com.example.eyes.application.objectdetection.DetectObjectsUseCase
 import com.example.eyes.application.objectdetection.WarmUpObjectDetectionUseCase
 import com.example.eyes.application.ocr.RecognizeOcrDocumentUseCase
-import com.example.eyes.application.ports.CurrencyRecognizerFactory
 import com.example.eyes.application.ports.OcrGuidanceAnalyzerPort
 import com.example.eyes.application.scene.DescribeSceneUseCase
 import com.example.eyes.domain.audio.AudioRouteProvider
@@ -96,7 +96,7 @@ class CameraViewModel(
     private val detectObjectsUseCase: DetectObjectsUseCase,
     private val warmUpObjectDetectionUseCase: WarmUpObjectDetectionUseCase,
     private val audioRouteProvider: AudioRouteProvider,
-    private val currencyRecognizerFactory: CurrencyRecognizerFactory,
+    private val recognizeCurrencyUseCase: RecognizeCurrencyUseCase,
     private val imageConverter: CameraImageConverter,
     private val localizedTextProvider: LocalizedTextProvider
 ) : ViewModel() {
@@ -164,7 +164,7 @@ class CameraViewModel(
     )
     private val currencyRecognitionController = CurrencyRecognitionController(
         uiState = _uiState,
-        currencyRecognizerFactory = currencyRecognizerFactory,
+        recognizeCurrencyUseCase = recognizeCurrencyUseCase,
         speechOutput = speechOutput,
         hapticService = hapticService,
         bitmapStore = bitmapStore,

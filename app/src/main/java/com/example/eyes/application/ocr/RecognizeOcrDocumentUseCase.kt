@@ -10,27 +10,25 @@ import com.example.eyes.domain.ocr.OcrResult
 data class RecognizeOcrDocumentInput(
     val imageFrame: ImageFrame,
     val mode: OcrMode,
-    val translateToVietnamese: Boolean,
-    val strings: RecognizeOcrDocumentStrings,
-    val onTranslateFailure: suspend () -> Unit = {}
+    val translateToVietnamese: Boolean
 )
 
-data class RecognizeOcrDocumentStrings(
-    val gptRefusedReason: String,
-    val apiKeyReason: String,
-    val modelPermissionReason: String,
-    val quotaReason: String,
-    val timeoutReason: String,
-    val unknownReason: String,
-    val unknownError: String,
-    val translationUnchangedReason: String
-)
+sealed interface OcrFallbackReason {
+    data object GptRefused : OcrFallbackReason
+    data object ApiKey : OcrFallbackReason
+    data object ModelPermission : OcrFallbackReason
+    data object Quota : OcrFallbackReason
+    data object Timeout : OcrFallbackReason
+    data class EngineError(val message: String?) : OcrFallbackReason
+    data object Unknown : OcrFallbackReason
+}
 
 data class RecognizeOcrDocumentResult(
     val rawResult: OcrResult,
     val resultForSpeech: OcrResult,
     val usedFallbackFromAccuracy: Boolean,
-    val fallbackReason: String? = null,
+    val fallbackReason: OcrFallbackReason? = null,
+    val translationFailed: Boolean = false,
     val canTranslateDocument: Boolean
 )
 
@@ -40,14 +38,15 @@ class RecognizeOcrDocumentUseCase(
     private val translator: OcrTranslatorPort
 ) {
     suspend operator fun invoke(input: RecognizeOcrDocumentInput): RecognizeOcrDocumentResult {
-        val outcome = recognizeByMode(input.imageFrame, input.mode, input.strings)
+        val outcome = recognizeByMode(input.imageFrame, input.mode)
         val rawResult = outcome.result.getOrThrow()
-        val translatedResult = maybeTranslateForSpeech(rawResult, input.translateToVietnamese, input.strings, input.onTranslateFailure)
+        val speechResult = maybeTranslateForSpeech(rawResult, input.translateToVietnamese)
         return RecognizeOcrDocumentResult(
             rawResult = rawResult,
-            resultForSpeech = translatedResult,
+            resultForSpeech = speechResult.result,
             usedFallbackFromAccuracy = outcome.usedFallbackFromAccuracy,
             fallbackReason = outcome.fallbackReason,
+            translationFailed = speechResult.translationFailed,
             canTranslateDocument = looksEnglish(rawResult.fullText)
         )
     }
@@ -59,8 +58,7 @@ class RecognizeOcrDocumentUseCase(
 
     private suspend fun recognizeByMode(
         imageFrame: ImageFrame,
-        mode: OcrMode,
-        strings: RecognizeOcrDocumentStrings
+        mode: OcrMode
     ): OcrRecognitionOutcome {
         return when (mode) {
             OcrMode.QUICK -> OcrRecognitionOutcome(
@@ -78,9 +76,9 @@ class RecognizeOcrDocumentUseCase(
                     )
                 } else {
                     val reason = when {
-                        refused -> strings.gptRefusedReason
-                        accuracyResult.exceptionOrNull() != null -> buildFallbackReason(accuracyResult.exceptionOrNull()!!, strings)
-                        else -> strings.unknownReason
+                        refused -> OcrFallbackReason.GptRefused
+                        accuracyResult.exceptionOrNull() != null -> buildFallbackReason(accuracyResult.exceptionOrNull()!!)
+                        else -> OcrFallbackReason.Unknown
                     }
                     OcrRecognitionOutcome(
                         result = runCatching { quickOcrEngine.recognize(imageFrame) },
@@ -94,13 +92,11 @@ class RecognizeOcrDocumentUseCase(
 
     private suspend fun maybeTranslateForSpeech(
         result: OcrResult,
-        enabled: Boolean,
-        strings: RecognizeOcrDocumentStrings,
-        onTranslateFailure: suspend () -> Unit
-    ): OcrResult {
-        if (!enabled) return OcrPostProcessor.process(result.fullText)
-        if (!shouldAutoTranslateToVietnamese(result.fullText)) return OcrPostProcessor.process(result.fullText)
-        return translateToVietnameseOrFallback(result.fullText, strings, onTranslateFailure)
+        enabled: Boolean
+    ): OcrSpeechResult {
+        if (!enabled) return OcrSpeechResult(OcrPostProcessor.process(result.fullText))
+        if (!shouldAutoTranslateToVietnamese(result.fullText)) return OcrSpeechResult(OcrPostProcessor.process(result.fullText))
+        return translateToVietnameseOrFallback(result.fullText)
     }
 
     private fun looksLikeGptRefusal(text: String): Boolean {
@@ -116,15 +112,15 @@ class RecognizeOcrDocumentUseCase(
         return refusalMarkers.any { normalized.startsWith(it) }
     }
 
-    private fun buildFallbackReason(error: Throwable, strings: RecognizeOcrDocumentStrings): String {
+    private fun buildFallbackReason(error: Throwable): OcrFallbackReason {
         val message = error.message?.trim().orEmpty()
         return when {
-            message.contains("401") -> strings.apiKeyReason
-            message.contains("403") -> strings.modelPermissionReason
-            message.contains("429") -> strings.quotaReason
-            message.contains("timeout", ignoreCase = true) -> strings.timeoutReason
-            message.isNotBlank() -> message
-            else -> error::class.simpleName ?: strings.unknownError
+            message.contains("401") -> OcrFallbackReason.ApiKey
+            message.contains("403") -> OcrFallbackReason.ModelPermission
+            message.contains("429") -> OcrFallbackReason.Quota
+            message.contains("timeout", ignoreCase = true) -> OcrFallbackReason.Timeout
+            message.isNotBlank() -> OcrFallbackReason.EngineError(message)
+            else -> OcrFallbackReason.EngineError(error::class.simpleName)
         }
     }
 
@@ -143,19 +139,16 @@ class RecognizeOcrDocumentUseCase(
     }
 
     private suspend fun translateToVietnameseOrFallback(
-        sourceText: String,
-        strings: RecognizeOcrDocumentStrings,
-        onTranslateFailure: suspend () -> Unit
-    ): OcrResult {
+        sourceText: String
+    ): OcrSpeechResult {
         return runCatching {
             val translated = translator.translateToVietnamese(sourceText)
             if (looksUntranslated(sourceText, translated)) {
-                throw IllegalStateException(strings.translationUnchangedReason)
+                throw IllegalStateException("Translation unchanged")
             }
-            OcrPostProcessor.process(translated)
+            OcrSpeechResult(OcrPostProcessor.process(translated))
         }.getOrElse {
-            onTranslateFailure()
-            OcrPostProcessor.process(sourceText)
+            OcrSpeechResult(OcrPostProcessor.process(sourceText), translationFailed = true)
         }
     }
 
@@ -174,7 +167,12 @@ class RecognizeOcrDocumentUseCase(
     private data class OcrRecognitionOutcome(
         val result: Result<OcrResult>,
         val usedFallbackFromAccuracy: Boolean,
-        val fallbackReason: String? = null
+        val fallbackReason: OcrFallbackReason? = null
+    )
+
+    private data class OcrSpeechResult(
+        val result: OcrResult,
+        val translationFailed: Boolean = false
     )
 
     private companion object {

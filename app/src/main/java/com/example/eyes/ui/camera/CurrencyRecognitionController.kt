@@ -3,7 +3,7 @@ package com.example.eyes.ui.camera
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.camera.core.ImageProxy
-import com.example.eyes.application.ports.CurrencyRecognizerFactory
+import com.example.eyes.application.currency.RecognizeCurrencyUseCase
 import com.example.eyes.application.ports.CurrencyRecognizerPort
 import com.example.eyes.domain.haptics.HapticFeedback
 import com.example.eyes.domain.i18n.AppLanguage
@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 internal class CurrencyRecognitionController(
     private val uiState: MutableStateFlow<CameraUiState>,
-    private val currencyRecognizerFactory: CurrencyRecognizerFactory,
+    private val recognizeCurrencyUseCase: RecognizeCurrencyUseCase,
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticFeedback,
     private val bitmapStore: CameraBitmapStore,
@@ -35,7 +35,7 @@ internal class CurrencyRecognitionController(
     private val lastCurrencyPreviewAtMs = AtomicLong(0L)
     private val lastCurrencyNoDetectionAtMs = AtomicLong(0L)
     private val lastCurrencyAnnouncement = AtomicReference("")
-    private var currencyAnalyzer: CurrencyRecognizerPort? = null
+    private val onCurrencyResultCallback: (String, Float) -> Unit = ::onCurrencyResult
 
     fun processPreviewImageProxy(imageProxy: ImageProxy, scope: CoroutineScope) {
         val now = System.currentTimeMillis()
@@ -52,9 +52,9 @@ internal class CurrencyRecognitionController(
         scope.launch(Dispatchers.Default) {
             var bitmap: Bitmap? = null
             try {
-                val analyzer = getCurrencyAnalyzer() ?: return@launch
+                if (!ensureCurrencyRecognizer()) return@launch
                 bitmap = imageConverter.toBitmapWithRotation(imageProxy)
-                analyzer.analyze(imageConverter.toImageFrame(bitmap))
+                recognizeCurrencyUseCase.analyze(imageConverter.toImageFrame(bitmap), onCurrencyResultCallback)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
@@ -113,8 +113,7 @@ internal class CurrencyRecognitionController(
                 )
             }
 
-            val analyzer = getCurrencyAnalyzer()
-            if (analyzer == null) {
+            if (!ensureCurrencyRecognizer()) {
                 uiState.update {
                     it.copy(
                         isCurrencyScanning = false,
@@ -127,8 +126,8 @@ internal class CurrencyRecognitionController(
             }
 
             runCatching {
-                analyzer.resetBuffer()
-                analyzer.analyze(imageConverter.toImageFrame(capturedBitmap))
+                recognizeCurrencyUseCase.resetBuffer()
+                recognizeCurrencyUseCase.analyze(imageConverter.toImageFrame(capturedBitmap), onCurrencyResultCallback)
             }.onFailure { error ->
                 Log.e(TAG, "Currency capture failed", error)
                 uiState.update {
@@ -156,7 +155,7 @@ internal class CurrencyRecognitionController(
 
     fun prepareForNextCapture() {
         resetAnnouncementDebounce()
-        currencyAnalyzer?.resetBuffer()
+        recognizeCurrencyUseCase.resetBuffer()
         updateUiStateAndRecycleReplacedBitmap {
             it.copy(
                 ocrCapturedBitmap = null,
@@ -171,7 +170,7 @@ internal class CurrencyRecognitionController(
     }
 
     fun resetBuffer() {
-        currencyAnalyzer?.resetBuffer()
+        recognizeCurrencyUseCase.resetBuffer()
     }
 
     fun resetAnnouncementDebounce() {
@@ -180,15 +179,13 @@ internal class CurrencyRecognitionController(
     }
 
     fun close() {
-        currencyAnalyzer?.close()
+        recognizeCurrencyUseCase.close()
     }
 
-    private fun getCurrencyAnalyzer(): CurrencyRecognizerPort? {
-        currencyAnalyzer?.let { return it }
+    private fun ensureCurrencyRecognizer(): Boolean {
         return try {
-            currencyRecognizerFactory.create(::onCurrencyResult).also { analyzer ->
-                currencyAnalyzer = analyzer
-            }
+            recognizeCurrencyUseCase.prepare(onCurrencyResultCallback)
+            true
         } catch (error: Throwable) {
             Log.e(TAG, "Currency model load failed", error)
             val message = cameraText().currencyModelLoadError
@@ -200,7 +197,7 @@ internal class CurrencyRecognitionController(
                     currencyConfidence = 0f
                 )
             }
-            null
+            false
         }
     }
 
@@ -212,7 +209,7 @@ internal class CurrencyRecognitionController(
             val hadResult = uiState.value.currencyDisplay.isNotEmpty()
             if (hadResult) {
                 resetAnnouncementDebounce()
-                currencyAnalyzer?.resetBuffer()
+                recognizeCurrencyUseCase.resetBuffer()
             }
             maybeSpeakNoCurrencyDetected()
             uiState.update { state ->
