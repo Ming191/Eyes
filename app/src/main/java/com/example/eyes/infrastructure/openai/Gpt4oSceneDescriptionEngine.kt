@@ -1,13 +1,15 @@
-package com.example.eyes.data.remote
+package com.example.eyes.infrastructure.openai
 
 import android.graphics.Bitmap
 import android.util.Base64
 import androidx.core.graphics.scale
 import com.example.eyes.BuildConfig
+import com.example.eyes.data.remote.SceneDescriptionEngine
+import com.example.eyes.data.remote.SceneDescriptionEngineException
+import com.example.eyes.data.remote.SceneDescriptionErrorType
+import com.example.eyes.domain.image.ImageFrame
 import com.example.eyes.domain.i18n.AppLanguage
-import com.example.eyes.infrastructure.openai.OpenAiHttpException
-import com.example.eyes.infrastructure.openai.OpenAiResponseTextExtractor
-import com.example.eyes.infrastructure.openai.OpenAiResponsesHttpClient
+import com.example.eyes.infrastructure.camera.toBitmap
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -24,7 +26,8 @@ internal class Gpt4oSceneDescriptionEngine(
     private val modelProvider: () -> String = { BuildConfig.OPENAI_OCR_MODEL.ifBlank { DEFAULT_MODEL } }
 ) : SceneDescriptionEngine {
 
-    override suspend fun describe(bitmap: Bitmap, language: AppLanguage): String = withContext(Dispatchers.IO) {
+    override suspend fun describe(imageFrame: ImageFrame, language: AppLanguage): String = withContext(Dispatchers.IO) {
+        val bitmap = imageFrame.toBitmap()
         val apiKey = apiKeyProvider().trim()
         if (apiKey.isBlank()) {
             throw SceneDescriptionEngineException(

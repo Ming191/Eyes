@@ -11,15 +11,14 @@ import com.example.eyes.application.objectdetection.DetectObjectsUseCase
 import com.example.eyes.application.objectdetection.WarmUpObjectDetectionUseCase
 import com.example.eyes.application.ocr.RecognizeOcrDocumentUseCase
 import com.example.eyes.application.ports.CurrencyRecognizerFactory
+import com.example.eyes.application.ports.OcrGuidanceAnalyzerPort
 import com.example.eyes.application.scene.DescribeSceneUseCase
-import com.example.eyes.infrastructure.camera.toBitmapWithRotation
 import com.example.eyes.domain.audio.AudioRouteProvider
 import com.example.eyes.domain.haptics.HapticFeedback
 import com.example.eyes.domain.voice.VoiceCommandRepository
 import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.i18n.LocalizedTextProvider
-import com.example.eyes.infrastructure.ocr.MlKitOcrGuidanceAnalyzer
 import com.example.eyes.domain.ocr.OcrGuidanceStatus
 import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.domain.ocr.OcrTextBounds
@@ -87,7 +86,7 @@ data class DetectionOverlayItem(
 
 class CameraViewModel(
     private val recognizeOcrDocumentUseCase: RecognizeOcrDocumentUseCase,
-    private val ocrGuidanceAnalyzer: MlKitOcrGuidanceAnalyzer,
+    private val ocrGuidanceAnalyzer: OcrGuidanceAnalyzerPort,
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticFeedback,
     private val observeCameraPreferences: ObserveCameraPreferencesUseCase,
@@ -98,6 +97,7 @@ class CameraViewModel(
     private val warmUpObjectDetectionUseCase: WarmUpObjectDetectionUseCase,
     private val audioRouteProvider: AudioRouteProvider,
     private val currencyRecognizerFactory: CurrencyRecognizerFactory,
+    private val imageConverter: CameraImageConverter,
     private val localizedTextProvider: LocalizedTextProvider
 ) : ViewModel() {
 
@@ -122,6 +122,7 @@ class CameraViewModel(
         speechOutput = speechOutput,
         hapticService = hapticService,
         bitmapStore = bitmapStore,
+        imageConverter = imageConverter,
         cameraText = { cameraText },
         appLanguage = { appLanguage.get() }
     )
@@ -133,6 +134,7 @@ class CameraViewModel(
         ocrDocumentController = ocrDocumentController,
         speechOutput = speechOutput,
         hapticService = hapticService,
+        imageConverter = imageConverter,
         cameraText = { cameraText },
         appLanguage = { appLanguage.get() },
         resetGuidance = ocrGuidanceController::reset,
@@ -144,6 +146,7 @@ class CameraViewModel(
         speechOutput = speechOutput,
         hapticService = hapticService,
         audioRouteProvider = audioRouteProvider,
+        imageConverter = imageConverter,
         cameraText = { cameraText },
         appLanguage = { appLanguage.get() },
         updateUiStateAndRecycleReplacedBitmap = ::updateUiStateAndRecycleReplacedOcrBitmap
@@ -154,6 +157,7 @@ class CameraViewModel(
         warmUpObjectDetectionUseCase = warmUpObjectDetectionUseCase,
         speechOutput = speechOutput,
         bitmapStore = bitmapStore,
+        imageConverter = imageConverter,
         localizedTextProvider = localizedTextProvider,
         cameraText = { cameraText },
         appLanguage = { appLanguage.get() }
@@ -164,6 +168,7 @@ class CameraViewModel(
         speechOutput = speechOutput,
         hapticService = hapticService,
         bitmapStore = bitmapStore,
+        imageConverter = imageConverter,
         currencyTextMapper = currencyTextMapper,
         cameraText = { cameraText },
         appLanguage = { appLanguage.get() },
@@ -410,7 +415,7 @@ class CameraViewModel(
     fun processCapturedSceneImage(imageProxy: ImageProxy) {
         viewModelScope.launch(Dispatchers.Default) {
             val capturedBitmap = try {
-                imageProxy.toBitmapWithRotation()
+                imageConverter.toBitmapWithRotation(imageProxy)
             } catch (_: Throwable) {
                 sceneCaptureController.onSceneCaptureError()
                 return@launch

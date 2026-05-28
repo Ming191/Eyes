@@ -1,12 +1,12 @@
 package com.example.eyes.data.remote
 
-import android.graphics.Bitmap
+import com.example.eyes.domain.image.ImageFrame
 import com.example.eyes.domain.i18n.AppLanguage
 import java.io.IOException
 
 interface SceneDescriptionEngine {
     @Throws(SceneDescriptionEngineException::class)
-    suspend fun describe(bitmap: Bitmap, language: AppLanguage): String
+    suspend fun describe(imageFrame: ImageFrame, language: AppLanguage): String
 }
 
 enum class SceneDescriptionErrorType {

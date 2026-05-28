@@ -59,7 +59,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.R
-import com.example.eyes.infrastructure.camera.CameraManager
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.ui.blind.BlindAction
@@ -75,7 +74,7 @@ fun CameraScreen(
     viewModel: CameraViewModel = koinViewModel()
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
-    val cameraManager: CameraManager = koinInject()
+    val cameraManager: CameraSessionController = koinInject()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val screenDescription = stringResource(
         R.string.camera_screen_description,

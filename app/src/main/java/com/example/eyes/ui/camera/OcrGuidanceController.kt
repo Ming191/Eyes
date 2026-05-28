@@ -3,13 +3,12 @@ package com.example.eyes.ui.camera
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.camera.core.ImageProxy
+import com.example.eyes.application.ports.OcrGuidanceAnalyzerPort
 import com.example.eyes.domain.haptics.HapticFeedback
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrGuidanceEvaluator
 import com.example.eyes.domain.ocr.OcrGuidanceStatus
 import com.example.eyes.domain.speech.SpeechOutput
-import com.example.eyes.infrastructure.camera.toBitmapWithRotation
-import com.example.eyes.infrastructure.ocr.MlKitOcrGuidanceAnalyzer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,10 +20,11 @@ import java.util.concurrent.atomic.AtomicLong
 
 internal class OcrGuidanceController(
     private val uiState: MutableStateFlow<CameraUiState>,
-    private val analyzer: MlKitOcrGuidanceAnalyzer,
+    private val analyzer: OcrGuidanceAnalyzerPort,
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticFeedback,
     private val bitmapStore: CameraBitmapStore,
+    private val imageConverter: CameraImageConverter,
     private val cameraText: () -> CameraText,
     private val appLanguage: () -> AppLanguage
 ) {
@@ -53,9 +53,9 @@ internal class OcrGuidanceController(
         scope.launch(Dispatchers.Default) {
             var bitmap: Bitmap? = null
             try {
-                bitmap = imageProxy.toBitmapWithRotation()
+                bitmap = imageConverter.toBitmapWithRotation(imageProxy)
                 bitmapStore.replaceLatestFrame(bitmap)
-                val frame = analyzer.analyze(bitmap)
+                val frame = analyzer.analyze(imageConverter.toImageFrame(bitmap))
                 val stableCount = tracker.updateStability(frame.textBounds)
                 val evaluation = OcrGuidanceEvaluator.evaluate(
                     frame = frame,

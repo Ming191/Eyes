@@ -4,7 +4,6 @@ import com.example.eyes.R
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.objectdetection.Detection
 import com.example.eyes.i18n.LocalizedTextProvider
-import com.example.eyes.infrastructure.i18n.localizedText
 
 fun Detection.toOverlayItem(
     frameWidth: Int,

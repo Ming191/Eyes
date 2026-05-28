@@ -8,8 +8,6 @@ import com.example.eyes.application.ports.CurrencyRecognizerPort
 import com.example.eyes.domain.haptics.HapticFeedback
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.speech.SpeechOutput
-import com.example.eyes.infrastructure.camera.toBitmapWithRotation
-import com.example.eyes.infrastructure.camera.toImageFrame
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +25,7 @@ internal class CurrencyRecognitionController(
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticFeedback,
     private val bitmapStore: CameraBitmapStore,
+    private val imageConverter: CameraImageConverter,
     private val currencyTextMapper: CurrencyTextMapper,
     private val cameraText: () -> CameraText,
     private val appLanguage: () -> AppLanguage,
@@ -54,8 +53,8 @@ internal class CurrencyRecognitionController(
             var bitmap: Bitmap? = null
             try {
                 val analyzer = getCurrencyAnalyzer() ?: return@launch
-                bitmap = imageProxy.toBitmapWithRotation()
-                analyzer.analyze(bitmap.toImageFrame())
+                bitmap = imageConverter.toBitmapWithRotation(imageProxy)
+                analyzer.analyze(imageConverter.toImageFrame(bitmap))
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
@@ -88,7 +87,7 @@ internal class CurrencyRecognitionController(
     fun processCapturedImage(imageProxy: ImageProxy, scope: CoroutineScope) {
         scope.launch(Dispatchers.Default) {
             val capturedBitmap = try {
-                imageProxy.toBitmapWithRotation()
+                imageConverter.toBitmapWithRotation(imageProxy)
             } catch (_: Throwable) {
                 uiState.update {
                     it.copy(
@@ -129,7 +128,7 @@ internal class CurrencyRecognitionController(
 
             runCatching {
                 analyzer.resetBuffer()
-                analyzer.analyze(capturedBitmap.toImageFrame())
+                analyzer.analyze(imageConverter.toImageFrame(capturedBitmap))
             }.onFailure { error ->
                 Log.e(TAG, "Currency capture failed", error)
                 uiState.update {

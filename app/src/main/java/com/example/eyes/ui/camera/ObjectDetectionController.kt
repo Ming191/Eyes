@@ -8,8 +8,6 @@ import com.example.eyes.application.objectdetection.WarmUpObjectDetectionUseCase
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.speech.SpeechOutput
 import com.example.eyes.i18n.LocalizedTextProvider
-import com.example.eyes.infrastructure.camera.toBitmapWithRotation
-import com.example.eyes.infrastructure.camera.toImageFrame
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +24,7 @@ internal class ObjectDetectionController(
     private val warmUpObjectDetectionUseCase: WarmUpObjectDetectionUseCase,
     private val speechOutput: SpeechOutput,
     private val bitmapStore: CameraBitmapStore,
+    private val imageConverter: CameraImageConverter,
     private val localizedTextProvider: LocalizedTextProvider,
     private val cameraText: () -> CameraText,
     private val appLanguage: () -> AppLanguage
@@ -83,7 +82,7 @@ internal class ObjectDetectionController(
         scope.launch(Dispatchers.Default) {
             var bitmap: Bitmap? = null
             try {
-                bitmap = imageProxy.toBitmapWithRotation()
+                bitmap = imageConverter.toBitmapWithRotation(imageProxy)
                 bitmapStore.replaceLatestFrame(bitmap)
                 processObjectDetection(bitmap)
             } catch (e: CancellationException) {
@@ -100,7 +99,7 @@ internal class ObjectDetectionController(
 
     suspend fun processObjectDetection(bitmap: Bitmap) {
         try {
-            val detections = detectObjectsUseCase(bitmap.toImageFrame())
+            val detections = detectObjectsUseCase(imageConverter.toImageFrame(bitmap))
             if (uiState.value.activeMode != CameraMode.OBJECT_DETECTION) return
 
             val language = appLanguage()

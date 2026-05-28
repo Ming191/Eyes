@@ -9,7 +9,6 @@ import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.scene.SceneDescription
 import com.example.eyes.domain.scene.SceneDescriptionError
 import com.example.eyes.domain.speech.SpeechOutput
-import com.example.eyes.infrastructure.camera.toImageFrame
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -20,6 +19,7 @@ class SceneCaptureController(
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticFeedback,
     private val audioRouteProvider: AudioRouteProvider,
+    private val imageConverter: CameraImageConverter,
     private val cameraText: () -> CameraText,
     private val appLanguage: () -> AppLanguage,
     private val updateUiStateAndRecycleReplacedBitmap: ((CameraUiState) -> CameraUiState) -> Unit
@@ -77,7 +77,7 @@ class SceneCaptureController(
     suspend fun describeCapturedScene(capturedBitmap: Bitmap) {
         try {
             val language = appLanguage()
-            when (val result = describeSceneUseCase(imageFrame = capturedBitmap.toImageFrame(), language = language)) {
+            when (val result = describeSceneUseCase(imageFrame = imageConverter.toImageFrame(capturedBitmap), language = language)) {
                 is SceneDescription.Success -> {
                     if (!audioRouteProvider.isHeadsetConnected()) {
                         speechOutput.speak(result.text, language.ttsLocale)

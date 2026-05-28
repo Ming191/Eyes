@@ -2,8 +2,11 @@ package com.example.eyes.infrastructure.ocr
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import com.example.eyes.application.ports.OcrGuidanceAnalyzerPort
+import com.example.eyes.domain.image.ImageFrame
 import com.example.eyes.domain.ocr.OcrGuidanceFrame
 import com.example.eyes.domain.ocr.OcrTextBounds
+import com.example.eyes.infrastructure.camera.toBitmap
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -11,10 +14,12 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-class MlKitOcrGuidanceAnalyzer {
+class MlKitOcrGuidanceAnalyzer : OcrGuidanceAnalyzerPort {
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
-    suspend fun analyze(bitmap: Bitmap): OcrGuidanceFrame =
+    override suspend fun analyze(imageFrame: ImageFrame): OcrGuidanceFrame = analyze(imageFrame.toBitmap())
+
+    private suspend fun analyze(bitmap: Bitmap): OcrGuidanceFrame =
         suspendCancellableCoroutine { continuation ->
             val inputImage = InputImage.fromBitmap(bitmap, 0)
             recognizer.process(inputImage)
@@ -42,7 +47,7 @@ class MlKitOcrGuidanceAnalyzer {
                 }
         }
 
-    fun close() {
+    override fun close() {
         recognizer.close()
     }
 

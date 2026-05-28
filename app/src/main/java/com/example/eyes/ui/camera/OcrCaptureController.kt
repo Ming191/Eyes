@@ -9,8 +9,6 @@ import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.domain.ocr.OcrResult
 import com.example.eyes.domain.speech.SpeechOutput
-import com.example.eyes.infrastructure.camera.toBitmapWithRotation
-import com.example.eyes.infrastructure.camera.toImageFrame
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +26,7 @@ internal class OcrCaptureController(
     private val ocrDocumentController: OcrDocumentController,
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticFeedback,
+    private val imageConverter: CameraImageConverter,
     private val cameraText: () -> CameraText,
     private val appLanguage: () -> AppLanguage,
     private val resetGuidance: () -> Unit,
@@ -40,7 +39,7 @@ internal class OcrCaptureController(
         scope.launch(Dispatchers.Default) {
             resetGuidance()
             val bitmap = try {
-                imageProxy.toBitmapWithRotation()
+                imageConverter.toBitmapWithRotation(imageProxy)
             } catch (_: Throwable) {
                 uiState.update { it.copy(isOcrScanning = false, statusMessage = cameraText().cannotProcessCapturedImage) }
                 hapticService.error()
@@ -60,7 +59,7 @@ internal class OcrCaptureController(
             val recognizedDocument = runCatching {
                 recognizeOcrDocumentUseCase(
                     RecognizeOcrDocumentInput(
-                        imageFrame = bitmap.toImageFrame(),
+                        imageFrame = imageConverter.toImageFrame(bitmap),
                         mode = currentOcrMode.value,
                         translateToVietnamese = uiState.value.ocrTranslateToVietnamese,
                         strings = cameraText().ocrDocumentStrings(),

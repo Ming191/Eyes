@@ -13,13 +13,14 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import com.example.eyes.ui.camera.CameraSessionController
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 class CameraManager(
     private val context: Context
-) {
+) : CameraSessionController {
     private val analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var imageCapture: ImageCapture? = null
     private var analysisUseCase: ImageAnalysis? = null
@@ -37,10 +38,10 @@ class CameraManager(
      * @param previewView View that will display the camera preview.
      * @param onFrame Callback invoked with each captured ImageProxy for frame-by-frame analysis.
      */
-    fun bindToLifecycle(
+    override fun bindToLifecycle(
         lifecycleOwner: LifecycleOwner,
         previewView: PreviewView,
-        onFrame: ((ImageProxy) -> Unit)? = null
+        onFrame: ((ImageProxy) -> Unit)?
     ) {
         bindInternal(
             lifecycleOwner = lifecycleOwner,
@@ -184,9 +185,9 @@ class CameraManager(
         )
     }
 
-    fun takePictureAfterCenterFocus(
+    override fun takePictureAfterCenterFocus(
         onCaptured: (ImageProxy) -> Unit,
-        onError: (ImageCaptureException) -> Unit = {}
+        onError: (ImageCaptureException) -> Unit
     ) {
         val camera = boundCamera
         val previewView = boundPreviewView
