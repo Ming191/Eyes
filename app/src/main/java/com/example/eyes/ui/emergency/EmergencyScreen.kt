@@ -45,10 +45,10 @@ fun EmergencyScreen(
     val ttsText = localizedTextProvider.getString(R.string.emergency_screen_tts_short, appLanguage)
 
     fun openDialer(number: String) {
-        val intent = Intent(Intent.ACTION_DIAL).apply {
-            data = Uri.fromParts("tel", number, null)
+        val intent = Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        runCatching { context.startActivity(intent) }
+        context.applicationContext.startActivity(intent)
     }
 
     LaunchedEffect(appLanguage) {

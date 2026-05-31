@@ -1,5 +1,7 @@
 package com.example.eyes.ui.navigation
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +25,7 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -150,6 +153,7 @@ private fun MainNavigationScaffold(
     currentSpokenText: String?
 ) {
     key("main") {
+        val context = LocalContext.current
         val navController = rememberNavController()
         val requestedCameraMode by viewModel.requestedCameraMode.collectAsStateWithLifecycle()
         val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -267,8 +271,15 @@ private fun MainNavigationScaffold(
                                     viewModel.requestOpenCamera(mode)
                                     navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
                                 },
-                                onOpenEmergency = {
-                                    navController.navigate(EmergencyRoute)
+                                onOpenEmergency = { number ->
+                                    if (number == null) {
+                                        navController.navigate(EmergencyRoute)
+                                    } else {
+                                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.applicationContext.startActivity(intent)
+                                    }
                                 }
                             )
                         }
