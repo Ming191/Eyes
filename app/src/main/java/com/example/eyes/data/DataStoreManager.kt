@@ -118,6 +118,7 @@ class DataStoreManager(private val context: Context) {
             VoiceCommand.OpenEmergency -> "OPEN_EMERGENCY"
             VoiceCommand.OcrQuick -> "OCR_QUICK"
             VoiceCommand.OcrAccurate -> "OCR_ACCURATE"
+            VoiceCommand.Stop -> "STOP"
             VoiceCommand.Repeat -> "REPEAT"
             VoiceCommand.Help -> "HELP"
             is VoiceCommand.Unknown -> "UNKNOWN"
@@ -133,6 +134,7 @@ class DataStoreManager(private val context: Context) {
             value == "OPEN_EMERGENCY" -> VoiceCommand.OpenEmergency
             value == "OCR_QUICK" -> VoiceCommand.OcrQuick
             value == "OCR_ACCURATE" -> VoiceCommand.OcrAccurate
+            value == "STOP" -> VoiceCommand.Stop
             value == "REPEAT" -> VoiceCommand.Repeat
             value == "HELP" -> VoiceCommand.Help
             else -> VoiceCommand.Unknown("")

@@ -16,6 +16,7 @@ data class VoiceCommandText(
     val openEmergency: String,
     val ocrQuick: String,
     val ocrAccurate: String,
+    val stop: String,
     val nothingToRepeat: String,
     val help: String,
     val unknown: String

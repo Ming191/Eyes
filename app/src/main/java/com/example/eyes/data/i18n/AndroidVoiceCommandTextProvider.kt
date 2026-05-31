@@ -19,6 +19,7 @@ class AndroidVoiceCommandTextProvider(
         openEmergency = localizedTextProvider.getString(R.string.voice_vm_open_emergency_ack, language),
         ocrQuick = localizedTextProvider.getString(R.string.voice_vm_ocr_quick_ack, language),
         ocrAccurate = localizedTextProvider.getString(R.string.voice_vm_ocr_accurate_ack, language),
+        stop = localizedTextProvider.getString(R.string.voice_vm_stopped_ack, language),
         nothingToRepeat = localizedTextProvider.getString(R.string.voice_vm_nothing_to_repeat, language),
         help = localizedTextProvider.getString(R.string.voice_vm_help_text, language),
         unknown = localizedTextProvider.getString(R.string.voice_vm_unknown_command, language)

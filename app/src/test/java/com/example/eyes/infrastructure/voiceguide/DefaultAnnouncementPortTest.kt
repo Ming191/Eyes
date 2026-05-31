@@ -5,6 +5,7 @@ import com.example.eyes.domain.accessibility.AnnouncementCategory
 import com.example.eyes.infrastructure.accessibility.AccessibilityStateProvider
 import com.example.eyes.infrastructure.coroutines.ApplicationScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -76,12 +77,19 @@ class DefaultAnnouncementPortTest {
     }
 
     private class FakeAccessibilityStateProvider : AccessibilityStateProvider {
+        private val screenReaderLikelyEnabledState = MutableStateFlow(false)
         var screenReaderLikelyEnabled = false
+            set(value) {
+                field = value
+                screenReaderLikelyEnabledState.value = value
+            }
 
         override val isTouchExplorationEnabled: Boolean
             get() = screenReaderLikelyEnabled
 
         override val isScreenReaderLikelyEnabled: Boolean
             get() = screenReaderLikelyEnabled
+
+        override val screenReaderLikelyEnabledFlow: Flow<Boolean> = screenReaderLikelyEnabledState
     }
 }

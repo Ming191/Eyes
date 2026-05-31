@@ -31,6 +31,10 @@ class CommandParser {
             return VoiceCommand.Help
         }
 
+        if (keywordSets.any { containsAny(normalized, it.stop) }) {
+            return VoiceCommand.Stop
+        }
+
         if (keywordSets.any { containsAny(normalized, it.repeat) }) {
             return VoiceCommand.Repeat
         }
@@ -72,6 +76,7 @@ class CommandParser {
 
         private data class KeywordSet(
             val help: List<String>,
+            val stop: List<String>,
             val repeat: List<String>,
             val readText: List<String>,
             val describeScene: List<String>,
@@ -104,6 +109,13 @@ class CommandParser {
             "tôi nói được gì",
             "hướng dẫn",
             "có thể nói gì"
+            ),
+
+            stop = listOf(
+            "dừng",
+            "dừng lại",
+            "im lặng",
+            "thôi"
             ),
 
             repeat = listOf(
@@ -160,6 +172,7 @@ class CommandParser {
 
         private val EN_KEYWORDS = KeywordSet(
             help = listOf("help", "what can i say", "commands"),
+            stop = listOf("stop", "be quiet", "silence"),
             repeat = listOf("repeat", "say again", "read again"),
             readText = listOf("read text", "read this", "read for me", "read words"),
             describeScene = listOf("what is in front", "what's in front", "describe", "describe scene", "what is around"),

@@ -31,6 +31,9 @@ sealed interface VoiceCommand {
 
     data object OcrAccurate : VoiceCommand
 
+    /** Stop current voice interaction flow and return to a safe idle state. */
+    data object Stop : VoiceCommand
+
     /** Repeat the last spoken response. */
     data object Repeat : VoiceCommand
 

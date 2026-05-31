@@ -1,14 +1,16 @@
-package com.example.eyes.ui.home
+﻿package com.example.eyes.ui.home
 
 import android.app.Application
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.test.core.app.ApplicationProvider
+import com.example.eyes.R
 import com.example.eyes.application.home.AnnounceHomeGreetingUseCase
 import com.example.eyes.application.home.BuildHomeStateUseCase
 import com.example.eyes.data.i18n.AndroidHomeAnnouncementTextProvider
 import com.example.eyes.data.i18n.AndroidHomeTextProvider
+import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.infrastructure.i18n.AndroidLocalizedTextProvider
 import com.example.eyes.application.ports.SpeechOutput
 import org.junit.After
@@ -44,6 +46,14 @@ class HomeScreenSemanticsTest {
         val localizedTextProvider = AndroidLocalizedTextProvider(application)
         val homeAnnouncementTextProvider = AndroidHomeAnnouncementTextProvider(localizedTextProvider)
         val homeTextProvider = AndroidHomeTextProvider(localizedTextProvider)
+        val readQuickDescription = localizedTextProvider.getString(
+            R.string.home_action_read_quick_accessibility,
+            AppLanguage.VI
+        )
+        val emergencyDescription = localizedTextProvider.getString(
+            R.string.home_action_emergency_accessibility,
+            AppLanguage.VI
+        )
         val viewModel = HomeViewModel(
             buildHomeState = BuildHomeStateUseCase(homeTextProvider),
             announceHomeGreeting = AnnounceHomeGreetingUseCase(homeAnnouncementTextProvider, FakeSpeechOutput())
@@ -60,7 +70,6 @@ class HomeScreenSemanticsTest {
                         HomeActionType.DetectObjects -> Unit
                         HomeActionType.RecognizeCurrency -> Unit
                         HomeActionType.EmergencyCall -> Unit
-                        HomeActionType.Voice -> Unit
                     }
                 },
                 onEmergencyNumberSelected = {}
@@ -69,22 +78,15 @@ class HomeScreenSemanticsTest {
 
         // THEN
         composeTestRule.onNodeWithContentDescription(
-            "Đọc văn bản nhanh",
-            substring = true
+            readQuickDescription
         )
             .assertHasClickAction()
 
         composeTestRule.onNodeWithContentDescription(
-            "Gọi khẩn cấp",
-            substring = true
+            emergencyDescription
         )
             .assertHasClickAction()
 
-        composeTestRule.onNodeWithContentDescription(
-            "Ra lệnh bằng giọng nói",
-            substring = true
-        )
-            .assertHasClickAction()
     }
 
     private class FakeSpeechOutput : SpeechOutput {

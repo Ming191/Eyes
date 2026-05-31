@@ -60,6 +60,11 @@ class HandleVoiceCommandUseCase(
                 VoiceCommandAction(navigationTarget = VoiceNavigationTargetKind.Camera)
             }
 
+            VoiceCommand.Stop -> {
+                speakAndRemember(text.stop, language)
+                VoiceCommandAction(navigationTarget = VoiceNavigationTargetKind.Home)
+            }
+
             VoiceCommand.OpenHome -> {
                 speakAndRemember(text.openHome, language)
                 VoiceCommandAction(navigationTarget = VoiceNavigationTargetKind.Home)
