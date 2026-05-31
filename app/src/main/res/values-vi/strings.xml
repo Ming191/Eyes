@@ -16,7 +16,7 @@
     <string name="settings_select_vietnamese">Chọn tiếng Việt</string>
     <string name="settings_select_english">Chọn tiếng Anh</string>
     <string name="settings_language_changed_vietnamese">Đã chuyển sang tiếng Việt.</string>
-    <string name="settings_language_changed_english">Change to English.</string>
+    <string name="settings_language_changed_english">Changed to English.</string>
     <string name="settings_preview_feedback_en">Đang phát thử phản hồi. Tốc độ đọc %1$s lần. Độ nhạy cảnh báo %2$d phần trăm.</string>
     <string name="settings_auto_translate_description">Dịch EN sang VI khi OCR</string>
     <string name="settings_auto_translate_label">Dịch EN → VI</string>
