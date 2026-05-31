@@ -3,13 +3,11 @@ package com.example.eyes.ui.camera
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.camera.core.ImageProxy
-import com.example.eyes.application.ports.CurrencyRecognizerFactory
-import com.example.eyes.application.ports.CurrencyRecognizerPort
-import com.example.eyes.domain.haptics.HapticFeedback
+import com.example.eyes.application.currency.CurrencyRecognitionPolicy
+import com.example.eyes.application.currency.RecognizeCurrencyUseCase
+import com.example.eyes.application.ports.HapticFeedback
 import com.example.eyes.domain.i18n.AppLanguage
-import com.example.eyes.domain.speech.SpeechOutput
-import com.example.eyes.infrastructure.camera.toBitmapWithRotation
-import com.example.eyes.infrastructure.camera.toImageFrame
+import com.example.eyes.application.ports.SpeechOutput
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,14 +17,14 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.atomic.AtomicReference
 
 internal class CurrencyRecognitionController(
     private val uiState: MutableStateFlow<CameraUiState>,
-    private val currencyRecognizerFactory: CurrencyRecognizerFactory,
+    private val recognizeCurrencyUseCase: RecognizeCurrencyUseCase,
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticFeedback,
     private val bitmapStore: CameraBitmapStore,
+    private val imageConverter: com.example.eyes.infrastructure.camera.CameraImageConverter,
     private val currencyTextMapper: CurrencyTextMapper,
     private val cameraText: () -> CameraText,
     private val appLanguage: () -> AppLanguage,
@@ -34,9 +32,8 @@ internal class CurrencyRecognitionController(
 ) {
     private val isProcessingCurrencyPreview = AtomicBoolean(false)
     private val lastCurrencyPreviewAtMs = AtomicLong(0L)
-    private val lastCurrencyNoDetectionAtMs = AtomicLong(0L)
-    private val lastCurrencyAnnouncement = AtomicReference("")
-    private var currencyAnalyzer: CurrencyRecognizerPort? = null
+    private val recognitionPolicy = CurrencyRecognitionPolicy()
+    private val onCurrencyResultCallback: (String, Float) -> Unit = ::onCurrencyResult
 
     fun processPreviewImageProxy(imageProxy: ImageProxy, scope: CoroutineScope) {
         val now = System.currentTimeMillis()
@@ -53,9 +50,9 @@ internal class CurrencyRecognitionController(
         scope.launch(Dispatchers.Default) {
             var bitmap: Bitmap? = null
             try {
-                val analyzer = getCurrencyAnalyzer() ?: return@launch
-                bitmap = imageProxy.toBitmapWithRotation()
-                analyzer.analyze(bitmap.toImageFrame())
+                if (!ensureCurrencyRecognizer()) return@launch
+                bitmap = imageConverter.toBitmapWithRotation(imageProxy)
+                recognizeCurrencyUseCase.analyze(imageConverter.toImageFrame(bitmap), onCurrencyResultCallback)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
@@ -88,7 +85,7 @@ internal class CurrencyRecognitionController(
     fun processCapturedImage(imageProxy: ImageProxy, scope: CoroutineScope) {
         scope.launch(Dispatchers.Default) {
             val capturedBitmap = try {
-                imageProxy.toBitmapWithRotation()
+                imageConverter.toBitmapWithRotation(imageProxy)
             } catch (_: Throwable) {
                 uiState.update {
                     it.copy(
@@ -114,8 +111,7 @@ internal class CurrencyRecognitionController(
                 )
             }
 
-            val analyzer = getCurrencyAnalyzer()
-            if (analyzer == null) {
+            if (!ensureCurrencyRecognizer()) {
                 uiState.update {
                     it.copy(
                         isCurrencyScanning = false,
@@ -128,8 +124,8 @@ internal class CurrencyRecognitionController(
             }
 
             runCatching {
-                analyzer.resetBuffer()
-                analyzer.analyze(capturedBitmap.toImageFrame())
+                recognizeCurrencyUseCase.resetBuffer()
+                recognizeCurrencyUseCase.analyze(imageConverter.toImageFrame(capturedBitmap), onCurrencyResultCallback)
             }.onFailure { error ->
                 Log.e(TAG, "Currency capture failed", error)
                 uiState.update {
@@ -157,7 +153,7 @@ internal class CurrencyRecognitionController(
 
     fun prepareForNextCapture() {
         resetAnnouncementDebounce()
-        currencyAnalyzer?.resetBuffer()
+        recognizeCurrencyUseCase.resetBuffer()
         updateUiStateAndRecycleReplacedBitmap {
             it.copy(
                 ocrCapturedBitmap = null,
@@ -172,24 +168,21 @@ internal class CurrencyRecognitionController(
     }
 
     fun resetBuffer() {
-        currencyAnalyzer?.resetBuffer()
+        recognizeCurrencyUseCase.resetBuffer()
     }
 
     fun resetAnnouncementDebounce() {
-        lastCurrencyAnnouncement.set("")
-        lastCurrencyNoDetectionAtMs.set(0L)
+        recognitionPolicy.resetAnnouncementDebounce()
     }
 
     fun close() {
-        currencyAnalyzer?.close()
+        recognizeCurrencyUseCase.close()
     }
 
-    private fun getCurrencyAnalyzer(): CurrencyRecognizerPort? {
-        currencyAnalyzer?.let { return it }
+    private fun ensureCurrencyRecognizer(): Boolean {
         return try {
-            currencyRecognizerFactory.create(::onCurrencyResult).also { analyzer ->
-                currencyAnalyzer = analyzer
-            }
+            recognizeCurrencyUseCase.prepare(onCurrencyResultCallback)
+            true
         } catch (error: Throwable) {
             Log.e(TAG, "Currency model load failed", error)
             val message = cameraText().currencyModelLoadError
@@ -201,21 +194,28 @@ internal class CurrencyRecognitionController(
                     currencyConfidence = 0f
                 )
             }
-            null
+            false
         }
     }
 
     private fun onCurrencyResult(label: String, confidence: Float) {
         if (uiState.value.activeMode != CameraMode.CURRENCY) return
-        val safeConfidence = confidence.coerceIn(0f, 1f)
+        val decision = recognitionPolicy.onResult(
+            label = label,
+            confidence = confidence,
+            hadDisplay = uiState.value.currencyDisplay.isNotEmpty()
+        )
 
-        if (label == CurrencyRecognizerPort.EMPTY_LABEL) {
-            val hadResult = uiState.value.currencyDisplay.isNotEmpty()
-            if (hadResult) {
-                resetAnnouncementDebounce()
-                currencyAnalyzer?.resetBuffer()
+        if (decision.isEmpty) {
+            if (decision.shouldResetBuffer) {
+                recognizeCurrencyUseCase.resetBuffer()
             }
-            maybeSpeakNoCurrencyDetected()
+            if (decision.shouldSpeakNoDetection) {
+                speechOutput.speak(
+                    cameraText().noCurrencyDetected,
+                    appLanguage().ttsLocale
+                )
+            }
             uiState.update { state ->
                 if (state.activeMode != CameraMode.CURRENCY) {
                     state
@@ -232,12 +232,12 @@ internal class CurrencyRecognitionController(
             return
         }
 
-        val display = currencyTextMapper.display(label)
-        val spoken = currencyTextMapper.spoken(label)
-        val confidencePercent = String.format(Locale.getDefault(), "%.0f%%", safeConfidence * 100f)
+        val detectedLabel = decision.label ?: return
+        val display = currencyTextMapper.display(detectedLabel)
+        val spoken = currencyTextMapper.spoken(detectedLabel)
+        val confidencePercent = String.format(Locale.getDefault(), "%.0f%%", decision.safeConfidence * 100f)
 
-        if (lastCurrencyAnnouncement.get() != label) {
-            lastCurrencyAnnouncement.set(label)
+        if (decision.shouldSpeakDetected) {
             hapticService.confirm()
             speechOutput.speak(spoken, appLanguage().ttsLocale)
         }
@@ -248,7 +248,7 @@ internal class CurrencyRecognitionController(
             } else {
                 state.copy(
                     currencyDisplay = display,
-                    currencyConfidence = safeConfidence,
+                    currencyConfidence = decision.safeConfidence,
                     isCurrencyScanning = false,
                     statusMessage = cameraText().currencyDetectedStatus(display, confidencePercent),
                     lastAnnouncement = spoken,
@@ -258,20 +258,8 @@ internal class CurrencyRecognitionController(
         }
     }
 
-    private fun maybeSpeakNoCurrencyDetected() {
-        val now = System.currentTimeMillis()
-        if (now - lastCurrencyNoDetectionAtMs.get() < CURRENCY_NO_DETECTION_REPEAT_MS) return
-
-        lastCurrencyNoDetectionAtMs.set(now)
-        speechOutput.speak(
-            cameraText().noCurrencyDetected,
-            appLanguage().ttsLocale
-        )
-    }
-
     private companion object {
         private const val TAG = "CurrencyRecognitionController"
         private const val CURRENCY_PREVIEW_INTERVAL_MS = 1_500L
-        private const val CURRENCY_NO_DETECTION_REPEAT_MS = 10_000L
     }
 }

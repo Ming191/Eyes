@@ -15,6 +15,8 @@
     <string name="settings_language_section_description">Language selection section</string>
     <string name="settings_select_vietnamese">Select Vietnamese</string>
     <string name="settings_select_english">Select English</string>
+    <string name="settings_language_changed_vietnamese">Đã chuyển sang tiếng Việt.</string>
+    <string name="settings_language_changed_english">Change to English.</string>
     <string name="settings_preview_feedback_en">Playing feedback preview. Speech speed %1$s times. Alert sensitivity %2$d percent.</string>
     <string name="settings_auto_translate_description">Translate EN to VI during OCR</string>
     <string name="settings_auto_translate_label">Translate EN → VI</string>
@@ -45,7 +47,7 @@
     <string name="voice_response_recognize_currency">Opening currency recognition.</string>
     <string name="voice_response_nothing_to_repeat">Nothing to repeat yet.</string>
     <string name="voice_response_stopped">Stopped.</string>
-    <string name="voice_response_help">Say read text, describe scene, recognize money, repeat, or stop.</string>
+    <string name="voice_response_help">Say read text, describe scene, recognize money, or repeat.</string>
     <string name="voice_response_unknown">Command not recognized.</string>
     <string name="voice_preview_final_text">read for me</string>
     <string name="scene_offline_fallback">Cannot describe scene yet.</string>
@@ -159,9 +161,15 @@
     <string name="voice_vm_read_text_ack">Opening read text mode.</string>
     <string name="voice_vm_describe_scene_ack">Opening scene description mode.</string>
     <string name="voice_vm_recognize_currency_ack">Opening currency recognition mode.</string>
+    <string name="voice_vm_detect_objects_ack">Opening object detection mode.</string>
+    <string name="voice_vm_open_home_ack">Switched to Home.</string>
+    <string name="voice_vm_open_settings_ack">Switched to Settings.</string>
+    <string name="voice_vm_open_emergency_ack">Opening emergency call.</string>
+    <string name="voice_vm_ocr_quick_ack">Switched to quick OCR.</string>
+    <string name="voice_vm_ocr_accurate_ack">Switched to accurate OCR.</string>
     <string name="voice_vm_nothing_to_repeat">There is nothing to repeat yet.</string>
     <string name="voice_vm_stopped_ack">Stopped.</string>
-    <string name="voice_vm_help_text">You can say: read for me to read text. What is in front to describe the scene. How much is this bill to recognize money. Repeat to hear again. Stop to stop and return home.</string>
+    <string name="voice_vm_help_text">You can say: read for me, describe scene, detect objects, recognize money, quick OCR, accurate OCR, open settings, go home, emergency call, or repeat.</string>
     <string name="voice_vm_unknown_command">I did not get that command. Please speak more clearly.</string>
     <string name="onboarding_page_permissions_title">Grant essential permissions</string>
     <string name="onboarding_page_permissions_summary">Grant both permissions. Camera reads text, describes scenes, and recognizes money. Microphone is used when you open the voice command screen.</string>
@@ -223,9 +231,9 @@
     <string name="nav_bottom_bar_description">Main navigation bar</string>
     <string name="nav_selected_description">Selected</string>
     <string name="nav_unselected_description">Not selected</string>
-    <string name="voice_guide_home_intro">Home.</string>
-    <string name="voice_guide_camera_intro">Camera.</string>
-    <string name="voice_guide_settings_intro">Settings.</string>
+    <string name="voice_guide_home_intro">Switched to Home.</string>
+    <string name="voice_guide_camera_intro">Switched to Camera.</string>
+    <string name="voice_guide_settings_intro">Switched to Settings.</string>
     <string name="voice_guide_subtitle_description">Spoken text subtitle: %1$s</string>
     <string name="camera_screen_description">Camera screen in %1$s mode.</string>
     <string name="camera_captured_ocr_description">Captured image</string>

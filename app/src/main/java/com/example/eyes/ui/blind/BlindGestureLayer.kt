@@ -9,22 +9,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.application.ports.SpeechOutput
 import kotlin.math.abs
-import kotlinx.coroutines.withTimeoutOrNull
 
 val LocalBlindFocusManager = compositionLocalOf<BlindFocusManager?> { null }
 val LocalBlindFocusRouteKey = compositionLocalOf { BlindFocusManager.GLOBAL_ROUTE_KEY }
@@ -33,12 +33,20 @@ val LocalBlindFocusRouteKey = compositionLocalOf { BlindFocusManager.GLOBAL_ROUT
 fun BlindGestureLayer(
     speechOutput: SpeechOutput,
     localeProvider: () -> java.util.Locale? = { null },
+    enabled: Boolean = true,
     noActionsLabel: String,
     layerDescription: String,
     focusOverlayDescription: String,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
+    if (!enabled) {
+        Box(modifier = modifier.fillMaxSize()) {
+            content()
+        }
+        return
+    }
+
     val currentLocaleProvider = rememberUpdatedState(localeProvider)
     val currentNoActionsLabel = rememberUpdatedState(noActionsLabel)
     val manager = remember(speechOutput) {
@@ -128,7 +136,7 @@ private fun FocusBoundsOverlay(
     }
 }
 
-private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.handleExploreByTouch(
+private suspend fun AwaitPointerEventScope.handleExploreByTouch(
     manager: BlindFocusManager
 ) {
     while (true) {
@@ -140,7 +148,7 @@ private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.han
     }
 }
 
-private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.waitForUpOrCancellation(
+private suspend fun AwaitPointerEventScope.waitForUpOrCancellation(
     pass: PointerEventPass
 ): PointerInputChange? {
     while (true) {

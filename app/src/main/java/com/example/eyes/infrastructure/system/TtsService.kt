@@ -7,7 +7,8 @@ import android.media.AudioManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
-import com.example.eyes.domain.speech.SpeechOutput
+import android.view.accessibility.AccessibilityManager
+import com.example.eyes.application.ports.SpeechOutput
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +17,8 @@ import java.util.Locale
 import java.util.UUID
 
 class TtsService(context: Context) : SpeechOutput {
+    private val accessibilityManager =
+        context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
 
     private enum class InitState { PENDING, READY, FAILED }
 
@@ -122,6 +125,10 @@ class TtsService(context: Context) : SpeechOutput {
     private suspend fun speakAndAwaitInternal(text: String, locale: Locale?) {
         val normalizedText = preprocessText(text, locale)
         if (normalizedText.isBlank()) return
+        if (isScreenReaderLikelyEnabled()) {
+            stop()
+            return
+        }
 
         val completion = CompletableDeferred<Unit>()
         synchronized(lock) {
@@ -140,6 +147,10 @@ class TtsService(context: Context) : SpeechOutput {
     private fun speakInternal(text: String, locale: Locale?) {
         val normalizedText = preprocessText(text, locale)
         if (normalizedText.isBlank()) return
+        if (isScreenReaderLikelyEnabled()) {
+            stop()
+            return
+        }
 
         synchronized(lock) {
             when (initState) {
@@ -351,6 +362,9 @@ class TtsService(context: Context) : SpeechOutput {
     private fun isLocaleUnsupported(result: Int): Boolean {
         return result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED
     }
+
+    private fun isScreenReaderLikelyEnabled(): Boolean =
+        accessibilityManager.isEnabled && accessibilityManager.isTouchExplorationEnabled
 
     private companion object {
         private const val TAG = "TtsService"

@@ -1,12 +1,11 @@
 package com.example.eyes.ui.camera
 
 import com.example.eyes.R
-import com.example.eyes.application.ocr.RecognizeOcrDocumentStrings
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrGuidanceEvaluator.OcrGuidanceText
 import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.domain.scene.SceneDescriptionError
-import com.example.eyes.i18n.LocalizedTextProvider
+import com.example.eyes.infrastructure.i18n.LocalizedTextProvider
 
 data class CameraText(
     val ocrGuidanceSearch: String,
@@ -159,17 +158,6 @@ data class CameraText(
         moveDown = ocrGuidanceMoveDown,
         ready = ocrGuidanceReady,
         holdSteady = ocrGuidanceHoldSteady
-    )
-
-    fun ocrDocumentStrings(): RecognizeOcrDocumentStrings = RecognizeOcrDocumentStrings(
-        gptRefusedReason = gptRefusedReason,
-        apiKeyReason = apiKeyReason,
-        modelPermissionReason = modelPermissionReason,
-        quotaReason = quotaReason,
-        timeoutReason = timeoutReason,
-        unknownReason = unknownReason,
-        unknownError = unknownError,
-        translationUnchangedReason = translationUnchangedReason
     )
 
     fun translateDebug(value: String, target: CameraText): String = when (value) {

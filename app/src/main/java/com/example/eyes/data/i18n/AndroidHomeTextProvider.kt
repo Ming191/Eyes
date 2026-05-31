@@ -6,7 +6,7 @@ import com.example.eyes.application.home.HomeActionState
 import com.example.eyes.application.home.HomeState
 import com.example.eyes.application.home.HomeTextProvider
 import com.example.eyes.domain.i18n.AppLanguage
-import com.example.eyes.i18n.LocalizedTextProvider
+import com.example.eyes.infrastructure.i18n.LocalizedTextProvider
 
 class AndroidHomeTextProvider(
     private val localizedTextProvider: LocalizedTextProvider
@@ -49,14 +49,7 @@ class AndroidHomeTextProvider(
                 text(R.string.home_action_emergency_description, language),
                 text(R.string.home_action_emergency_supporting, language),
                 text(R.string.home_action_emergency_accessibility, language)
-            ),
-            HomeActionState(
-                HomeActionKind.Voice,
-                text(R.string.home_action_voice_title, language),
-                text(R.string.home_action_voice_description, language),
-                text(R.string.home_action_voice_supporting, language),
-                text(R.string.home_action_voice_accessibility, language)
-            ),
+            )
         )
     )
 

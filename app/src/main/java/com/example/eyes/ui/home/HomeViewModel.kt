@@ -8,7 +8,7 @@ import com.example.eyes.application.home.BuildHomeStateUseCase
 import com.example.eyes.application.home.HomeActionKind
 import com.example.eyes.application.home.HomeActionState
 import com.example.eyes.application.home.HomeState
-import com.example.eyes.domain.settings.SettingsRepository
+import com.example.eyes.application.ports.SettingsRepository
 import com.example.eyes.domain.i18n.AppLanguage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +22,6 @@ enum class HomeActionType {
     DetectObjects,
     RecognizeCurrency,
     EmergencyCall,
-    Voice,
 }
 
 @Immutable
@@ -104,6 +103,6 @@ class HomeViewModel(
         HomeActionKind.DetectObjects -> HomeActionType.DetectObjects
         HomeActionKind.RecognizeCurrency -> HomeActionType.RecognizeCurrency
         HomeActionKind.EmergencyCall -> HomeActionType.EmergencyCall
-        HomeActionKind.Voice -> HomeActionType.Voice
+        HomeActionKind.Voice -> error("Voice action is exposed through global mic")
     }
 }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import com.example.eyes.application.camera.ObserveCameraPreferencesUseCase
+import com.example.eyes.application.currency.RecognizeCurrencyUseCase
 import com.example.eyes.application.home.AnnounceHomeGreetingUseCase
 import com.example.eyes.application.home.BuildHomeStateUseCase
 import com.example.eyes.application.home.HomeAnnouncementTextProvider
@@ -20,14 +21,19 @@ import com.example.eyes.application.objectdetection.WarmUpObjectDetectionUseCase
 import com.example.eyes.application.ocr.RecognizeOcrDocumentUseCase
 import com.example.eyes.application.ports.ObjectDetectorPort
 import com.example.eyes.application.ports.OcrEnginePort
+import com.example.eyes.application.ports.OcrGuidanceAnalyzerPort
 import com.example.eyes.application.ports.OcrTranslatorPort
 import com.example.eyes.application.ports.CurrencyRecognizerFactory
 import com.example.eyes.application.scene.DescribeSceneUseCase
 import com.example.eyes.application.settings.ObserveSettingsUseCase
 import com.example.eyes.application.settings.UpdateSettingsUseCase
 import com.example.eyes.application.voice.HandleVoiceCommandUseCase
+import com.example.eyes.application.voice.SemanticVoiceCommandMatcher
 import com.example.eyes.application.voice.VoiceCommandTextProvider
 import com.example.eyes.infrastructure.camera.CameraManager
+import com.example.eyes.infrastructure.camera.AndroidCameraImageConverter
+import com.example.eyes.infrastructure.camera.CameraImageConverter
+import com.example.eyes.infrastructure.camera.CameraSessionController
 import com.example.eyes.data.DataStoreManager
 import com.example.eyes.data.i18n.AndroidHomeTextProvider
 import com.example.eyes.data.i18n.AndroidHomeAnnouncementTextProvider
@@ -37,19 +43,20 @@ import com.example.eyes.data.navigation.DataStoreNavigationPreferencesRepository
 import com.example.eyes.data.scene.SceneRepositorySceneDescriptionRepository
 import com.example.eyes.data.settings.DataStoreSettingsRepository
 import com.example.eyes.data.voice.DataStoreVoiceCommandRepository
-import com.example.eyes.domain.navigation.NavigationPreferencesRepository
-import com.example.eyes.domain.audio.AudioRouteProvider
-import com.example.eyes.domain.haptics.HapticFeedback
-import com.example.eyes.domain.scene.SceneDescriptionRepository
-import com.example.eyes.domain.settings.SettingsRepository
-import com.example.eyes.domain.voice.VoiceCommandRepository
+import com.example.eyes.application.ports.NavigationPreferencesRepository
+import com.example.eyes.application.ports.AudioRouteProvider
+import com.example.eyes.application.ports.HapticFeedback
+import com.example.eyes.application.ports.SceneDescriptionRepository
+import com.example.eyes.application.ports.SettingsRepository
+import com.example.eyes.application.ports.VoiceCommandRepository
 import com.example.eyes.domain.voice.CommandParser
-import com.example.eyes.domain.voice.SpeechRecognitionPort
-import com.example.eyes.domain.accessibility.AnnouncementController
-import com.example.eyes.data.remote.Gpt4oSceneDescriptionEngine
-import com.example.eyes.i18n.AndroidLocalizedTextProvider
-import com.example.eyes.i18n.LocalizedTextProvider
+import com.example.eyes.application.ports.SpeechRecognitionPort
+import com.example.eyes.application.ports.AnnouncementPort
+import com.example.eyes.application.ports.SpeechOutput
+import com.example.eyes.infrastructure.i18n.AndroidLocalizedTextProvider
+import com.example.eyes.infrastructure.i18n.LocalizedTextProvider
 import com.example.eyes.infrastructure.openai.Gpt4oOcrEngine
+import com.example.eyes.infrastructure.openai.Gpt4oSceneDescriptionEngine
 import com.example.eyes.infrastructure.openai.GptTranslationEngine
 import com.example.eyes.infrastructure.ocr.MlKitOcrEngine
 import com.example.eyes.infrastructure.ocr.MlKitOcrGuidanceAnalyzer
@@ -63,14 +70,15 @@ import com.example.eyes.infrastructure.objectdetection.YoloExecutorchModelLoader
 import com.example.eyes.infrastructure.system.HapticService
 import com.example.eyes.infrastructure.system.SttService
 import com.example.eyes.infrastructure.system.TtsService
+import com.example.eyes.infrastructure.voice.MiniLmSemanticVoiceCommandMatcher
 import com.example.eyes.ui.camera.CameraViewModel
 import com.example.eyes.ui.home.HomeViewModel
 import com.example.eyes.ui.navigation.AppNavViewModel
 import com.example.eyes.ui.settings.SettingsViewModel
-import com.example.eyes.voiceguide.AccessibilityStateProvider
-import com.example.eyes.voiceguide.AndroidAccessibilityStateProvider
-import com.example.eyes.voiceguide.ApplicationScope
-import com.example.eyes.voiceguide.DefaultAnnouncementController
+import com.example.eyes.infrastructure.accessibility.AccessibilityStateProvider
+import com.example.eyes.infrastructure.accessibility.AndroidAccessibilityStateProvider
+import com.example.eyes.infrastructure.coroutines.ApplicationScope
+import com.example.eyes.infrastructure.voiceguide.DefaultAnnouncementPort
 import org.koin.core.qualifier.named
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
@@ -83,10 +91,10 @@ val appModule = module {
     single<DestinationAnnouncementTextProvider> { AndroidDestinationAnnouncementTextProvider(get()) }
     single<VoiceCommandTextProvider> { AndroidVoiceCommandTextProvider(get()) }
     single { TtsService(androidContext()) }
-    single<com.example.eyes.domain.speech.SpeechOutput> { get<TtsService>() }
+    single<SpeechOutput> { get<TtsService>() }
     single { ApplicationScope() }
     single<AccessibilityStateProvider> { AndroidAccessibilityStateProvider(androidContext()) }
-    single<AnnouncementController> { DefaultAnnouncementController(get<DataStoreManager>().voiceGuideEnabledFlow, get(), get(), get()) }
+    single<AnnouncementPort> { DefaultAnnouncementPort(get<DataStoreManager>().voiceGuideEnabledFlow, get(), get(), get()) }
     single { HapticService(androidContext()) }
     single<HapticFeedback> { get<HapticService>() }
     single<AudioRouteProvider> { AndroidAudioRouteProvider(androidContext()) }
@@ -97,10 +105,11 @@ val appModule = module {
     factory { ObserveSettingsUseCase(get()) }
     factory { ObserveCameraPreferencesUseCase(get(), get()) }
     factory { UpdateSettingsUseCase(get(), get()) }
-    single { CameraManager(androidContext()) }
+    single<CameraSessionController> { CameraManager(androidContext()) }
     factory { SttService(androidContext()) }
     factory<SpeechRecognitionPort> { get<SttService>() }
     single { CommandParser() }
+    single<SemanticVoiceCommandMatcher> { MiniLmSemanticVoiceCommandMatcher(androidContext()) }
     factory { BuildHomeStateUseCase(get()) }
     factory { AnnounceHomeGreetingUseCase(get(), get(), get()) }
     factory { ObserveAppNavStateUseCase(get(), get()) }
@@ -112,7 +121,8 @@ val appModule = module {
     factory { HandleVoiceCommandUseCase(get(), get(), get()) }
     factory<OcrEnginePort>(named("quick-ocr")) { MlKitOcrEngine() }
     factory<OcrEnginePort>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
-    factory { MlKitOcrGuidanceAnalyzer() }
+    factory<OcrGuidanceAnalyzerPort> { MlKitOcrGuidanceAnalyzer() }
+    single<CameraImageConverter> { AndroidCameraImageConverter() }
     factory<OcrTranslatorPort> { GptTranslationEngine() }
     factory { RecognizeOcrDocumentUseCase(get(named("quick-ocr")), get(named("accuracy-ocr")), get()) }
     single { ExecutorchModelAssetCopier(androidContext()) }
@@ -120,6 +130,7 @@ val appModule = module {
     single { YoloExecutorchDetector(get()) }
     single<ObjectDetectorPort> { get<YoloExecutorchDetector>() }
     single<CurrencyRecognizerFactory> { CurrencyAnalyzerFactory(androidContext()) }
+    factory { RecognizeCurrencyUseCase(get()) }
     factory { DetectObjectsUseCase(get()) }
     factory { WarmUpObjectDetectionUseCase(get()) }
     single<SceneDescriptionEngine> { Gpt4oSceneDescriptionEngine() }
@@ -148,7 +159,8 @@ val appModule = module {
             applySpeechRateUseCase = get(),
             setCameraOcrModeUseCase = get(),
             announceDestinationUseCase = get(),
-            speechOutput = get()
+            speechOutput = get(),
+            localizedTextProvider = get()
         )
     }
     viewModel {
@@ -171,15 +183,18 @@ val appModule = module {
             detectObjectsUseCase = get(),
             warmUpObjectDetectionUseCase = get(),
             audioRouteProvider = get(),
-            currencyRecognizerFactory = get(),
+            recognizeCurrencyUseCase = get(),
+            imageConverter = get(),
             localizedTextProvider = get()
         )
     }
     viewModel {
         SettingsViewModel(
             observeSettings = get(),
-            updateSettings = get()
+            updateSettings = get(),
+            speechOutput = get(),
+            localizedTextProvider = get()
         )
     }
-    viewModel { com.example.eyes.ui.voice.VoiceCommandViewModel(get(), get(), get(), get(), get()) }
+    viewModel { com.example.eyes.ui.voice.VoiceCommandViewModel(get(), get(), get(), get(), get(), get()) }
 }

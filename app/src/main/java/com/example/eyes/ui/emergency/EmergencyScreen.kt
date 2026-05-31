@@ -24,8 +24,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.eyes.R
 import com.example.eyes.domain.i18n.AppLanguage
-import com.example.eyes.i18n.LocalizedTextProvider
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.infrastructure.i18n.LocalizedTextProvider
+import com.example.eyes.application.ports.SpeechOutput
 import com.example.eyes.ui.blind.LocalBlindFocusManager
 import com.example.eyes.ui.blind.blindFocusable
 import org.koin.compose.koinInject
@@ -45,10 +45,10 @@ fun EmergencyScreen(
     val ttsText = localizedTextProvider.getString(R.string.emergency_screen_tts_short, appLanguage)
 
     fun openDialer(number: String) {
-        val intent = Intent(Intent.ACTION_DIAL).apply {
-            data = Uri.fromParts("tel", number, null)
+        val intent = Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        runCatching { context.startActivity(intent) }
+        context.applicationContext.startActivity(intent)
     }
 
     LaunchedEffect(appLanguage) {

@@ -3,6 +3,7 @@ package com.example.eyes.ui.navigation
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.eyes.R
 import com.example.eyes.application.navigation.AnnounceDestinationUseCase
 import com.example.eyes.application.navigation.ApplySpeechRateUseCase
 import com.example.eyes.application.navigation.CompleteOnboardingUseCase
@@ -12,7 +13,8 @@ import com.example.eyes.application.navigation.UpdateAppLanguageUseCase
 import com.example.eyes.domain.navigation.Destination
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrMode
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.application.ports.SpeechOutput
+import com.example.eyes.infrastructure.i18n.LocalizedTextProvider
 import com.example.eyes.ui.camera.CameraMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -37,6 +39,7 @@ class AppNavViewModel(
     private val setCameraOcrModeUseCase: SetCameraOcrModeUseCase,
     private val announceDestinationUseCase: AnnounceDestinationUseCase,
     private val speechOutput: SpeechOutput,
+    private val localizedTextProvider: LocalizedTextProvider,
 ) : ViewModel() {
 
     private val _requestedCameraMode = MutableStateFlow<CameraMode?>(null)
@@ -70,6 +73,14 @@ class AppNavViewModel(
     fun setAppLanguage(language: AppLanguage) {
         viewModelScope.launch {
             updateAppLanguageUseCase(language)
+            val announcement = localizedTextProvider.getString(
+                resId = when (language) {
+                    AppLanguage.VI -> R.string.settings_language_changed_vietnamese
+                    AppLanguage.EN -> R.string.settings_language_changed_english
+                },
+                language = language
+            )
+            speechOutput.speak(announcement, language.ttsLocale)
         }
     }
 

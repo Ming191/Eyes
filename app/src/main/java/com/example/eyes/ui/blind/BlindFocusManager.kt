@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.application.ports.SpeechOutput
 import java.util.Locale
 
 class BlindFocusManager(
@@ -58,13 +58,15 @@ class BlindFocusManager(
         clearFocus()
     }
 
-    fun focusItem(id: String, routeKey: String = GLOBAL_ROUTE_KEY) {
+    fun focusItem(id: String, routeKey: String = GLOBAL_ROUTE_KEY, speak: Boolean = true) {
         val index = activeItems().indexOfFirst { it.id == id && it.routeKey == routeKey }
         if (index < 0) return
 
         setFocus(index)
         updateFocusedBounds()
-        speakFocused(force = true)
+        if (speak) {
+            speakFocused(force = true)
+        }
     }
 
     fun focusNext() {

@@ -2,11 +2,11 @@ package com.example.eyes.di
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import com.example.eyes.domain.accessibility.AnnouncementController
-import com.example.eyes.domain.voice.SpeechRecognitionPort
+import com.example.eyes.application.ports.AnnouncementPort
+import com.example.eyes.application.ports.SpeechRecognitionPort
 import com.example.eyes.infrastructure.system.HapticService
 import com.example.eyes.infrastructure.system.TtsService
-import com.example.eyes.voiceguide.AccessibilityStateProvider
+import com.example.eyes.infrastructure.accessibility.AccessibilityStateProvider
 import org.junit.After
 import org.junit.Assert.assertNotNull
 import org.junit.Before
@@ -54,7 +54,7 @@ class KoinModulesTest : KoinTest {
         assertNotNull(get<com.example.eyes.ui.home.HomeViewModel>())
         assertNotNull(get<SpeechRecognitionPort>())
         assertNotNull(get<AccessibilityStateProvider>())
-        assertNotNull(get<AnnouncementController>())
+        assertNotNull(get<AnnouncementPort>())
         assertNotNull(get<com.example.eyes.domain.voice.CommandParser>())
         assertNotNull(get<com.example.eyes.ui.settings.SettingsViewModel>())
         assertNotNull(get<com.example.eyes.ui.voice.VoiceCommandViewModel>())

@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 
 class CameraManager(
     private val context: Context
-) {
+) : CameraSessionController {
     private val analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var imageCapture: ImageCapture? = null
     private var analysisUseCase: ImageAnalysis? = null
@@ -37,49 +37,15 @@ class CameraManager(
      * @param previewView View that will display the camera preview.
      * @param onFrame Callback invoked with each captured ImageProxy for frame-by-frame analysis.
      */
-    fun bindToLifecycle(
+    override fun bindToLifecycle(
         lifecycleOwner: LifecycleOwner,
         previewView: PreviewView,
-        onFrame: ((ImageProxy) -> Unit)? = null
+        onFrame: ((ImageProxy) -> Unit)?
     ) {
         bindInternal(
             lifecycleOwner = lifecycleOwner,
             previewView = previewView,
             onFrame = onFrame
-        )
-    }
-
-    /**
-     * Bind an image-analysis use case to the given lifecycle owner without attaching a preview.
-     *
-     * @param lifecycleOwner The LifecycleOwner used to bind the camera use case.
-     * @param onFrame Callback invoked for each captured `ImageProxy`; the callback is responsible for closing the `ImageProxy` when finished.
-     */
-    fun bindAnalysisToLifecycle(
-        lifecycleOwner: LifecycleOwner,
-        onFrame: (ImageProxy) -> Unit
-    ) {
-        bindInternal(
-            lifecycleOwner = lifecycleOwner,
-            previewView = null,
-            onFrame = onFrame
-        )
-    }
-
-    /**
-     * Requests the CameraX ProcessCameraProvider to unbind all currently bound use cases on the main thread.
-     *
-     * The actual `unbindAll()` call is executed on the application's main executor once the provider becomes available.
-     */
-    fun unbindAll() {
-        val providerFuture = ProcessCameraProvider.getInstance(context)
-        providerFuture.addListener(
-            {
-                boundCamera = null
-                boundPreviewView = null
-                providerFuture.get().unbindAll()
-            },
-            ContextCompat.getMainExecutor(context)
         )
     }
 
@@ -184,9 +150,9 @@ class CameraManager(
         )
     }
 
-    fun takePictureAfterCenterFocus(
+    override fun takePictureAfterCenterFocus(
         onCaptured: (ImageProxy) -> Unit,
-        onError: (ImageCaptureException) -> Unit = {}
+        onError: (ImageCaptureException) -> Unit
     ) {
         val camera = boundCamera
         val previewView = boundPreviewView

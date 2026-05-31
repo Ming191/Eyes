@@ -25,23 +25,27 @@ data object SettingsRoute
 data object EmergencyRoute
 
 enum class TopLevelDestination(
-    @StringRes val titleRes: Int,
-    @StringRes val labelRes: Int,
+    @param:StringRes val titleRes: Int,
+    @param:StringRes val labelRes: Int,
+    @param:StringRes val announcementRes: Int,
     val icon: ImageVector
 ) {
     HOME(
         titleRes = R.string.nav_title_home,
         labelRes = R.string.nav_label_home,
+        announcementRes = R.string.voice_guide_home_intro,
         icon = Icons.Rounded.Home
     ),
     CAMERA(
         titleRes = R.string.nav_title_camera,
         labelRes = R.string.nav_label_camera,
+        announcementRes = R.string.voice_guide_camera_intro,
         icon = Icons.Rounded.PhotoCamera
     ),
     SETTINGS(
         titleRes = R.string.nav_title_settings,
         labelRes = R.string.nav_label_settings,
+        announcementRes = R.string.voice_guide_settings_intro,
         icon = Icons.Rounded.Tune
     )
 }

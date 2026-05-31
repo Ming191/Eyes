@@ -5,7 +5,7 @@ import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
-import com.example.eyes.domain.audio.AudioRouteProvider
+import com.example.eyes.application.ports.AudioRouteProvider
 
 class AndroidAudioRouteProvider(context: Context) : AudioRouteProvider {
     private val audioManager = context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager

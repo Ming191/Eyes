@@ -16,6 +16,7 @@ class CleanArchitectureImportTest {
             forbiddenImports = listOf(
                 "android.*",
                 "androidx.*",
+                "kotlinx.*",
                 "com.example.eyes.R",
                 "com.example.eyes.data.*",
                 "com.example.eyes.ui.*",
@@ -44,7 +45,7 @@ class CleanArchitectureImportTest {
                 "android.*",
                 "androidx.*",
                 "com.example.eyes.R",
-                "com.example.eyes.i18n.LocalizedTextProvider",
+                "com.example.eyes.infrastructure.i18n.LocalizedTextProvider",
                 "com.example.eyes.data.*",
                 "com.example.eyes.ui.*",
                 "com.example.eyes.di.*",
@@ -58,6 +59,14 @@ class CleanArchitectureImportTest {
         assertNoForbiddenImports(
             sourceSet = "com/example/eyes/ui",
             forbiddenImports = listOf("com.example.eyes.data.*"),
+        )
+    }
+
+    @Test
+    fun infrastructure_doesNotImportUi() {
+        assertNoForbiddenImports(
+            sourceSet = "com/example/eyes/infrastructure",
+            forbiddenImports = listOf("com.example.eyes.ui.*"),
         )
     }
 
@@ -77,8 +86,10 @@ class CleanArchitectureImportTest {
     fun oldTopLevelOcrAndObjectDetectionPackages_areNotUsed() {
         assertNoForbiddenPackagesOrImports(
             forbiddenPackages = listOf(
+                "com.example.eyes.i18n",
                 "com.example.eyes.ocr",
                 "com.example.eyes.objectdetection",
+                "com.example.eyes.voiceguide",
             ),
         )
     }

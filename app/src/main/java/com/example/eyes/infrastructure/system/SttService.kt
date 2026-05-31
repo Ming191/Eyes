@@ -12,7 +12,7 @@ import android.speech.SpeechRecognizer
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.example.eyes.domain.i18n.AppLanguage
-import com.example.eyes.domain.voice.SpeechRecognitionPort
+import com.example.eyes.application.ports.SpeechRecognitionPort
 import com.example.eyes.domain.voice.SttErrorReason
 import com.example.eyes.domain.voice.SttResult
 import com.example.eyes.domain.voice.SttState
@@ -118,16 +118,6 @@ class SttService(
     override fun cancel() {
         runOnMain {
             recognizer?.cancel()
-            _state.value = SttState.Idle
-        }
-    }
-
-    /**
-     * Reset the state machine after an error has been shown to the user.
-     * Does not destroy the underlying recognizer.
-     */
-    fun reset() {
-        runOnMain {
             _state.value = SttState.Idle
         }
     }

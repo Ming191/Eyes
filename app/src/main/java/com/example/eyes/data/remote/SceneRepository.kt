@@ -1,7 +1,7 @@
 package com.example.eyes.data.remote
 
-import android.graphics.Bitmap
 import android.util.Log
+import com.example.eyes.domain.image.ImageFrame
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.scene.SceneDescription
 import com.example.eyes.domain.scene.SceneDescriptionError
@@ -14,13 +14,13 @@ class SceneRepository(
     private val networkChecker: () -> Boolean
 ) {
 
-    suspend fun describeScene(bitmap: Bitmap, language: AppLanguage): SceneDescription = withContext(Dispatchers.IO) {
+    suspend fun describeScene(imageFrame: ImageFrame, language: AppLanguage): SceneDescription = withContext(Dispatchers.IO) {
         if (!networkChecker()) {
             return@withContext SceneDescription.Failure(SceneDescriptionError.OFFLINE)
         }
 
         try {
-            val description = sceneDescriptionEngine.describe(bitmap = bitmap, language = language).trim()
+            val description = sceneDescriptionEngine.describe(imageFrame = imageFrame, language = language).trim()
             if (description.isBlank()) {
                 return@withContext SceneDescription.Failure(SceneDescriptionError.EMPTY_RESPONSE)
             }

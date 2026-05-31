@@ -6,7 +6,7 @@ import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import com.example.eyes.domain.haptics.HapticFeedback
+import com.example.eyes.application.ports.HapticFeedback
 
 class HapticService(context: Context) : HapticFeedback {
     private val appContext = context.applicationContext

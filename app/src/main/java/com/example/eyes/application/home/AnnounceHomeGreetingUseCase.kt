@@ -1,18 +1,18 @@
 package com.example.eyes.application.home
 
 import com.example.eyes.domain.accessibility.AnnouncementCategory
-import com.example.eyes.domain.accessibility.AnnouncementController
+import com.example.eyes.application.ports.AnnouncementPort
 import com.example.eyes.domain.i18n.AppLanguage
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.application.ports.SpeechOutput
 
 class AnnounceHomeGreetingUseCase(
     private val homeAnnouncementTextProvider: HomeAnnouncementTextProvider,
     private val speechOutput: SpeechOutput,
-    private val announcementController: AnnouncementController? = null
+    private val announcementPort: AnnouncementPort? = null
 ) {
     fun invoke(language: AppLanguage) {
         val text = homeAnnouncementTextProvider.greeting(language)
-        announcementController?.announce(
+        announcementPort?.announce(
             text = text,
             category = AnnouncementCategory.Guidance,
             locale = language.ttsLocale

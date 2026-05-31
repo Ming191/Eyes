@@ -1,13 +1,15 @@
 package com.example.eyes.application.voice
 
 import com.example.eyes.domain.voice.VoiceCommand
-import com.example.eyes.domain.voice.VoiceCommandRepository
-import com.example.eyes.domain.speech.SpeechOutput
+import com.example.eyes.application.ports.VoiceCommandRepository
+import com.example.eyes.application.ports.SpeechOutput
 import com.example.eyes.domain.i18n.AppLanguage
 
 enum class VoiceNavigationTargetKind {
     Camera,
-    Home
+    Home,
+    Settings,
+    Emergency
 }
 
 data class VoiceCommandAction(
@@ -43,6 +45,41 @@ class HandleVoiceCommandUseCase(
                 VoiceCommandAction(navigationTarget = VoiceNavigationTargetKind.Camera)
             }
 
+            VoiceCommand.DetectObjects -> {
+                speakAndRemember(text.detectObjects, language)
+                VoiceCommandAction(navigationTarget = VoiceNavigationTargetKind.Camera)
+            }
+
+            VoiceCommand.OcrQuick -> {
+                speakAndRemember(text.ocrQuick, language)
+                VoiceCommandAction(navigationTarget = VoiceNavigationTargetKind.Camera)
+            }
+
+            VoiceCommand.OcrAccurate -> {
+                speakAndRemember(text.ocrAccurate, language)
+                VoiceCommandAction(navigationTarget = VoiceNavigationTargetKind.Camera)
+            }
+
+            VoiceCommand.Stop -> {
+                speakAndRemember(text.stop, language)
+                VoiceCommandAction(navigationTarget = VoiceNavigationTargetKind.Home)
+            }
+
+            VoiceCommand.OpenHome -> {
+                speakAndRemember(text.openHome, language)
+                VoiceCommandAction(navigationTarget = VoiceNavigationTargetKind.Home)
+            }
+
+            VoiceCommand.OpenSettings -> {
+                speakAndRemember(text.openSettings, language)
+                VoiceCommandAction(navigationTarget = VoiceNavigationTargetKind.Settings)
+            }
+
+            VoiceCommand.OpenEmergency -> {
+                speakAndRemember(text.openEmergency, language)
+                VoiceCommandAction(navigationTarget = VoiceNavigationTargetKind.Emergency)
+            }
+
             VoiceCommand.Repeat -> {
                 if (lastSpokenText.isBlank()) {
                     speechOutput.speakAndAwait(text.nothingToRepeat, language.ttsLocale)
@@ -50,12 +87,6 @@ class HandleVoiceCommandUseCase(
                     speechOutput.speakAndAwait(lastSpokenText, language.ttsLocale)
                 }
                 VoiceCommandAction(shouldRestartListening = true)
-            }
-
-            VoiceCommand.Stop -> {
-                speechOutput.stop()
-                speakAndRemember(text.stopped, language)
-                VoiceCommandAction(navigationTarget = VoiceNavigationTargetKind.Home)
             }
 
             VoiceCommand.Help -> {

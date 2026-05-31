@@ -1,7 +1,7 @@
 package com.example.eyes.data.navigation
 
 import com.example.eyes.data.DataStoreManager
-import com.example.eyes.domain.navigation.NavigationPreferencesRepository
+import com.example.eyes.application.ports.NavigationPreferencesRepository
 import com.example.eyes.domain.ocr.OcrMode
 
 class DataStoreNavigationPreferencesRepository(

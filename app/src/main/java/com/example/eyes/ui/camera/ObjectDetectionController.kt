@@ -4,12 +4,11 @@ import android.graphics.Bitmap
 import android.util.Log
 import androidx.camera.core.ImageProxy
 import com.example.eyes.application.objectdetection.DetectObjectsUseCase
+import com.example.eyes.application.objectdetection.ObjectDetectionAnnouncementPolicy
 import com.example.eyes.application.objectdetection.WarmUpObjectDetectionUseCase
 import com.example.eyes.domain.i18n.AppLanguage
-import com.example.eyes.domain.speech.SpeechOutput
-import com.example.eyes.i18n.LocalizedTextProvider
-import com.example.eyes.infrastructure.camera.toBitmapWithRotation
-import com.example.eyes.infrastructure.camera.toImageFrame
+import com.example.eyes.application.ports.SpeechOutput
+import com.example.eyes.infrastructure.i18n.LocalizedTextProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +17,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.atomic.AtomicReference
 
 internal class ObjectDetectionController(
     private val uiState: MutableStateFlow<CameraUiState>,
@@ -26,14 +24,14 @@ internal class ObjectDetectionController(
     private val warmUpObjectDetectionUseCase: WarmUpObjectDetectionUseCase,
     private val speechOutput: SpeechOutput,
     private val bitmapStore: CameraBitmapStore,
+    private val imageConverter: com.example.eyes.infrastructure.camera.CameraImageConverter,
     private val localizedTextProvider: LocalizedTextProvider,
     private val cameraText: () -> CameraText,
     private val appLanguage: () -> AppLanguage
 ) {
     private val isProcessingObjectDetection = AtomicBoolean(false)
     private val lastObjectDetectionAtMs = AtomicLong(0L)
-    private val lastObjectAnnouncementAtMs = AtomicLong(0L)
-    private val lastObjectAnnouncement = AtomicReference("")
+    private val announcementPolicy = ObjectDetectionAnnouncementPolicy()
 
     fun warmUp(scope: CoroutineScope) {
         scope.launch(Dispatchers.Default) {
@@ -83,7 +81,7 @@ internal class ObjectDetectionController(
         scope.launch(Dispatchers.Default) {
             var bitmap: Bitmap? = null
             try {
-                bitmap = imageProxy.toBitmapWithRotation()
+                bitmap = imageConverter.toBitmapWithRotation(imageProxy)
                 bitmapStore.replaceLatestFrame(bitmap)
                 processObjectDetection(bitmap)
             } catch (e: CancellationException) {
@@ -100,7 +98,7 @@ internal class ObjectDetectionController(
 
     suspend fun processObjectDetection(bitmap: Bitmap) {
         try {
-            val detections = detectObjectsUseCase(bitmap.toImageFrame())
+            val detections = detectObjectsUseCase(imageConverter.toImageFrame(bitmap))
             if (uiState.value.activeMode != CameraMode.OBJECT_DETECTION) return
 
             val language = appLanguage()
@@ -146,22 +144,14 @@ internal class ObjectDetectionController(
     }
 
     fun resetAnnouncementDebounce() {
-        lastObjectAnnouncement.set("")
-        lastObjectAnnouncementAtMs.set(0L)
+        announcementPolicy.reset()
     }
 
     private fun maybeSpeakObjectDetection(
         announcement: String,
         hasObjects: Boolean
     ) {
-        if (!hasObjects) return
-        val now = System.currentTimeMillis()
-        val previous = lastObjectAnnouncement.get()
-        if (announcement == previous && now - lastObjectAnnouncementAtMs.get() < OBJECT_ANNOUNCEMENT_REPEAT_MS) return
-        if (announcement != previous && now - lastObjectAnnouncementAtMs.get() < OBJECT_ANNOUNCEMENT_INTERVAL_MS) return
-
-        lastObjectAnnouncement.set(announcement)
-        lastObjectAnnouncementAtMs.set(now)
+        if (!announcementPolicy.shouldSpeak(announcement, hasObjects)) return
         Log.i(TAG, "Object detection TTS: $announcement")
         speechOutput.speak(
             text = announcement,
@@ -172,7 +162,5 @@ internal class ObjectDetectionController(
     private companion object {
         private const val TAG = "CameraViewModel"
         private const val OBJECT_DETECTION_INTERVAL_MS = 1_000L
-        private const val OBJECT_ANNOUNCEMENT_INTERVAL_MS = 3_000L
-        private const val OBJECT_ANNOUNCEMENT_REPEAT_MS = 6_000L
     }
 }

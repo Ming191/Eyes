@@ -18,11 +18,24 @@ sealed interface VoiceCommand {
     /** Recognize Vietnamese banknote denomination (currency feature). */
     data object RecognizeCurrency : VoiceCommand
 
+    data object DetectObjects : VoiceCommand
+
+    data object OpenHome : VoiceCommand
+
+    data object OpenSettings : VoiceCommand
+
+    data object OpenEmergency : VoiceCommand
+
+
+    data object OcrQuick : VoiceCommand
+
+    data object OcrAccurate : VoiceCommand
+
+    /** Stop current voice interaction flow and return to a safe idle state. */
+    data object Stop : VoiceCommand
+
     /** Repeat the last spoken response. */
     data object Repeat : VoiceCommand
-
-    /** Stop the current speech and any in-flight voice command. */
-    data object Stop : VoiceCommand
 
     /** List available commands to the user. */
     data object Help : VoiceCommand

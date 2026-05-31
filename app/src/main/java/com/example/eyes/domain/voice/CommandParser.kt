@@ -11,11 +11,10 @@ import java.util.Locale
  * words ("ờ", "cho tôi", "nhé") and extra whitespace.
  *
  * Priority order when multiple keywords appear in a single utterance:
- *  1. Stop      — safety: should always interrupt
- *  3. Help      — user is lost; surface guidance
- *  4. Repeat    — user wants the last response again
- *  5. ReadText / DescribeScene / RecognizeCurrency (any order)
- *  6. Unknown   — fallback
+ *  1. Help      — user is lost; surface guidance
+ *  2. Repeat    — user wants the last response again
+ *  3. ReadText / DescribeScene / RecognizeCurrency (any order)
+ *  4. Unknown   — fallback
  */
 class CommandParser {
 
@@ -28,27 +27,30 @@ class CommandParser {
 
         val keywordSets = KeywordSet.forLanguage(language).withFallbacks()
 
-        if (keywordSets.any { containsAny(normalized, it.stop) }) {
-            return VoiceCommand.Stop
-        }
-
-        // Priority 3: Help
         if (keywordSets.any { containsAny(normalized, it.help) }) {
             return VoiceCommand.Help
         }
 
-        // Priority 4: Repeat
+        if (keywordSets.any { containsAny(normalized, it.stop) }) {
+            return VoiceCommand.Stop
+        }
+
         if (keywordSets.any { containsAny(normalized, it.repeat) }) {
             return VoiceCommand.Repeat
         }
 
-        // Priority 5: feature commands (any order)
         if (keywordSets.any { containsAny(normalized, it.readText) }) {
             return VoiceCommand.ReadText
         }
         if (keywordSets.any { containsAny(normalized, it.describeScene) }) {
             return VoiceCommand.DescribeScene
         }
+        if (keywordSets.any { containsAny(normalized, it.detectObjects) }) return VoiceCommand.DetectObjects
+        if (keywordSets.any { containsAny(normalized, it.openSettings) }) return VoiceCommand.OpenSettings
+        if (keywordSets.any { containsAny(normalized, it.openHome) }) return VoiceCommand.OpenHome
+        if (keywordSets.any { containsAny(normalized, it.openEmergency) }) return VoiceCommand.OpenEmergency
+        if (keywordSets.any { containsAny(normalized, it.ocrAccurate) }) return VoiceCommand.OcrAccurate
+        if (keywordSets.any { containsAny(normalized, it.ocrQuick) }) return VoiceCommand.OcrQuick
         if (keywordSets.any { containsAny(normalized, it.recognizeCurrency) }) {
             return VoiceCommand.RecognizeCurrency
         }
@@ -73,12 +75,18 @@ class CommandParser {
         private val WHITESPACE_REGEX = Regex("\\s+")
 
         private data class KeywordSet(
-            val stop: List<String>,
             val help: List<String>,
+            val stop: List<String>,
             val repeat: List<String>,
             val readText: List<String>,
             val describeScene: List<String>,
             val recognizeCurrency: List<String>,
+            val detectObjects: List<String>,
+            val openHome: List<String>,
+            val openSettings: List<String>,
+            val openEmergency: List<String>,
+            val ocrQuick: List<String>,
+            val ocrAccurate: List<String>,
         ) {
             companion object {
                 fun forLanguage(language: AppLanguage): KeywordSet = when (language) {
@@ -94,21 +102,20 @@ class CommandParser {
             else -> listOf(this, VI_KEYWORDS, EN_KEYWORDS)
         }
 
-        // Stop is checked first; "dừng" alone is enough.
         private val VI_KEYWORDS = KeywordSet(
-            stop = listOf(
-            "dừng",
-            "im lặng",
-            "thôi không",
-            "bỏ qua"
-            ),
-
             help = listOf(
             "trợ giúp",
             "giúp đỡ",
             "tôi nói được gì",
             "hướng dẫn",
             "có thể nói gì"
+            ),
+
+            stop = listOf(
+            "dừng",
+            "dừng lại",
+            "im lặng",
+            "thôi"
             ),
 
             repeat = listOf(
@@ -154,16 +161,28 @@ class CommandParser {
             "nhan dien tien",
             "tiền bao nhiêu"
             ,"tien bao nhieu"
-            )
+            ),
+            detectObjects = listOf("nhận diện vật thể", "vật thể", "có vật gì", "detect objects", "object detection"),
+            openHome = listOf("về trang chủ", "mở trang chủ", "trang chủ", "home"),
+            openSettings = listOf("mở cài đặt", "cài đặt", "settings", "open settings"),
+            openEmergency = listOf("gọi khẩn cấp", "mở gọi khẩn cấp", "khẩn cấp", "emergency"),
+            ocrQuick = listOf("đọc nhanh", "ocr nhanh", "chế độ nhanh", "quick ocr"),
+            ocrAccurate = listOf("đọc chính xác", "ocr chính xác", "ocr kỹ", "chế độ chính xác", "accurate ocr")
         )
 
         private val EN_KEYWORDS = KeywordSet(
-            stop = listOf("stop", "cancel", "be quiet", "silence"),
             help = listOf("help", "what can i say", "commands"),
+            stop = listOf("stop", "be quiet", "silence"),
             repeat = listOf("repeat", "say again", "read again"),
             readText = listOf("read text", "read this", "read for me", "read words"),
             describeScene = listOf("what is in front", "what's in front", "describe", "describe scene", "what is around"),
-            recognizeCurrency = listOf("currency", "money", "banknote", "bill", "how much money", "how much is this bill", "recognize money")
+            recognizeCurrency = listOf("currency", "money", "banknote", "bill", "how much money", "how much is this bill", "recognize money"),
+            detectObjects = listOf("detect objects", "object detection", "objects"),
+            openHome = listOf("home", "go home", "open home"),
+            openSettings = listOf("settings", "open settings"),
+            openEmergency = listOf("emergency", "emergency call", "open emergency"),
+            ocrQuick = listOf("quick ocr", "read quickly", "quick reading"),
+            ocrAccurate = listOf("accurate ocr", "read accurately", "accurate reading")
         )
     }
 }

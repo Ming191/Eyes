@@ -2,9 +2,12 @@ package com.example.eyes.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.eyes.R
+import com.example.eyes.application.ports.SpeechOutput
 import com.example.eyes.application.settings.ObserveSettingsUseCase
 import com.example.eyes.application.settings.UpdateSettingsUseCase
 import com.example.eyes.domain.i18n.AppLanguage
+import com.example.eyes.infrastructure.i18n.LocalizedTextProvider
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -21,7 +24,9 @@ data class SettingsUiState(
 
 class SettingsViewModel(
     observeSettings: ObserveSettingsUseCase,
-    private val updateSettings: UpdateSettingsUseCase
+    private val updateSettings: UpdateSettingsUseCase,
+    private val speechOutput: SpeechOutput,
+    private val localizedTextProvider: LocalizedTextProvider
 ) : ViewModel() {
 
     val uiState: StateFlow<SettingsUiState> = observeSettings().map { settings ->
@@ -53,6 +58,14 @@ class SettingsViewModel(
     fun setAppLanguage(language: AppLanguage) {
         viewModelScope.launch {
             updateSettings.setAppLanguage(language)
+            val announcement = localizedTextProvider.getString(
+                resId = when (language) {
+                    AppLanguage.VI -> R.string.settings_language_changed_vietnamese
+                    AppLanguage.EN -> R.string.settings_language_changed_english
+                },
+                language = language
+            )
+            speechOutput.speak(announcement, language.ttsLocale)
         }
     }
 

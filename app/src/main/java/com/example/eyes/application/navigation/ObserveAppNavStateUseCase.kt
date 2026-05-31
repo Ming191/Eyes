@@ -1,7 +1,7 @@
 package com.example.eyes.application.navigation
 
-import com.example.eyes.domain.navigation.NavigationPreferencesRepository
-import com.example.eyes.domain.settings.SettingsRepository
+import com.example.eyes.application.ports.NavigationPreferencesRepository
+import com.example.eyes.application.ports.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
