@@ -1,16 +1,26 @@
 package com.example.eyes.ui.navigation
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -22,6 +32,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,6 +45,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -46,6 +59,7 @@ import com.example.eyes.R
 import com.example.eyes.application.ports.SpeechOutput
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.infrastructure.accessibility.AccessibilityStateProvider
+import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.ui.blind.BlindAction
 import com.example.eyes.ui.blind.BlindGestureLayer
 import com.example.eyes.ui.blind.LocalBlindFocusManager
@@ -58,6 +72,8 @@ import com.example.eyes.ui.home.HomeScreen
 import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.ui.onboarding.OnboardingScreen
 import com.example.eyes.ui.settings.SettingsScreen
+import com.example.eyes.ui.voice.VoiceCommandViewModel
+import com.example.eyes.ui.voice.VoiceNavigationTarget
 import org.koin.compose.koinInject
 import org.koin.androidx.compose.koinViewModel
 
@@ -84,6 +100,7 @@ fun AppNavGraph(
             uiState.isLoading -> LoadingScreen()
             uiState.onboardingCompleted -> MainNavigationScaffold(
                 viewModel = viewModel,
+                speechOutput = speechOutput,
                 appLanguage = uiState.appLanguage,
                 currentSpokenText = currentSpokenText
             )
@@ -149,12 +166,15 @@ private fun OnboardingNavHost(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun MainNavigationScaffold(
     viewModel: AppNavViewModel,
+    speechOutput: SpeechOutput,
+    voiceCommandViewModel: VoiceCommandViewModel = koinViewModel(),
     appLanguage: AppLanguage,
     currentSpokenText: String?
 ) {
     key("main") {
         val context = LocalContext.current
         val navController = rememberNavController()
+        val lastVoiceStartAtMs = remember { mutableLongStateOf(0L) }
         val requestedCameraMode by viewModel.requestedCameraMode.collectAsStateWithLifecycle()
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentDestination = navBackStackEntry?.destination
@@ -179,6 +199,87 @@ private fun MainNavigationScaffold(
         val bottomBarDescription = stringResource(R.string.nav_bottom_bar_description)
         val selectedDescription = stringResource(R.string.nav_selected_description)
         val unselectedDescription = stringResource(R.string.nav_unselected_description)
+        val voiceCommandDescription = stringResource(R.string.voice_mic_idle_description)
+
+        val voiceInputLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            val text = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                ?.trim()
+                .orEmpty()
+            if (result.resultCode == Activity.RESULT_OK && text.isNotBlank()) {
+                voiceCommandViewModel.handleRecognizedText(text)
+            } else {
+                voiceCommandViewModel.handleRecognitionCancelled()
+            }
+        }
+
+        fun startVoiceRecognition() {
+            val languageTag = appLanguage.ttsLocale.toLanguageTag()
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, languageTag)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            }
+            if (intent.resolveActivity(context.packageManager) == null) {
+                voiceCommandViewModel.handleRecognitionUnavailable()
+                return
+            }
+            try {
+                voiceInputLauncher.launch(intent)
+            } catch (_: ActivityNotFoundException) {
+                voiceCommandViewModel.handleRecognitionUnavailable()
+            }
+        }
+
+        val microphonePermissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            if (granted) {
+                startVoiceRecognition()
+            } else {
+                voiceCommandViewModel.handleRecognitionUnavailable()
+            }
+        }
+
+        fun requestMicrophoneOrStart() {
+            speechOutput.stop()
+            val now = System.currentTimeMillis()
+            if (now - lastVoiceStartAtMs.longValue < 1_500L) return
+            lastVoiceStartAtMs.longValue = now
+            val hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!hasPermission) {
+                microphonePermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                return
+            }
+            startVoiceRecognition()
+        }
+
+        LaunchedEffect(voiceCommandViewModel, navController) {
+            voiceCommandViewModel.navigation.collect { target ->
+                when (target) {
+                    VoiceNavigationTarget.Camera -> {
+                        val command = voiceCommandViewModel.uiState.value.lastCommand
+                        val ocrMode = command.ocrModeOrNull()
+                        if (ocrMode != null) {
+                            viewModel.requestOpenCameraOcr(ocrMode)
+                        } else {
+                            viewModel.requestOpenCamera(command.cameraMode())
+                        }
+                        navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
+                    }
+                    VoiceNavigationTarget.Home -> navController.navigateToTopLevelDestination(TopLevelDestination.HOME)
+                    VoiceNavigationTarget.Settings -> navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
+                    VoiceNavigationTarget.Emergency -> navController.navigate(EmergencyRoute)
+                }
+            }
+        }
 
         Scaffold(
             modifier = Modifier.semantics { contentDescription = scaffoldDescription },
@@ -311,9 +412,42 @@ private fun MainNavigationScaffold(
                     text = currentSpokenText,
                     modifier = Modifier.align(Alignment.BottomCenter)
                 )
+                FloatingActionButton(
+                    onClick = ::requestMicrophoneOrStart,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = 88.dp)
+                        .navigationBarsPadding()
+                        .semantics { contentDescription = voiceCommandDescription }
+                        .blindFocusable(
+                            id = "global_voice_command",
+                            label = voiceCommandDescription,
+                            activateLabel = voiceCommandDescription,
+                            onActivate = ::requestMicrophoneOrStart
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Mic,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
         }
     }
+}
+
+private fun VoiceCommand?.cameraMode(): CameraMode = when (this) {
+    VoiceCommand.DescribeScene -> CameraMode.SCENE_DESCRIPTION
+    VoiceCommand.RecognizeCurrency -> CameraMode.CURRENCY
+    VoiceCommand.DetectObjects -> CameraMode.OBJECT_DETECTION
+    else -> CameraMode.OCR
+}
+
+private fun VoiceCommand?.ocrModeOrNull(): OcrMode? = when (this) {
+    VoiceCommand.OcrQuick -> OcrMode.QUICK
+    VoiceCommand.OcrAccurate -> OcrMode.ACCURACY
+    else -> null
 }
 
 @Composable

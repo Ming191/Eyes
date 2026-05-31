@@ -10,8 +10,13 @@ data class VoiceCommandText(
     val readText: String,
     val describeScene: String,
     val recognizeCurrency: String,
+    val detectObjects: String,
+    val openHome: String,
+    val openSettings: String,
+    val openEmergency: String,
+    val ocrQuick: String,
+    val ocrAccurate: String,
     val nothingToRepeat: String,
-    val stopped: String,
     val help: String,
     val unknown: String
 )

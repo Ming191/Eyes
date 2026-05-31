@@ -105,7 +105,6 @@ class DataStoreManager(private val context: Context) {
          *   DESCRIBE_SCENE
          *   RECOGNIZE_CURRENCY
          *   REPEAT
-         *   STOP
          *   HELP
          *   UNKNOWN
          */
@@ -113,8 +112,13 @@ class DataStoreManager(private val context: Context) {
             VoiceCommand.ReadText -> "READ_TEXT"
             VoiceCommand.DescribeScene -> "DESCRIBE_SCENE"
             VoiceCommand.RecognizeCurrency -> "RECOGNIZE_CURRENCY"
+            VoiceCommand.DetectObjects -> "DETECT_OBJECTS"
+            VoiceCommand.OpenHome -> "OPEN_HOME"
+            VoiceCommand.OpenSettings -> "OPEN_SETTINGS"
+            VoiceCommand.OpenEmergency -> "OPEN_EMERGENCY"
+            VoiceCommand.OcrQuick -> "OCR_QUICK"
+            VoiceCommand.OcrAccurate -> "OCR_ACCURATE"
             VoiceCommand.Repeat -> "REPEAT"
-            VoiceCommand.Stop -> "STOP"
             VoiceCommand.Help -> "HELP"
             is VoiceCommand.Unknown -> "UNKNOWN"
         }
@@ -123,8 +127,13 @@ class DataStoreManager(private val context: Context) {
             value == "READ_TEXT" -> VoiceCommand.ReadText
             value == "DESCRIBE_SCENE" -> VoiceCommand.DescribeScene
             value == "RECOGNIZE_CURRENCY" -> VoiceCommand.RecognizeCurrency
+            value == "DETECT_OBJECTS" -> VoiceCommand.DetectObjects
+            value == "OPEN_HOME" -> VoiceCommand.OpenHome
+            value == "OPEN_SETTINGS" -> VoiceCommand.OpenSettings
+            value == "OPEN_EMERGENCY" -> VoiceCommand.OpenEmergency
+            value == "OCR_QUICK" -> VoiceCommand.OcrQuick
+            value == "OCR_ACCURATE" -> VoiceCommand.OcrAccurate
             value == "REPEAT" -> VoiceCommand.Repeat
-            value == "STOP" -> VoiceCommand.Stop
             value == "HELP" -> VoiceCommand.Help
             else -> VoiceCommand.Unknown("")
         }

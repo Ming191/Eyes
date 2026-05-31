@@ -132,6 +132,8 @@ dependencies {
     implementation(libs.tensorflow.lite.support) {
         exclude(group = "org.tensorflow", module = "tensorflow-lite-api")
     }
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
+    implementation("ai.djl.huggingface:tokenizers:0.36.0")
     implementation(libs.executorch.android)
     testImplementation(libs.junit)
     testImplementation(libs.androidx.core)

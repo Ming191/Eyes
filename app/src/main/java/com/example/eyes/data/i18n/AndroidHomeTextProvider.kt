@@ -49,14 +49,7 @@ class AndroidHomeTextProvider(
                 text(R.string.home_action_emergency_description, language),
                 text(R.string.home_action_emergency_supporting, language),
                 text(R.string.home_action_emergency_accessibility, language)
-            ),
-            HomeActionState(
-                HomeActionKind.Voice,
-                text(R.string.home_action_voice_title, language),
-                text(R.string.home_action_voice_description, language),
-                text(R.string.home_action_voice_supporting, language),
-                text(R.string.home_action_voice_accessibility, language)
-            ),
+            )
         )
     )
 

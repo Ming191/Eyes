@@ -49,7 +49,7 @@
     <string name="voice_response_recognize_currency">Mở nhận diện tiền.</string>
     <string name="voice_response_nothing_to_repeat">Chưa có câu để đọc lại.</string>
     <string name="voice_response_stopped">Đã dừng.</string>
-    <string name="voice_response_help">Nói đọc văn bản, mô tả cảnh, nhận diện tiền, đọc lại hoặc dừng.</string>
+    <string name="voice_response_help">Nói đọc văn bản, mô tả cảnh, nhận diện tiền hoặc đọc lại.</string>
     <string name="voice_response_unknown">Chưa nhận được lệnh.</string>
     <string name="voice_preview_final_text">đọc giúp tôi</string>
     <string name="scene_offline_fallback">Chưa thể mô tả khung hình.</string>
@@ -163,9 +163,15 @@
     <string name="voice_vm_read_text_ack">Mở chế độ đọc văn bản.</string>
     <string name="voice_vm_describe_scene_ack">Mở chế độ mô tả khung cảnh.</string>
     <string name="voice_vm_recognize_currency_ack">Mở chế độ nhận diện tiền.</string>
+    <string name="voice_vm_detect_objects_ack">Mở chế độ nhận diện vật thể.</string>
+    <string name="voice_vm_open_home_ack">Đã chuyển sang trang chủ.</string>
+    <string name="voice_vm_open_settings_ack">Đã chuyển sang cài đặt.</string>
+    <string name="voice_vm_open_emergency_ack">Mở gọi khẩn cấp.</string>
+    <string name="voice_vm_ocr_quick_ack">Đã chuyển sang OCR nhanh.</string>
+    <string name="voice_vm_ocr_accurate_ack">Đã chuyển sang OCR chính xác.</string>
     <string name="voice_vm_nothing_to_repeat">Chưa có câu nào để đọc lại.</string>
     <string name="voice_vm_stopped_ack">Đã dừng.</string>
-    <string name="voice_vm_help_text">Bạn có thể nói: đọc giúp tôi để đọc văn bản. Trước mặt có gì để mô tả khung cảnh. Tờ tiền này bao nhiêu để nhận diện tiền. Đọc lại để nghe lại. Dừng để dừng và về trang chủ.</string>
+    <string name="voice_vm_help_text">Bạn có thể nói: đọc giúp tôi, mô tả cảnh, nhận diện vật thể, nhận diện tiền, OCR nhanh, OCR chính xác, mở cài đặt, về trang chủ, gọi khẩn cấp hoặc đọc lại.</string>
     <string name="voice_vm_unknown_command">Chưa nhận được lệnh. Hãy nói lại rõ hơn.</string>
     <string name="onboarding_page_permissions_title">Cấp quyền thiết yếu</string>
     <string name="onboarding_page_permissions_summary">Cấp đủ 2 quyền để dùng app. Camera dùng để đọc chữ, mô tả cảnh và nhận diện tiền. Micro dùng khi bạn mở màn hình ra lệnh bằng giọng nói.</string>

@@ -3,6 +3,7 @@ package com.example.eyes.ui.voice
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.eyes.application.voice.HandleVoiceCommandUseCase
+import com.example.eyes.application.voice.SemanticVoiceCommandMatcher
 import com.example.eyes.application.voice.VoiceCommandAction
 import com.example.eyes.application.voice.VoiceNavigationTargetKind
 import com.example.eyes.application.ports.HapticFeedback
@@ -28,7 +29,9 @@ import kotlinx.coroutines.launch
  */
 sealed interface VoiceNavigationTarget {
     data object Camera : VoiceNavigationTarget
-    data object Home : VoiceNavigationTarget // for Stop command
+    data object Home : VoiceNavigationTarget
+    data object Settings : VoiceNavigationTarget
+    data object Emergency : VoiceNavigationTarget
 }
 
 data class VoiceCommandUiState(
@@ -44,7 +47,8 @@ class VoiceCommandViewModel(
     private val commandParser: CommandParser,
     private val hapticService: HapticFeedback,
     private val settingsRepository: SettingsRepository,
-    private val handleVoiceCommand: HandleVoiceCommandUseCase
+    private val handleVoiceCommand: HandleVoiceCommandUseCase,
+    private val semanticVoiceCommandMatcher: SemanticVoiceCommandMatcher
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(VoiceCommandUiState())
@@ -97,7 +101,7 @@ class VoiceCommandViewModel(
     }
 
     fun handleRecognizedText(text: String) {
-        val command = commandParser.parse(text, appLanguage)
+        val command = resolveCommand(text)
         _uiState.update {
             it.copy(
                 sttState = SttState.Idle,
@@ -126,7 +130,7 @@ class VoiceCommandViewModel(
             }
 
             is SttResult.Final -> {
-                val command = commandParser.parse(result.text, appLanguage)
+                val command = resolveCommand(result.text)
                 _uiState.update {
                     it.copy(
                         finalText = result.text,
@@ -181,5 +185,13 @@ class VoiceCommandViewModel(
     private fun VoiceNavigationTargetKind.toUiTarget(): VoiceNavigationTarget = when (this) {
         VoiceNavigationTargetKind.Camera -> VoiceNavigationTarget.Camera
         VoiceNavigationTargetKind.Home -> VoiceNavigationTarget.Home
+        VoiceNavigationTargetKind.Settings -> VoiceNavigationTarget.Settings
+        VoiceNavigationTargetKind.Emergency -> VoiceNavigationTarget.Emergency
+    }
+
+    private fun resolveCommand(text: String): VoiceCommand {
+        val keywordCommand = commandParser.parse(text, appLanguage)
+        if (keywordCommand !is VoiceCommand.Unknown) return keywordCommand
+        return semanticVoiceCommandMatcher.match(text, appLanguage) ?: keywordCommand
     }
 }

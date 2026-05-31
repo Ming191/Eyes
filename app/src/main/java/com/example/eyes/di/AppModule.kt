@@ -28,6 +28,7 @@ import com.example.eyes.application.scene.DescribeSceneUseCase
 import com.example.eyes.application.settings.ObserveSettingsUseCase
 import com.example.eyes.application.settings.UpdateSettingsUseCase
 import com.example.eyes.application.voice.HandleVoiceCommandUseCase
+import com.example.eyes.application.voice.SemanticVoiceCommandMatcher
 import com.example.eyes.application.voice.VoiceCommandTextProvider
 import com.example.eyes.infrastructure.camera.CameraManager
 import com.example.eyes.infrastructure.camera.AndroidCameraImageConverter
@@ -69,6 +70,7 @@ import com.example.eyes.infrastructure.objectdetection.YoloExecutorchModelLoader
 import com.example.eyes.infrastructure.system.HapticService
 import com.example.eyes.infrastructure.system.SttService
 import com.example.eyes.infrastructure.system.TtsService
+import com.example.eyes.infrastructure.voice.MiniLmSemanticVoiceCommandMatcher
 import com.example.eyes.ui.camera.CameraViewModel
 import com.example.eyes.ui.home.HomeViewModel
 import com.example.eyes.ui.navigation.AppNavViewModel
@@ -107,6 +109,7 @@ val appModule = module {
     factory { SttService(androidContext()) }
     factory<SpeechRecognitionPort> { get<SttService>() }
     single { CommandParser() }
+    single<SemanticVoiceCommandMatcher> { MiniLmSemanticVoiceCommandMatcher(androidContext()) }
     factory { BuildHomeStateUseCase(get()) }
     factory { AnnounceHomeGreetingUseCase(get(), get(), get()) }
     factory { ObserveAppNavStateUseCase(get(), get()) }
@@ -193,5 +196,5 @@ val appModule = module {
             localizedTextProvider = get()
         )
     }
-    viewModel { com.example.eyes.ui.voice.VoiceCommandViewModel(get(), get(), get(), get(), get()) }
+    viewModel { com.example.eyes.ui.voice.VoiceCommandViewModel(get(), get(), get(), get(), get(), get()) }
 }

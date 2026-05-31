@@ -212,6 +212,17 @@ class CameraViewModel(
                         statusMessage = cameraText.currencyInstruction
                     )
 
+                    VoiceCommand.DetectObjects -> applyVoiceCameraCommand(
+                        mode = CameraMode.OBJECT_DETECTION,
+                        title = cameraText.objectDetectionTitle,
+                        summary = cameraText.objectDetectionSummary,
+                        statusMessage = cameraText.objectDetectionStatus
+                    )
+
+                    VoiceCommand.OcrQuick -> selectOcrMode(OcrMode.QUICK)
+
+                    VoiceCommand.OcrAccurate -> selectOcrMode(OcrMode.ACCURACY)
+
                     else -> return@collect
                 }
                 voiceCommandRepository.clearLastVoiceCommand()

@@ -45,80 +45,11 @@ fun HomeScreen(
     onOpenCameraMode: (CameraMode) -> Unit,
     onOpenEmergency: (String?) -> Unit,
     viewModel: HomeViewModel = koinViewModel(),
-    voiceCommandViewModel: VoiceCommandViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val lastVoiceStartAtMs = remember { mutableLongStateOf(0L) }
-    val context = LocalContext.current
-    fun hasRecordAudioPermission(): Boolean = ContextCompat.checkSelfPermission(
-        context,
-        android.Manifest.permission.RECORD_AUDIO
-    ) == PackageManager.PERMISSION_GRANTED
-
-    val voiceInputLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        val text = result.data
-            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-            ?.firstOrNull()
-            ?.trim()
-            .orEmpty()
-        if (result.resultCode == Activity.RESULT_OK && text.isNotBlank()) {
-            voiceCommandViewModel.handleRecognizedText(text)
-        } else {
-            voiceCommandViewModel.handleRecognitionCancelled()
-        }
-    }
-    fun startVoiceRecognition() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "vi-VN")
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "vi-VN")
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-        }
-        if (intent.resolveActivity(context.packageManager) == null) {
-            voiceCommandViewModel.handleRecognitionUnavailable()
-            return
-        }
-        try {
-            voiceInputLauncher.launch(intent)
-        } catch (_: ActivityNotFoundException) {
-            voiceCommandViewModel.handleRecognitionUnavailable()
-        }
-    }
-
-    val microphonePermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            startVoiceRecognition()
-        } else {
-            voiceCommandViewModel.handleRecognitionUnavailable()
-        }
-    }
-
-    fun requestMicrophoneOrStart() {
-        val now = System.currentTimeMillis()
-        if (now - lastVoiceStartAtMs.longValue < 1_500L) return
-        lastVoiceStartAtMs.longValue = now
-        if (!hasRecordAudioPermission()) {
-            microphonePermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
-            return
-        }
-        startVoiceRecognition()
-    }
 
     LaunchedEffect(viewModel) {
         viewModel.onScreenShown()
-    }
-
-    LaunchedEffect(voiceCommandViewModel) {
-        voiceCommandViewModel.navigation.collect { target ->
-            when (target) {
-                VoiceNavigationTarget.Camera -> onOpenCameraMode(voiceCommandViewModel.uiState.value.lastCommand.cameraMode())
-                VoiceNavigationTarget.Home -> Unit
-            }
-        }
     }
 
     HomeContent(
@@ -130,7 +61,6 @@ fun HomeScreen(
                 HomeActionType.DetectObjects -> onOpenCameraMode(CameraMode.OBJECT_DETECTION)
                 HomeActionType.RecognizeCurrency -> onOpenCameraMode(CameraMode.CURRENCY)
                 HomeActionType.EmergencyCall -> onOpenEmergency(null)
-                HomeActionType.Voice -> requestMicrophoneOrStart()
             }
         },
         onEmergencyNumberSelected = { number ->

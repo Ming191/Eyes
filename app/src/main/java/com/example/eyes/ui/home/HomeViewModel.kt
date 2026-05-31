@@ -22,7 +22,6 @@ enum class HomeActionType {
     DetectObjects,
     RecognizeCurrency,
     EmergencyCall,
-    Voice,
 }
 
 @Immutable
@@ -104,6 +103,6 @@ class HomeViewModel(
         HomeActionKind.DetectObjects -> HomeActionType.DetectObjects
         HomeActionKind.RecognizeCurrency -> HomeActionType.RecognizeCurrency
         HomeActionKind.EmergencyCall -> HomeActionType.EmergencyCall
-        HomeActionKind.Voice -> HomeActionType.Voice
+        HomeActionKind.Voice -> error("Voice action is exposed through global mic")
     }
 }

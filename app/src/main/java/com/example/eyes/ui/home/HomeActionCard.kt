@@ -12,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AttachMoney
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ImageSearch
-import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Visibility
@@ -119,7 +118,6 @@ private fun HomeAction.icon(): ImageVector = when (type) {
     HomeActionType.DetectObjects -> Icons.Rounded.Visibility
     HomeActionType.RecognizeCurrency -> Icons.Rounded.AttachMoney
     HomeActionType.EmergencyCall -> Icons.Rounded.Call
-    HomeActionType.Voice -> Icons.Rounded.Mic
 }
 
 @Composable
@@ -129,7 +127,6 @@ private fun HomeAction.compactLabel(): String = when (type) {
     HomeActionType.DetectObjects -> stringResource(R.string.home_compact_action_detect_objects)
     HomeActionType.RecognizeCurrency -> stringResource(R.string.home_compact_action_recognize_currency)
     HomeActionType.EmergencyCall -> stringResource(R.string.home_compact_action_emergency)
-    HomeActionType.Voice -> title
 }
 
 @Preview(showBackground = true)
