@@ -42,6 +42,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.eyes.R
 import com.example.eyes.application.ports.SpeechOutput
 import com.example.eyes.domain.i18n.AppLanguage
+import com.example.eyes.infrastructure.accessibility.AccessibilityStateProvider
 import com.example.eyes.ui.blind.BlindAction
 import com.example.eyes.ui.blind.BlindGestureLayer
 import com.example.eyes.ui.blind.LocalBlindFocusManager
@@ -60,14 +61,18 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun AppNavGraph(
     viewModel: AppNavViewModel = koinViewModel(),
-    speechOutput: SpeechOutput = koinInject()
+    speechOutput: SpeechOutput = koinInject(),
+    accessibilityStateProvider: AccessibilityStateProvider = koinInject()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentSpokenText by viewModel.currentSpokenText.collectAsStateWithLifecycle(initialValue = null)
+    val isScreenReaderLikelyEnabled by accessibilityStateProvider.screenReaderLikelyEnabledFlow
+        .collectAsStateWithLifecycle(initialValue = accessibilityStateProvider.isScreenReaderLikelyEnabled)
 
     BlindGestureLayer(
         speechOutput = speechOutput,
         localeProvider = { uiState.appLanguage.ttsLocale },
+        enabled = !isScreenReaderLikelyEnabled,
         noActionsLabel = stringResource(R.string.blind_gesture_no_actions),
         layerDescription = stringResource(R.string.blind_gesture_layer_description),
         focusOverlayDescription = stringResource(R.string.blind_focus_overlay_description)
@@ -153,7 +158,7 @@ private fun MainNavigationScaffold(
         val blindFocusManager = LocalBlindFocusManager.current
         val announcedTopLevelDestination = currentDestination.toTopLevelDestinationOrNull()
         val currentTopLevelDestination = announcedTopLevelDestination ?: TopLevelDestination.HOME
-        LaunchedEffect(announcedTopLevelDestination, appLanguage) {
+        LaunchedEffect(announcedTopLevelDestination) {
             announcedTopLevelDestination?.let { destination ->
                 viewModel.announceScreen(destination, appLanguage)
             }
@@ -161,7 +166,7 @@ private fun MainNavigationScaffold(
         LaunchedEffect(currentRouteKey) {
             blindFocusManager?.setActiveRoute(currentRouteKey)
             announcedTopLevelDestination?.let { destination ->
-                blindFocusManager?.focusItem("bottom_nav_${destination.name}")
+                blindFocusManager?.focusItem("bottom_nav_${destination.name}", speak = false)
             }
         }
         val currentTitle = stringResource(currentTopLevelDestination.titleRes)
@@ -194,6 +199,7 @@ private fun MainNavigationScaffold(
                 ) {
                     TopLevelDestination.entries.forEach { destination ->
                         val isSelected = currentDestination.isInHierarchy(destination)
+                        val destinationAnnouncement = stringResource(destination.announcementRes)
 
                         NavigationBarItem(
                             selected = isSelected,
@@ -215,7 +221,7 @@ private fun MainNavigationScaffold(
                             }.blindFocusable(
                                 id = "bottom_nav_${destination.name}",
                                 label = stringResource(destination.labelRes),
-                                activateLabel = stringResource(destination.labelRes),
+                                activateLabel = destinationAnnouncement,
                                 onActivate = {
                                     if (destination == TopLevelDestination.CAMERA) {
                                         viewModel.requestOpenCamera(CameraMode.OBJECT_DETECTION)
@@ -225,7 +231,7 @@ private fun MainNavigationScaffold(
                                 actions = listOf(
                                     BlindAction(
                                         label = stringResource(destination.labelRes),
-                                        activateLabel = stringResource(destination.labelRes),
+                                        activateLabel = destinationAnnouncement,
                                         onActivate = {
                                             if (destination == TopLevelDestination.CAMERA) {
                                                 viewModel.requestOpenCamera(CameraMode.OBJECT_DETECTION)

@@ -19,7 +19,7 @@ class DefaultAnnouncementPort(
     private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) : AnnouncementPort {
     override val voiceGuideEnabled: StateFlow<Boolean> = voiceGuideEnabledFlow
-        .stateIn(scope, SharingStarted.Eagerly, false)
+        .stateIn(scope, SharingStarted.Eagerly, true)
 
     private var lastText: String? = null
     private var lastSpokenAtMs: Long = 0L

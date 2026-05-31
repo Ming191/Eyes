@@ -156,7 +156,8 @@ val appModule = module {
             applySpeechRateUseCase = get(),
             setCameraOcrModeUseCase = get(),
             announceDestinationUseCase = get(),
-            speechOutput = get()
+            speechOutput = get(),
+            localizedTextProvider = get()
         )
     }
     viewModel {
@@ -187,7 +188,9 @@ val appModule = module {
     viewModel {
         SettingsViewModel(
             observeSettings = get(),
-            updateSettings = get()
+            updateSettings = get(),
+            speechOutput = get(),
+            localizedTextProvider = get()
         )
     }
     viewModel { com.example.eyes.ui.voice.VoiceCommandViewModel(get(), get(), get(), get(), get()) }

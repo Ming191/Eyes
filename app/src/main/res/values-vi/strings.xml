@@ -15,6 +15,8 @@
     <string name="settings_language_section_description">Mục chọn ngôn ngữ</string>
     <string name="settings_select_vietnamese">Chọn tiếng Việt</string>
     <string name="settings_select_english">Chọn tiếng Anh</string>
+    <string name="settings_language_changed_vietnamese">Đã chuyển sang tiếng Việt.</string>
+    <string name="settings_language_changed_english">Change to English.</string>
     <string name="settings_preview_feedback_en">Đang phát thử phản hồi. Tốc độ đọc %1$s lần. Độ nhạy cảnh báo %2$d phần trăm.</string>
     <string name="settings_auto_translate_description">Dịch EN sang VI khi OCR</string>
     <string name="settings_auto_translate_label">Dịch EN → VI</string>
@@ -223,9 +225,9 @@
     <string name="nav_bottom_bar_description">Thanh điều hướng chính</string>
     <string name="nav_selected_description">Đang được chọn</string>
     <string name="nav_unselected_description">Chưa chọn</string>
-    <string name="voice_guide_home_intro">Trang chủ.</string>
-    <string name="voice_guide_camera_intro">Camera.</string>
-    <string name="voice_guide_settings_intro">Cài đặt.</string>
+    <string name="voice_guide_home_intro">Đã chuyển sang trang chủ.</string>
+    <string name="voice_guide_camera_intro">Đã chuyển sang camera.</string>
+    <string name="voice_guide_settings_intro">Đã chuyển sang cài đặt.</string>
     <string name="voice_guide_subtitle_description">Phụ đề lời đang đọc: %1$s</string>
     <string name="camera_screen_description">Màn hình camera ở chế độ %1$s.</string>
     <string name="camera_captured_ocr_description">Ảnh đã chụp</string>

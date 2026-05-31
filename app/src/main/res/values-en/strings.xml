@@ -15,6 +15,8 @@
     <string name="settings_language_section_description">Language selection section</string>
     <string name="settings_select_vietnamese">Select Vietnamese</string>
     <string name="settings_select_english">Select English</string>
+    <string name="settings_language_changed_vietnamese">Đã chuyển sang tiếng Việt.</string>
+    <string name="settings_language_changed_english">Change to English.</string>
     <string name="settings_preview_feedback_en">Playing feedback preview. Speech speed %1$s times. Alert sensitivity %2$d percent.</string>
     <string name="settings_auto_translate_description">Translate EN to VI during OCR</string>
     <string name="settings_auto_translate_label">Translate EN → VI</string>
@@ -223,9 +225,9 @@
     <string name="nav_bottom_bar_description">Main navigation bar</string>
     <string name="nav_selected_description">Selected</string>
     <string name="nav_unselected_description">Not selected</string>
-    <string name="voice_guide_home_intro">Home.</string>
-    <string name="voice_guide_camera_intro">Camera.</string>
-    <string name="voice_guide_settings_intro">Settings.</string>
+    <string name="voice_guide_home_intro">Switched to Home.</string>
+    <string name="voice_guide_camera_intro">Switched to Camera.</string>
+    <string name="voice_guide_settings_intro">Switched to Settings.</string>
     <string name="voice_guide_subtitle_description">Spoken text subtitle: %1$s</string>
     <string name="camera_screen_description">Camera screen in %1$s mode.</string>
     <string name="camera_captured_ocr_description">Captured image</string>

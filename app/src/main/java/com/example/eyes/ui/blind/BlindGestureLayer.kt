@@ -33,12 +33,20 @@ val LocalBlindFocusRouteKey = compositionLocalOf { BlindFocusManager.GLOBAL_ROUT
 fun BlindGestureLayer(
     speechOutput: SpeechOutput,
     localeProvider: () -> java.util.Locale? = { null },
+    enabled: Boolean = true,
     noActionsLabel: String,
     layerDescription: String,
     focusOverlayDescription: String,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
+    if (!enabled) {
+        Box(modifier = modifier.fillMaxSize()) {
+            content()
+        }
+        return
+    }
+
     val currentLocaleProvider = rememberUpdatedState(localeProvider)
     val currentNoActionsLabel = rememberUpdatedState(noActionsLabel)
     val manager = remember(speechOutput) {

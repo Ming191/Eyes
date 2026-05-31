@@ -362,6 +362,7 @@ private fun CameraModeSelector(
                 .blindFocusable(
                     id = "camera_mode_${item.name}",
                     label = itemDescription,
+                    activateLabel = "",
                     onActivate = { onModeSelected(item) }
                 ),
                 icon = {},
@@ -428,6 +429,7 @@ private fun OcrEngineModeSelector(
                         .blindFocusable(
                             id = "camera_ocr_mode_${item.name}",
                             label = if (item == OcrMode.QUICK) quickDescription else accurateDescription,
+                            activateLabel = "",
                             onActivate = { onModeSelected(item) }
                         ),
                     icon = {},
