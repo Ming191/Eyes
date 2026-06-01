@@ -51,6 +51,8 @@ import com.example.eyes.R
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.ui.blind.BlindAction
+import com.example.eyes.ui.blind.BlindHorizontalSwipeDirection
+import com.example.eyes.ui.blind.LocalBlindFocusManager
 import com.example.eyes.ui.blind.blindFocusable
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -65,6 +67,7 @@ fun CameraScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraManager: com.example.eyes.infrastructure.camera.CameraSessionController = koinInject()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val blindFocusManager = LocalBlindFocusManager.current
     val screenDescription = stringResource(
         R.string.camera_screen_description,
         uiState.activeMode.localizedDescription()
@@ -143,6 +146,23 @@ fun CameraScreen(
 
     DisposableEffect(viewModel) {
         onDispose { viewModel.onScreenDisposed() }
+    }
+
+    DisposableEffect(blindFocusManager, viewModel, uiState.activeMode, uiState.isOcrDocumentMode) {
+        if (blindFocusManager != null && uiState.activeMode == CameraMode.OCR && uiState.isOcrDocumentMode) {
+            blindFocusManager.setHorizontalSwipeOverride { direction ->
+                when (direction) {
+                    BlindHorizontalSwipeDirection.Left -> viewModel.nextOcrSentence()
+                    BlindHorizontalSwipeDirection.Right -> viewModel.prevOcrSentence()
+                }
+                true
+            }
+            onDispose {
+                blindFocusManager.setHorizontalSwipeOverride(null)
+            }
+        } else {
+            onDispose {}
+        }
     }
 
     Box(

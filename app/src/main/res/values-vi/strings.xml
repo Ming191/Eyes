@@ -87,7 +87,7 @@
     <string name="home_action_settings_supporting">Âm thanh và rung</string>
     <string name="home_action_settings_accessibility">Tinh chỉnh phản hồi. Điều chỉnh tốc độ đọc và độ nhạy cảnh báo.</string>
     <string name="home_compact_action_ocr_quick">OCR nhanh</string>
-    <string name="home_compact_action_ocr_accurate">OCR kỹ</string>
+    <string name="home_compact_action_ocr_accurate">OCR chính xác</string>
     <string name="home_compact_action_describe_scene">Mô tả cảnh</string>
     <string name="home_compact_action_detect_objects">Vật thể</string>
     <string name="home_compact_action_recognize_currency">Tiền</string>

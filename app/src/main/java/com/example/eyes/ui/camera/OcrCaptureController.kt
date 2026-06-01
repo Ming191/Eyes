@@ -40,6 +40,7 @@ internal class OcrCaptureController(
     fun processCapturedImage(imageProxy: ImageProxy, scope: CoroutineScope) {
         scope.launch(Dispatchers.Default) {
             resetGuidance()
+            speechOutput.stop()
             val bitmap = try {
                 imageConverter.toBitmapWithRotation(imageProxy)
             } catch (_: Throwable) {
@@ -76,7 +77,7 @@ internal class OcrCaptureController(
             lastRawOcrResult.set(recognizedDocument.rawResult)
             lastOcrUsedFallback.set(recognizedDocument.usedFallbackFromAccuracy)
             if (recognizedDocument.translationFailed) {
-                speechOutput.speak(
+                speechOutput.speakAndAwait(
                     cameraText().cannotTranslateReadingOriginal,
                     appLanguage().ttsLocale
                 )
@@ -84,7 +85,7 @@ internal class OcrCaptureController(
             if (recognizedDocument.usedFallbackFromAccuracy) {
                 setCameraOcrModeUseCase(OcrMode.QUICK)
                 val reason = recognizedDocument.fallbackReason.toLocalizedReason()
-                speechOutput.speak(
+                speechOutput.speakAndAwait(
                     cameraText().accuracyOcrFallback(reason),
                     appLanguage().ttsLocale
                 )
@@ -103,6 +104,7 @@ internal class OcrCaptureController(
     }
 
     fun onCaptureRequested() {
+        speechOutput.stop()
         if (!uiState.value.isOcrReadyToCapture) {
             speechOutput.speak(cameraText().imageMayBeUnclearCapturing, appLanguage().ttsLocale)
         }

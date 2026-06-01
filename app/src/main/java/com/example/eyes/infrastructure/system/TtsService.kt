@@ -154,9 +154,15 @@ class TtsService(context: Context) : SpeechOutput {
 
         synchronized(lock) {
             when (initState) {
-                InitState.PENDING -> enqueuePendingLocked(normalizedText, locale)
+                InitState.PENDING -> {
+                    clearPendingLocked()
+                    enqueuePendingLocked(normalizedText, locale)
+                }
                 InitState.FAILED -> Log.w(TAG, "TTS unavailable; dropping utterance")
-                InitState.READY -> enqueueAndDispatchLocked(normalizedText, locale)
+                InitState.READY -> {
+                    interruptActiveSpeechLocked()
+                    enqueueAndDispatchLocked(normalizedText, locale)
+                }
             }
         }
     }
@@ -200,6 +206,18 @@ class TtsService(context: Context) : SpeechOutput {
     private fun clearPendingLocked() {
         pendingUtterances.forEach { it.completion?.complete(Unit) }
         pendingUtterances.clear()
+    }
+
+    private fun interruptActiveSpeechLocked() {
+        clearPendingLocked()
+        completionWaiters.values.forEach { it.complete(Unit) }
+        completionWaiters.clear()
+        utteranceTexts.clear()
+        inFlightUtteranceIds.clear()
+        _currentSpokenText.value = null
+        if (initState == InitState.READY) {
+            tts.stop()
+        }
     }
 
     override fun warmupLocale(locale: Locale) {

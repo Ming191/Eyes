@@ -11,9 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AttachMoney
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.CenterFocusStrong
 import androidx.compose.material.icons.rounded.ImageSearch
 import androidx.compose.material.icons.rounded.TextFields
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -113,7 +113,8 @@ fun HomeActionCard(
 }
 
 private fun HomeAction.icon(): ImageVector = when (type) {
-    HomeActionType.ReadTextQuick,
+    HomeActionType.ReadTextQuick -> Icons.Rounded.TextFields
+    HomeActionType.ReadTextAccuracy -> Icons.Rounded.CenterFocusStrong
     HomeActionType.DescribeScene -> Icons.Rounded.ImageSearch
     HomeActionType.DetectObjects -> Icons.Rounded.Visibility
     HomeActionType.RecognizeCurrency -> Icons.Rounded.AttachMoney
@@ -123,6 +124,7 @@ private fun HomeAction.icon(): ImageVector = when (type) {
 @Composable
 private fun HomeAction.compactLabel(): String = when (type) {
     HomeActionType.ReadTextQuick -> stringResource(R.string.home_compact_action_ocr_quick)
+    HomeActionType.ReadTextAccuracy -> stringResource(R.string.home_compact_action_ocr_accurate)
     HomeActionType.DescribeScene -> stringResource(R.string.home_compact_action_describe_scene)
     HomeActionType.DetectObjects -> stringResource(R.string.home_compact_action_detect_objects)
     HomeActionType.RecognizeCurrency -> stringResource(R.string.home_compact_action_recognize_currency)

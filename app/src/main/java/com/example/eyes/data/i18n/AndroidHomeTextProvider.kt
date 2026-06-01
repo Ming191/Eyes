@@ -23,6 +23,13 @@ class AndroidHomeTextProvider(
                 text(R.string.home_action_read_quick_accessibility, language)
             ),
             HomeActionState(
+                HomeActionKind.ReadTextAccuracy,
+                text(R.string.home_action_read_accuracy_title, language),
+                text(R.string.home_action_read_accuracy_description, language),
+                text(R.string.home_action_read_accuracy_supporting, language),
+                text(R.string.home_action_read_accuracy_accessibility, language)
+            ),
+            HomeActionState(
                 HomeActionKind.DescribeScene,
                 text(R.string.camera_mode_scene_description_label, language),
                 text(R.string.camera_mode_scene_description_description, language),

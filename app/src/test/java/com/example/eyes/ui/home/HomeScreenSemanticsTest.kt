@@ -50,6 +50,10 @@ class HomeScreenSemanticsTest {
             R.string.home_action_read_quick_accessibility,
             AppLanguage.VI
         )
+        val readAccuracyDescription = localizedTextProvider.getString(
+            R.string.home_action_read_accuracy_accessibility,
+            AppLanguage.VI
+        )
         val emergencyDescription = localizedTextProvider.getString(
             R.string.home_action_emergency_accessibility,
             AppLanguage.VI
@@ -66,6 +70,7 @@ class HomeScreenSemanticsTest {
                 onActionSelected = { action ->
                     when (action) {
                         HomeActionType.ReadTextQuick -> Unit
+                        HomeActionType.ReadTextAccuracy -> Unit
                         HomeActionType.DescribeScene -> Unit
                         HomeActionType.DetectObjects -> Unit
                         HomeActionType.RecognizeCurrency -> Unit
@@ -79,6 +84,11 @@ class HomeScreenSemanticsTest {
         // THEN
         composeTestRule.onNodeWithContentDescription(
             readQuickDescription
+        )
+            .assertHasClickAction()
+
+        composeTestRule.onNodeWithContentDescription(
+            readAccuracyDescription
         )
             .assertHasClickAction()
 

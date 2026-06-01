@@ -85,7 +85,18 @@ fun BlindGestureLayer(
 
                         val delta = longPressChange.position - down.position
                         if (abs(delta.x) > abs(delta.y) && abs(delta.x) > swipeThreshold) {
-                            if (delta.x > 0) manager.focusNext() else manager.focusPrevious()
+                            val direction = if (delta.x > 0) {
+                                BlindHorizontalSwipeDirection.Right
+                            } else {
+                                BlindHorizontalSwipeDirection.Left
+                            }
+                            if (!manager.handleHorizontalSwipe(direction)) {
+                                if (direction == BlindHorizontalSwipeDirection.Right) {
+                                    manager.focusNext()
+                                } else {
+                                    manager.focusPrevious()
+                                }
+                            }
                             return@awaitEachGesture
                         }
 

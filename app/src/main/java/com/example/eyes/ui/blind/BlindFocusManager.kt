@@ -20,6 +20,7 @@ class BlindFocusManager(
     private var selectedActionIndex = -1
     private var lastSpokenItemId: String? = null
     private var activeRouteKey = GLOBAL_ROUTE_KEY
+    private var horizontalSwipeOverride: ((BlindHorizontalSwipeDirection) -> Boolean)? = null
 
     var focusedBounds by mutableStateOf<Rect?>(null)
         private set
@@ -83,6 +84,14 @@ class BlindFocusManager(
         setFocus(if (focusedIndex > 0) focusedIndex - 1 else visibleItems.lastIndex)
         updateFocusedBounds()
         speakFocused(force = true)
+    }
+
+    fun setHorizontalSwipeOverride(handler: ((BlindHorizontalSwipeDirection) -> Boolean)?) {
+        horizontalSwipeOverride = handler
+    }
+
+    fun handleHorizontalSwipe(direction: BlindHorizontalSwipeDirection): Boolean {
+        return horizontalSwipeOverride?.invoke(direction) == true
     }
 
     fun focusNextAction() {
@@ -189,6 +198,11 @@ data class BlindAction(
     val onActivate: () -> Unit,
     val activateLabel: String? = null
 )
+
+enum class BlindHorizontalSwipeDirection {
+    Left,
+    Right
+}
 
 data class BlindFocusItem(
     val id: String,
