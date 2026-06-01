@@ -75,11 +75,11 @@
     <string name="home_action_read_quick_title">Đọc văn bản nhanh</string>
     <string name="home_action_read_quick_description">Dùng camera để đọc nhanh bằng ML Kit.</string>
     <string name="home_action_read_quick_supporting">Chế độ OCR nhanh</string>
-    <string name="home_action_read_quick_accessibility">Đọc văn bản nhanh. Dùng camera để đọc nhãn, biển báo hoặc tài liệu ngắn bằng OCR nhanh.</string>
+    <string name="home_action_read_quick_accessibility">Đọc văn bản nhanh. Dùng camera để đọc nhãn, biển báo hoặc tài liệu ngắn.</string>
     <string name="home_action_read_accuracy_title">Đọc văn bản chính xác</string>
     <string name="home_action_read_accuracy_description">Dùng camera để đọc chính xác hơn bằng GPT-4o.</string>
     <string name="home_action_read_accuracy_supporting">Chế độ OCR chính xác</string>
-    <string name="home_action_read_accuracy_accessibility">Đọc văn bản chính xác. Dùng camera để đọc tài liệu với độ chính xác cao hơn bằng GPT-4o.</string>
+    <string name="home_action_read_accuracy_accessibility">Đọc văn bản chính xác. Dùng camera để đọc tài liệu với độ chính xác cao hơn.</string>
     <string name="home_action_voice_title">Ra lệnh bằng giọng nói</string>
     <string name="home_action_voice_description">Nói một câu lệnh để mở chế độ đọc, mô tả hoặc nhận diện tiền.</string>
     <string name="home_action_voice_supporting">Hỗ trợ tiếng Việt</string>
@@ -189,7 +189,7 @@
     <string name="onboarding_screen_description">Màn hình giới thiệu và thiết lập ban đầu</string>
     <string name="onboarding_top_bar_description">Thanh tiêu đề màn hình giới thiệu</string>
     <string name="onboarding_top_bar_title">Thiết lập</string>
-    <string name="onboarding_hero_description">Giới thiệu SoundVision. Trợ lý bằng giọng nói dành cho người dùng khiếm thị.</string>
+    <string name="onboarding_hero_description">Giới thiệu Eyes. Trợ lý bằng giọng nói dành cho người dùng khiếm thị.</string>
     <string name="onboarding_hero_label">Thiết lập nhanh</string>
     <string name="onboarding_hero_title">Thiết lập nhanh</string>
     <string name="onboarding_hero_summary">Chọn ngôn ngữ, cấp quyền, rồi bắt đầu.</string>
@@ -224,7 +224,7 @@
     <string name="permission_line_text">%1$s: %2$s</string>
     <string name="permission_granted_description">%1$s đã cấp quyền</string>
     <string name="permission_denied_description">%1$s chưa cấp quyền</string>
-    <string name="nav_title_home">SoundVision</string>
+    <string name="nav_title_home">Eyes</string>
     <string name="nav_label_home">Trang chủ</string>
     <string name="nav_title_camera">Camera trợ lý</string>
     <string name="nav_label_camera">Camera</string>
@@ -261,7 +261,7 @@
     <string name="camera_mode_ocr_label">Đọc văn bản</string>
     <string name="camera_mode_ocr_description">đọc văn bản OCR</string>
     <string name="camera_mode_scene_description_label">Mô tả ảnh</string>
-    <string name="camera_mode_scene_description_description">mô tả ảnh từ ảnh chụp</string>
+    <string name="camera_mode_scene_description_description">mô tả cảnh từ ảnh chụp</string>
     <string name="camera_mode_object_detection_label">Vật thể</string>
     <string name="camera_mode_object_detection_description">nhận diện vật thể</string>
     <string name="camera_mode_currency_label">Tiền</string>

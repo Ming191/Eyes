@@ -189,7 +189,7 @@
     <string name="onboarding_screen_description">Introduction and initial setup screen</string>
     <string name="onboarding_top_bar_description">Onboarding title bar</string>
     <string name="onboarding_top_bar_title">Setup</string>
-    <string name="onboarding_hero_description">SoundVision introduction. Voice assistant for blind users.</string>
+    <string name="onboarding_hero_description">Eyes introduction. Voice assistant for blind users.</string>
     <string name="onboarding_hero_label">Quick setup</string>
     <string name="onboarding_hero_title">Quick setup</string>
     <string name="onboarding_hero_summary">Choose language, grant access, then start.</string>
@@ -224,7 +224,7 @@
     <string name="permission_line_text">%1$s: %2$s</string>
     <string name="permission_granted_description">%1$s permission granted</string>
     <string name="permission_denied_description">%1$s permission not granted</string>
-    <string name="nav_title_home">SoundVision</string>
+    <string name="nav_title_home">Eyes</string>
     <string name="nav_label_home">Home</string>
     <string name="nav_title_camera">Assistant camera</string>
     <string name="nav_label_camera">Camera</string>
