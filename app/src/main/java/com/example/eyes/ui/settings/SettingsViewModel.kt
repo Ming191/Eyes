@@ -29,9 +29,13 @@ class SettingsViewModel(
     private val localizedTextProvider: LocalizedTextProvider
 ) : ViewModel() {
 
+    private var latestRequestedTtsSpeed: Float = SettingsUiState().ttsSpeed
+
     val uiState: StateFlow<SettingsUiState> = observeSettings().map { settings ->
+        val ttsSpeed = settings.ttsSpeed.snapToTtsSpeedStep()
+        latestRequestedTtsSpeed = ttsSpeed
         SettingsUiState(
-            ttsSpeed = settings.ttsSpeed,
+            ttsSpeed = ttsSpeed,
             alertSensitivity = settings.alertSensitivity,
             autoTranslateEnglishOcrToVietnamese = settings.autoTranslateEnglishOcrToVietnamese,
             appLanguage = settings.appLanguage,
@@ -44,9 +48,45 @@ class SettingsViewModel(
     )
 
     fun setTtsSpeed(value: Float) {
+        setTtsSpeed(value = value, announce = false)
+    }
+
+    fun setTtsSpeedAndAnnounce(value: Float) {
+        setTtsSpeed(value = value, announce = true)
+    }
+
+    fun selectPreviousTtsSpeedAndAnnounce() {
+        setTtsSpeed(value = latestRequestedTtsSpeed.previousTtsSpeedStep(), announce = true)
+    }
+
+    fun selectNextTtsSpeedAndAnnounce() {
+        setTtsSpeed(value = latestRequestedTtsSpeed.nextTtsSpeedStep(), announce = true)
+    }
+
+    fun announceCurrentTtsSpeed() {
+        speakTtsSpeed(latestRequestedTtsSpeed)
+    }
+
+    private fun setTtsSpeed(value: Float, announce: Boolean) {
+        val speed = value.snapToTtsSpeedStep()
+        latestRequestedTtsSpeed = speed
         viewModelScope.launch {
-            updateSettings.setTtsSpeed(value)
+            updateSettings.setTtsSpeed(speed)
+            if (announce) {
+                speakTtsSpeed(speed)
+            }
         }
+    }
+
+    private fun speakTtsSpeed(speed: Float) {
+        val language = uiState.value.appLanguage
+        val speedLabel = String.format(language.ttsLocale, "%.2f", speed)
+        val announcement = localizedTextProvider.getString(
+            R.string.settings_tts_speed_changed_announcement,
+            language,
+            speedLabel
+        )
+        speechOutput.speak(announcement, language.ttsLocale)
     }
 
     fun setAutoTranslateEnglishOcrToVietnamese(enabled: Boolean) {

@@ -6,6 +6,12 @@
     <string name="settings_tts_speed_title">Speech speed</string>
     <string name="settings_tts_speed_summary">Keep speech clear when listening through speaker or one earbud.</string>
     <string name="settings_tts_speed_slider_description">Speech speed slider %1$s times</string>
+    <string name="settings_tts_speed_selector_description">Choose speech speed. Current value %1$s times</string>
+    <string name="settings_tts_speed_slider_adjust_start">Drag horizontally with one finger to adjust speech speed.</string>
+    <string name="settings_tts_speed_decrease_description">Decrease speech speed</string>
+    <string name="settings_tts_speed_increase_description">Increase speech speed</string>
+    <string name="settings_tts_speed_preset_description">Set speech speed to %1$s times</string>
+    <string name="settings_tts_speed_changed_announcement">Speech speed %1$s times.</string>
     <string name="settings_slider_state_description">Current value %1$s times</string>
     <string name="settings_alert_sensitivity_title">Haptic feedback</string>
     <string name="settings_alert_sensitivity_summary">Adjust haptic feedback strength for app interactions.</string>

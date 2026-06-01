@@ -70,6 +70,11 @@ fun BlindGestureLayer(
                             pass = PointerEventPass.Initial
                         )
                         down.consume()
+                        if (manager.isAdjusting) {
+                            handleFocusedAdjustment(manager, down.position)
+                            return@awaitEachGesture
+                        }
+
                         val longPressTimeout = viewConfiguration.longPressTimeoutMillis
                         val doubleTapTimeout = viewConfiguration.doubleTapTimeoutMillis
                         val swipeThreshold = viewConfiguration.touchSlop * 6f
@@ -156,6 +161,34 @@ private suspend fun AwaitPointerEventScope.handleExploreByTouch(
         val activeChange = event.changes.firstOrNull { it.pressed } ?: break
         event.changes.forEach { it.consume() }
         manager.focusAt(activeChange.position)
+    }
+}
+
+private suspend fun AwaitPointerEventScope.handleFocusedAdjustment(
+    manager: BlindFocusManager,
+    startPosition: Offset
+) {
+    if (!manager.beginFocusedAdjustment()) return
+
+    val focusedWidth = manager.focusedBounds?.width?.takeIf { it > 0f } ?: size.width.toFloat()
+    while (true) {
+        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+        if (event.changes.size > 1) {
+            event.changes.forEach { it.consume() }
+            manager.finishFocusedAdjustment()
+            return
+        }
+
+        val activeChange = event.changes.firstOrNull()
+        event.changes.forEach { it.consume() }
+        if (activeChange != null) {
+            val deltaFraction = ((activeChange.position.x - startPosition.x) / focusedWidth).coerceIn(-1f, 1f)
+            manager.dragFocusedAdjustment(deltaFraction)
+        }
+        if (event.changes.all { !it.pressed }) {
+            manager.finishFocusedAdjustment()
+            return
+        }
     }
 }
 

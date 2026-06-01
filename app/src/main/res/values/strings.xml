@@ -6,6 +6,12 @@
     <string name="settings_tts_speed_title">Tốc độ đọc</string>
     <string name="settings_tts_speed_summary">Giữ nhịp đọc rõ ràng khi nghe qua loa ngoài hoặc tai nghe một bên.</string>
     <string name="settings_tts_speed_slider_description">Thanh trượt tốc độ đọc %1$s lần</string>
+    <string name="settings_tts_speed_selector_description">Chọn tốc độ đọc. Hiện tại %1$s lần</string>
+    <string name="settings_tts_speed_slider_adjust_start">Kéo ngang một ngón để chỉnh tốc độ đọc.</string>
+    <string name="settings_tts_speed_decrease_description">Giảm tốc độ đọc</string>
+    <string name="settings_tts_speed_increase_description">Tăng tốc độ đọc</string>
+    <string name="settings_tts_speed_preset_description">Chọn tốc độ đọc %1$s lần</string>
+    <string name="settings_tts_speed_changed_announcement">Tốc độ đọc %1$s lần.</string>
     <string name="settings_slider_state_description">Giá trị hiện tại %1$s lần</string>
     <string name="settings_alert_sensitivity_title">Phản hồi rung</string>
     <string name="settings_alert_sensitivity_summary">Điều chỉnh cường độ phản hồi rung khi thao tác trong ứng dụng.</string>

@@ -18,7 +18,8 @@ fun Modifier.blindFocusable(
     label: String,
     onActivate: () -> Unit,
     activateLabel: String? = null,
-    actions: List<BlindAction> = emptyList()
+    actions: List<BlindAction> = emptyList(),
+    adjustment: BlindDragAdjustment? = null
 ): Modifier = composed {
     val manager = LocalBlindFocusManager.current
     val routeKey = LocalBlindFocusRouteKey.current
@@ -28,6 +29,7 @@ fun Modifier.blindFocusable(
     val currentOnActivate by rememberUpdatedState(onActivate)
     val currentActivateLabel by rememberUpdatedState(activateLabel)
     val currentActions by rememberUpdatedState(actions)
+    val currentAdjustment by rememberUpdatedState(adjustment)
 
     SideEffect {
         manager?.registerOrUpdate(
@@ -38,7 +40,8 @@ fun Modifier.blindFocusable(
                 bounds = currentBounds,
                 onActivate = currentOnActivate,
                 activateLabel = currentActivateLabel,
-                actions = currentActions
+                actions = currentActions,
+                adjustment = currentAdjustment
             )
         )
     }

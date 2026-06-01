@@ -13,6 +13,9 @@ interface LocalizedTextProvider {
     fun getString(resId: Int, language: AppLanguage): String =
         localizedContext(language).getString(resId)
 
+    fun getString(resId: Int, language: AppLanguage, vararg formatArgs: Any): String =
+        localizedContext(language).getString(resId, *formatArgs)
+
     fun getStringArray(resId: Int, language: AppLanguage): Array<String> =
         localizedContext(language).resources.getStringArray(resId)
 }
