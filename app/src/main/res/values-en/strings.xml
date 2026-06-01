@@ -94,10 +94,10 @@
     <string name="home_action_settings_accessibility">Adjust feedback. Adjust speech speed and alert sensitivity.</string>
     <string name="home_compact_action_ocr_quick">Quick OCR</string>
     <string name="home_compact_action_ocr_accurate">Accurate OCR</string>
-    <string name="home_compact_action_describe_scene">Describe</string>
-    <string name="home_compact_action_detect_objects">Objects</string>
-    <string name="home_compact_action_recognize_currency">Money</string>
-    <string name="home_compact_action_emergency">Emergency</string>
+    <string name="home_compact_action_describe_scene">Scene describe</string>
+    <string name="home_compact_action_detect_objects">Object detection</string>
+    <string name="home_compact_action_recognize_currency">Money detection</string>
+    <string name="home_compact_action_emergency">Emergency call</string>
     <string name="emergency_screen_title">Emergency call</string>
     <string name="emergency_screen_description">Emergency number selection screen</string>
     <string name="emergency_screen_tts_short">Choose emergency number.</string>

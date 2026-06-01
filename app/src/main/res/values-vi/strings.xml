@@ -95,9 +95,9 @@
     <string name="home_compact_action_ocr_quick">OCR nhanh</string>
     <string name="home_compact_action_ocr_accurate">OCR chính xác</string>
     <string name="home_compact_action_describe_scene">Mô tả cảnh</string>
-    <string name="home_compact_action_detect_objects">Vật thể</string>
-    <string name="home_compact_action_recognize_currency">Tiền</string>
-    <string name="home_compact_action_emergency">Khẩn cấp</string>
+    <string name="home_compact_action_detect_objects">Nhận diện vật thể</string>
+    <string name="home_compact_action_recognize_currency">Nhận diện tiền</string>
+    <string name="home_compact_action_emergency">Gọi khẩn cấp</string>
     <string name="emergency_screen_title">Gọi khẩn cấp</string>
     <string name="emergency_screen_description">Màn hình chọn số khẩn cấp</string>
     <string name="emergency_screen_tts_short">Chọn số khẩn cấp.</string>
