@@ -30,7 +30,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -50,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.R
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrMode
+import com.example.eyes.domain.voice.VoiceCameraTarget
 import com.example.eyes.ui.blind.BlindAction
 import com.example.eyes.ui.blind.BlindHorizontalSwipeDirection
 import com.example.eyes.ui.blind.LocalBlindFocusManager
@@ -59,9 +63,9 @@ import org.koin.compose.koinInject
 
 @Composable
 fun CameraScreen(
-    requestedMode: CameraMode? = null,
+    launchRequest: CameraLaunchRequest? = null,
     appLanguage: AppLanguage = AppLanguage.VI,
-    onRequestedModeConsumed: () -> Unit = {},
+    onLaunchRequestConsumed: () -> Unit = {},
     viewModel: CameraViewModel = koinViewModel()
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -86,6 +90,9 @@ fun CameraScreen(
     val canRetakeCurrency = uiState.activeMode == CameraMode.CURRENCY &&
         uiState.ocrCapturedBitmap != null &&
         !uiState.isCurrencyScanning
+    var cameraReady by remember { mutableStateOf(false) }
+    var pendingAutoCaptureRequest by remember { mutableStateOf<CameraLaunchRequest?>(null) }
+    var completedAutoCaptureRequestId by remember { mutableLongStateOf(0L) }
 
     fun prepareNextCaptureForActiveMode() {
         when (uiState.activeMode) {
@@ -136,16 +143,48 @@ fun CameraScreen(
         viewModel.setAppLanguage(appLanguage)
     }
 
-    LaunchedEffect(requestedMode, appLanguage) {
-        if (requestedMode != null) {
+    LaunchedEffect(launchRequest?.id, appLanguage) {
+        val request = launchRequest
+        if (request != null) {
             viewModel.setAppLanguage(appLanguage)
-            viewModel.selectMode(requestedMode)
-            onRequestedModeConsumed()
+            request.ocrMode?.let(viewModel::selectOcrMode)
+            viewModel.selectMode(request.target.toCameraMode())
+            if (request.autoCapture) {
+                pendingAutoCaptureRequest = request
+            }
+            onLaunchRequestConsumed()
         }
     }
 
     DisposableEffect(viewModel) {
-        onDispose { viewModel.onScreenDisposed() }
+        onDispose {
+            cameraReady = false
+            viewModel.onScreenDisposed()
+        }
+    }
+
+    LaunchedEffect(
+        pendingAutoCaptureRequest?.id,
+        cameraReady,
+        uiState.activeMode,
+        uiState.ocrMode,
+        uiState.isOcrScanning,
+        uiState.isDescribingScene,
+        uiState.isCurrencyScanning,
+        uiState.ocrCapturedBitmap,
+        uiState.isOcrDocumentMode
+    ) {
+        val request = pendingAutoCaptureRequest ?: return@LaunchedEffect
+        if (completedAutoCaptureRequestId == request.id) return@LaunchedEffect
+        if (!cameraReady) return@LaunchedEffect
+        if (uiState.activeMode != request.target.toCameraMode()) return@LaunchedEffect
+        if (request.ocrMode != null && uiState.ocrMode != request.ocrMode) return@LaunchedEffect
+        if (uiState.isOcrScanning || uiState.isDescribingScene || uiState.isCurrencyScanning) return@LaunchedEffect
+        if (uiState.ocrCapturedBitmap != null || uiState.isOcrDocumentMode) return@LaunchedEffect
+
+        completedAutoCaptureRequestId = request.id
+        pendingAutoCaptureRequest = null
+        captureCurrentModeIfReady()
     }
 
     DisposableEffect(blindFocusManager, viewModel, uiState.activeMode, uiState.isOcrDocumentMode) {
@@ -231,6 +270,7 @@ fun CameraScreen(
                         previewView = previewView,
                         onFrame = viewModel::processFrame
                     )
+                    cameraReady = true
                 }
             },
             modifier = Modifier.fillMaxSize()
@@ -403,6 +443,13 @@ private fun CameraMode.icon(): ImageVector = when (this) {
     CameraMode.SCENE_DESCRIPTION -> Icons.Rounded.ImageSearch
     CameraMode.OBJECT_DETECTION -> Icons.Rounded.Visibility
     CameraMode.CURRENCY -> Icons.Rounded.AttachMoney
+}
+
+private fun VoiceCameraTarget.toCameraMode(): CameraMode = when (this) {
+    VoiceCameraTarget.OCR -> CameraMode.OCR
+    VoiceCameraTarget.SCENE_DESCRIPTION -> CameraMode.SCENE_DESCRIPTION
+    VoiceCameraTarget.OBJECT_DETECTION -> CameraMode.OBJECT_DETECTION
+    VoiceCameraTarget.CURRENCY -> CameraMode.CURRENCY
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

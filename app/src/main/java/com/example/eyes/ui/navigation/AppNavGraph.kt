@@ -59,9 +59,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.eyes.R
 import com.example.eyes.application.ports.SpeechOutput
+import com.example.eyes.application.voice.VoiceNavigationTargetKind
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.infrastructure.accessibility.AccessibilityStateProvider
-import com.example.eyes.domain.voice.VoiceCommand
+import com.example.eyes.domain.voice.VoiceCameraTarget
 import com.example.eyes.ui.blind.BlindAction
 import com.example.eyes.ui.blind.BlindGestureLayer
 import com.example.eyes.ui.blind.LocalBlindFocusManager
@@ -75,7 +76,6 @@ import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.ui.onboarding.OnboardingScreen
 import com.example.eyes.ui.settings.SettingsScreen
 import com.example.eyes.ui.voice.VoiceCommandViewModel
-import com.example.eyes.ui.voice.VoiceNavigationTarget
 import org.koin.compose.koinInject
 import org.koin.androidx.compose.koinViewModel
 
@@ -177,7 +177,7 @@ private fun MainNavigationScaffold(
         val context = LocalContext.current
         val navController = rememberNavController()
         val lastVoiceStartAtMs = remember { mutableLongStateOf(0L) }
-        val requestedCameraMode by viewModel.requestedCameraMode.collectAsStateWithLifecycle()
+        val cameraLaunchRequest by viewModel.cameraLaunchRequest.collectAsStateWithLifecycle()
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentDestination = navBackStackEntry?.destination
         val currentRouteKey = currentDestination?.route ?: HomeRoute::class.qualifiedName.orEmpty()
@@ -263,22 +263,33 @@ private fun MainNavigationScaffold(
             startVoiceRecognition()
         }
 
+        fun openDialer(number: String) {
+            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.applicationContext.startActivity(intent)
+        }
+
         LaunchedEffect(voiceCommandViewModel, navController) {
-            voiceCommandViewModel.navigation.collect { target ->
-                when (target) {
-                    VoiceNavigationTarget.Camera -> {
-                        val command = voiceCommandViewModel.uiState.value.lastCommand
-                        val ocrMode = command.ocrModeOrNull()
-                        if (ocrMode != null) {
-                            viewModel.requestOpenCameraOcr(ocrMode)
-                        } else {
-                            viewModel.requestOpenCamera(command.cameraMode())
-                        }
+            voiceCommandViewModel.actions.collect { action ->
+                action.dialNumber?.let { number ->
+                    openDialer(number)
+                    return@collect
+                }
+
+                when (action.navigationTarget) {
+                    VoiceNavigationTargetKind.Camera -> {
+                        viewModel.requestCameraLaunch(
+                            target = action.cameraTarget ?: VoiceCameraTarget.OCR,
+                            ocrMode = action.ocrMode,
+                            autoCapture = action.autoCapture
+                        )
                         navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
                     }
-                    VoiceNavigationTarget.Home -> navController.navigateToTopLevelDestination(TopLevelDestination.HOME)
-                    VoiceNavigationTarget.Settings -> navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
-                    VoiceNavigationTarget.Emergency -> navController.navigate(EmergencyRoute)
+                    VoiceNavigationTargetKind.Home -> navController.navigateToTopLevelDestination(TopLevelDestination.HOME)
+                    VoiceNavigationTargetKind.Settings -> navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
+                    VoiceNavigationTargetKind.Emergency -> navController.navigate(EmergencyRoute)
+                    null -> Unit
                 }
             }
         }
@@ -409,10 +420,7 @@ private fun MainNavigationScaffold(
                                     if (number == null) {
                                         navController.navigate(EmergencyRoute)
                                     } else {
-                                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")).apply {
-                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        }
-                                        context.applicationContext.startActivity(intent)
+                                        openDialer(number)
                                     }
                                 }
                             )
@@ -421,9 +429,9 @@ private fun MainNavigationScaffold(
                     composable<CameraRoute> {
                         CompositionLocalProvider(LocalBlindFocusRouteKey provides CameraRoute::class.qualifiedName.orEmpty()) {
                             CameraScreen(
-                                requestedMode = requestedCameraMode,
+                                launchRequest = cameraLaunchRequest,
                                 appLanguage = appLanguage,
-                                onRequestedModeConsumed = viewModel::clearRequestedCameraMode
+                                onLaunchRequestConsumed = viewModel::clearCameraLaunchRequest
                             )
                         }
                     }
@@ -448,19 +456,6 @@ private fun MainNavigationScaffold(
             }
         }
     }
-}
-
-private fun VoiceCommand?.cameraMode(): CameraMode = when (this) {
-    VoiceCommand.DescribeScene -> CameraMode.SCENE_DESCRIPTION
-    VoiceCommand.RecognizeCurrency -> CameraMode.CURRENCY
-    VoiceCommand.DetectObjects -> CameraMode.OBJECT_DETECTION
-    else -> CameraMode.OCR
-}
-
-private fun VoiceCommand?.ocrModeOrNull(): OcrMode? = when (this) {
-    VoiceCommand.OcrQuick -> OcrMode.QUICK
-    VoiceCommand.OcrAccurate -> OcrMode.ACCURACY
-    else -> null
 }
 
 @Composable

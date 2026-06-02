@@ -13,8 +13,10 @@ import com.example.eyes.application.navigation.UpdateAppLanguageUseCase
 import com.example.eyes.domain.navigation.Destination
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.domain.ocr.OcrMode
+import com.example.eyes.domain.voice.VoiceCameraTarget
 import com.example.eyes.application.ports.SpeechOutput
 import com.example.eyes.infrastructure.i18n.LocalizedTextProvider
+import com.example.eyes.ui.camera.CameraLaunchRequest
 import com.example.eyes.ui.camera.CameraMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -42,8 +44,9 @@ class AppNavViewModel(
     private val localizedTextProvider: LocalizedTextProvider,
 ) : ViewModel() {
 
-    private val _requestedCameraMode = MutableStateFlow<CameraMode?>(null)
-    val requestedCameraMode: StateFlow<CameraMode?> = _requestedCameraMode.asStateFlow()
+    private var nextCameraLaunchRequestId = 0L
+    private val _cameraLaunchRequest = MutableStateFlow<CameraLaunchRequest?>(null)
+    val cameraLaunchRequest: StateFlow<CameraLaunchRequest?> = _cameraLaunchRequest.asStateFlow()
     val currentSpokenText = speechOutput.currentSpokenText
     val uiState: StateFlow<AppNavUiState> = observeAppNavState().map { state ->
             AppNavUiState(
@@ -85,18 +88,41 @@ class AppNavViewModel(
     }
 
     fun requestOpenCamera(mode: CameraMode) {
-        _requestedCameraMode.value = mode
+        requestCameraLaunch(
+            target = mode.toVoiceCameraTarget(),
+            ocrMode = null,
+            autoCapture = false
+        )
     }
 
     fun requestOpenCameraOcr(ocrMode: OcrMode) {
-        _requestedCameraMode.value = CameraMode.OCR
-        viewModelScope.launch {
-            setCameraOcrModeUseCase(ocrMode)
+        requestCameraLaunch(
+            target = VoiceCameraTarget.OCR,
+            ocrMode = ocrMode,
+            autoCapture = false
+        )
+    }
+
+    fun requestCameraLaunch(
+        target: VoiceCameraTarget,
+        ocrMode: OcrMode?,
+        autoCapture: Boolean
+    ) {
+        _cameraLaunchRequest.value = CameraLaunchRequest(
+            id = ++nextCameraLaunchRequestId,
+            target = target,
+            ocrMode = ocrMode,
+            autoCapture = autoCapture
+        )
+        if (target == VoiceCameraTarget.OCR && ocrMode != null) {
+            viewModelScope.launch {
+                setCameraOcrModeUseCase(ocrMode)
+            }
         }
     }
 
-    fun clearRequestedCameraMode() {
-        _requestedCameraMode.value = null
+    fun clearCameraLaunchRequest() {
+        _cameraLaunchRequest.value = null
     }
 
     fun announceScreen(destination: TopLevelDestination, appLanguage: AppLanguage) {
@@ -107,5 +133,12 @@ class AppNavViewModel(
         TopLevelDestination.HOME -> Destination.HOME
         TopLevelDestination.CAMERA -> Destination.CAMERA
         TopLevelDestination.SETTINGS -> Destination.SETTINGS
+    }
+
+    private fun CameraMode.toVoiceCameraTarget(): VoiceCameraTarget = when (this) {
+        CameraMode.OCR -> VoiceCameraTarget.OCR
+        CameraMode.SCENE_DESCRIPTION -> VoiceCameraTarget.SCENE_DESCRIPTION
+        CameraMode.OBJECT_DETECTION -> VoiceCameraTarget.OBJECT_DETECTION
+        CameraMode.CURRENCY -> VoiceCameraTarget.CURRENCY
     }
 }

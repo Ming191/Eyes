@@ -118,7 +118,7 @@ val appModule = module {
     factory { ApplySpeechRateUseCase(get(), get()) }
     factory { SetCameraOcrModeUseCase(get()) }
     factory { AnnounceDestinationUseCase(get(), get()) }
-    factory { HandleVoiceCommandUseCase(get(), get(), get()) }
+    factory { HandleVoiceCommandUseCase(get(), get(), get(), get()) }
     factory<OcrEnginePort>(named("quick-ocr")) { MlKitOcrEngine() }
     factory<OcrEnginePort>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
     factory<OcrGuidanceAnalyzerPort> { MlKitOcrGuidanceAnalyzer() }
@@ -178,7 +178,6 @@ val appModule = module {
             hapticService = get(),
             observeCameraPreferences = get(),
             setCameraOcrModeUseCase = get(),
-            voiceCommandRepository = get(),
             describeSceneUseCase = get(),
             detectObjectsUseCase = get(),
             warmUpObjectDetectionUseCase = get(),
