@@ -22,6 +22,7 @@ import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.domain.ocr.OcrTextBounds
 import com.example.eyes.application.ports.SpeechOutput
 import com.example.eyes.infrastructure.camera.CameraImageConverter
+import com.example.eyes.infrastructure.ocr.OcrExperimentLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -96,6 +97,7 @@ class CameraViewModel(
     private val audioRouteProvider: AudioRouteProvider,
     private val recognizeCurrencyUseCase: RecognizeCurrencyUseCase,
     private val imageConverter: CameraImageConverter,
+    private val ocrExperimentLogger: OcrExperimentLogger,
     private val localizedTextProvider: LocalizedTextProvider
 ) : ViewModel() {
 
@@ -133,6 +135,7 @@ class CameraViewModel(
         speechOutput = speechOutput,
         hapticService = hapticService,
         imageConverter = imageConverter,
+        ocrExperimentLogger = ocrExperimentLogger,
         cameraText = { cameraText },
         appLanguage = { appLanguage.get() },
         resetGuidance = ocrGuidanceController::reset,

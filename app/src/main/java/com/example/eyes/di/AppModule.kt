@@ -58,6 +58,7 @@ import com.example.eyes.infrastructure.i18n.LocalizedTextProvider
 import com.example.eyes.infrastructure.openai.Gpt4oOcrEngine
 import com.example.eyes.infrastructure.openai.Gpt4oSceneDescriptionEngine
 import com.example.eyes.infrastructure.openai.GptTranslationEngine
+import com.example.eyes.infrastructure.ocr.OcrExperimentLogger
 import com.example.eyes.infrastructure.ocr.MlKitOcrEngine
 import com.example.eyes.infrastructure.ocr.MlKitOcrGuidanceAnalyzer
 import com.example.eyes.data.remote.SceneDescriptionEngine
@@ -122,6 +123,7 @@ val appModule = module {
     factory<OcrEnginePort>(named("quick-ocr")) { MlKitOcrEngine() }
     factory<OcrEnginePort>(named("accuracy-ocr")) { Gpt4oOcrEngine() }
     factory<OcrGuidanceAnalyzerPort> { MlKitOcrGuidanceAnalyzer() }
+    single { OcrExperimentLogger(androidContext()) }
     single<CameraImageConverter> { AndroidCameraImageConverter() }
     factory<OcrTranslatorPort> { GptTranslationEngine() }
     factory { RecognizeOcrDocumentUseCase(get(named("quick-ocr")), get(named("accuracy-ocr")), get()) }
@@ -184,6 +186,7 @@ val appModule = module {
             audioRouteProvider = get(),
             recognizeCurrencyUseCase = get(),
             imageConverter = get(),
+            ocrExperimentLogger = get(),
             localizedTextProvider = get()
         )
     }

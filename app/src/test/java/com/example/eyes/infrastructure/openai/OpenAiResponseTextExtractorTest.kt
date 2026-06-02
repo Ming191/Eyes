@@ -1,7 +1,9 @@
 package com.example.eyes.infrastructure.openai
 
+import com.example.eyes.application.ports.OcrEngineRefusalException
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class OpenAiResponseTextExtractorTest {
@@ -57,5 +59,27 @@ class OpenAiResponseTextExtractorTest {
         val result = OpenAiResponseTextExtractor.extract(payload, json)
 
         assertEquals("", result)
+    }
+
+    @Test
+    fun extract_throwsWhenResponseContainsStructuredRefusal() {
+        val payload = """
+            {
+              "output": [
+                {
+                  "type": "message",
+                  "content": [
+                    { "type": "refusal", "refusal": "I can't assist with that request." }
+                  ]
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val error = assertThrows(OcrEngineRefusalException::class.java) {
+            OpenAiResponseTextExtractor.extract(payload, json)
+        }
+
+        assertEquals("I can't assist with that request.", error.message)
     }
 }
