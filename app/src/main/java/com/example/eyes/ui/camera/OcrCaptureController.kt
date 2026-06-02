@@ -1,5 +1,7 @@
 package com.example.eyes.ui.camera
 
+import android.os.SystemClock
+import android.util.Log
 import androidx.camera.core.ImageProxy
 import com.example.eyes.application.navigation.SetCameraOcrModeUseCase
 import com.example.eyes.application.ocr.OcrFallbackReason
@@ -11,6 +13,8 @@ import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.domain.ocr.OcrResult
 import com.example.eyes.application.ports.SpeechOutput
 import com.example.eyes.infrastructure.camera.CameraImageConverter
+import com.example.eyes.infrastructure.ocr.OcrExperimentLogEntry
+import com.example.eyes.infrastructure.ocr.OcrExperimentLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +33,7 @@ internal class OcrCaptureController(
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticFeedback,
     private val imageConverter: CameraImageConverter,
+    private val ocrExperimentLogger: OcrExperimentLogger,
     private val cameraText: () -> CameraText,
     private val appLanguage: () -> AppLanguage,
     private val resetGuidance: () -> Unit,
@@ -40,6 +45,7 @@ internal class OcrCaptureController(
     fun processCapturedImage(imageProxy: ImageProxy, scope: CoroutineScope) {
         scope.launch(Dispatchers.Default) {
             resetGuidance()
+            speechOutput.stop()
             val bitmap = try {
                 imageConverter.toBitmapWithRotation(imageProxy)
             } catch (_: Throwable) {
@@ -58,25 +64,51 @@ internal class OcrCaptureController(
                 )
             }
 
+            val requestedMode = currentOcrMode.value
+            val processingStartedAtMs = SystemClock.elapsedRealtime()
             val recognizedDocument = runCatching {
                 recognizeOcrDocumentUseCase(
                     RecognizeOcrDocumentInput(
                         imageFrame = imageConverter.toImageFrame(bitmap),
-                        mode = currentOcrMode.value,
+                        mode = requestedMode,
                         translateToVietnamese = uiState.value.ocrTranslateToVietnamese
                     )
                 )
             }.getOrElse { error ->
+                logOcrExperimentResult(
+                    OcrExperimentLogEntry(
+                        timestampMs = System.currentTimeMillis(),
+                        mode = requestedMode,
+                        processingTimeMs = SystemClock.elapsedRealtime() - processingStartedAtMs,
+                        recognizedText = "",
+                        usedFallback = false,
+                        fallbackReason = null,
+                        translationFailed = false,
+                        error = error.message ?: error::class.simpleName
+                    )
+                )
                 uiState.update {
                     it.copy(isOcrScanning = false, statusMessage = cameraText().ocrFailed(error.message ?: cameraText().unknownReason))
                 }
                 hapticService.error()
                 return@launch
             }
+            logOcrExperimentResult(
+                OcrExperimentLogEntry(
+                    timestampMs = System.currentTimeMillis(),
+                    mode = requestedMode,
+                    processingTimeMs = SystemClock.elapsedRealtime() - processingStartedAtMs,
+                    recognizedText = recognizedDocument.rawResult.fullText,
+                    usedFallback = recognizedDocument.usedFallbackFromAccuracy,
+                    fallbackReason = recognizedDocument.fallbackReason.toLogValue(),
+                    translationFailed = recognizedDocument.translationFailed,
+                    error = null
+                )
+            )
             lastRawOcrResult.set(recognizedDocument.rawResult)
             lastOcrUsedFallback.set(recognizedDocument.usedFallbackFromAccuracy)
             if (recognizedDocument.translationFailed) {
-                speechOutput.speak(
+                speechOutput.speakAndAwait(
                     cameraText().cannotTranslateReadingOriginal,
                     appLanguage().ttsLocale
                 )
@@ -84,7 +116,7 @@ internal class OcrCaptureController(
             if (recognizedDocument.usedFallbackFromAccuracy) {
                 setCameraOcrModeUseCase(OcrMode.QUICK)
                 val reason = recognizedDocument.fallbackReason.toLocalizedReason()
-                speechOutput.speak(
+                speechOutput.speakAndAwait(
                     cameraText().accuracyOcrFallback(reason),
                     appLanguage().ttsLocale
                 )
@@ -103,6 +135,7 @@ internal class OcrCaptureController(
     }
 
     fun onCaptureRequested() {
+        speechOutput.stop()
         if (!uiState.value.isOcrReadyToCapture) {
             speechOutput.speak(cameraText().imageMayBeUnclearCapturing, appLanguage().ttsLocale)
         }
@@ -125,6 +158,25 @@ internal class OcrCaptureController(
         lastOcrUsedFallback.set(false)
     }
 
+    private suspend fun logOcrExperimentResult(entry: OcrExperimentLogEntry) {
+        runCatching {
+            ocrExperimentLogger.append(entry)
+        }.onFailure { error ->
+            Log.e(TAG, "Failed to write OCR experiment result", error)
+        }
+    }
+
+    private fun OcrFallbackReason?.toLogValue(): String? = when (this) {
+        OcrFallbackReason.GptRefused -> "gpt_refused"
+        OcrFallbackReason.ApiKey -> "api_key"
+        OcrFallbackReason.ModelPermission -> "model_permission"
+        OcrFallbackReason.Quota -> "quota"
+        OcrFallbackReason.Timeout -> "timeout"
+        is OcrFallbackReason.EngineError -> message ?: "engine_error"
+        OcrFallbackReason.Unknown -> "unknown"
+        null -> null
+    }
+
     private fun OcrFallbackReason?.toLocalizedReason(): String = when (this) {
         OcrFallbackReason.GptRefused -> cameraText().gptRefusedReason
         OcrFallbackReason.ApiKey -> cameraText().apiKeyReason
@@ -134,5 +186,9 @@ internal class OcrCaptureController(
         is OcrFallbackReason.EngineError -> message ?: cameraText().unknownError
         OcrFallbackReason.Unknown,
         null -> cameraText().unknownReason
+    }
+
+    private companion object {
+        const val TAG = "OcrCaptureController"
     }
 }

@@ -17,6 +17,26 @@ import org.robolectric.RobolectricTestRunner
 class HomeViewModelTest {
 
     @Test
+    fun initialState_placesAccurateOcrNextToQuickOcr() {
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        val localizedTextProvider = AndroidLocalizedTextProvider(application)
+        val homeAnnouncementTextProvider = AndroidHomeAnnouncementTextProvider(localizedTextProvider)
+        val homeTextProvider = AndroidHomeTextProvider(localizedTextProvider)
+        val viewModel = HomeViewModel(
+            buildHomeState = BuildHomeStateUseCase(homeTextProvider),
+            announceHomeGreeting = AnnounceHomeGreetingUseCase(homeAnnouncementTextProvider, FakeSpeechOutput())
+        )
+
+        val actionTypes = viewModel.uiState.value.actions.map { it.type }
+
+        assertEquals(6, actionTypes.size)
+        assertEquals(
+            listOf(HomeActionType.ReadTextQuick, HomeActionType.ReadTextAccuracy),
+            actionTypes.take(2)
+        )
+    }
+
+    @Test
     fun onScreenShown_callsSpeakOnce_withExpectedVietnameseMessage() {
         val application = ApplicationProvider.getApplicationContext<Application>()
         val localizedTextProvider = AndroidLocalizedTextProvider(application)

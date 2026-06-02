@@ -2,13 +2,16 @@ package com.example.eyes.ui.onboarding
 
 import android.app.Application
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.test.core.app.ApplicationProvider
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.infrastructure.i18n.localizedFor
+import com.example.eyes.ui.testing.RobolectricComposeHost
 import com.example.eyes.ui.theme.EyesTheme
+import org.junit.After
+import org.junit.Before
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -21,7 +24,19 @@ import org.robolectric.annotation.Config
 class OnboardingScreenSemanticsTest {
 
     @get:Rule
-    val composeTestRule = createComposeRule()
+    val composeTestRule = createEmptyComposeRule()
+
+    private val composeHost = RobolectricComposeHost()
+
+    @Before
+    fun setUp() {
+        composeHost.start()
+    }
+
+    @After
+    fun tearDown() {
+        composeHost.dispose()
+    }
 
     @Test
     fun onboarding_startsWithLanguageStep_andShowsTopBar() {
@@ -30,7 +45,7 @@ class OnboardingScreenSemanticsTest {
             .localizedFor(AppLanguage.VI)
 
         // WHEN
-        composeTestRule.setContent {
+        composeHost.setContent(composeTestRule) {
             androidx.compose.runtime.CompositionLocalProvider(
                 androidx.compose.ui.platform.LocalContext provides context
             ) {
@@ -65,7 +80,7 @@ class OnboardingScreenSemanticsTest {
             .localizedFor(AppLanguage.EN)
 
         // WHEN
-        composeTestRule.setContent {
+        composeHost.setContent(composeTestRule) {
             androidx.compose.runtime.CompositionLocalProvider(
                 androidx.compose.ui.platform.LocalContext provides context
             ) {

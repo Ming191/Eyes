@@ -15,17 +15,26 @@ class AppLanguageTest {
 
     @Test
     fun fromLocaleUsesEnglishOnlyWhenLanguageIsEnglish() {
+        val vietnameseLocale = Locale.Builder().setLanguage("vi").setRegion("VN").build()
+
         assertEquals(AppLanguage.EN, AppLanguage.fromLocale(Locale.UK))
-        assertEquals(AppLanguage.VI, AppLanguage.fromLocale(Locale("vi", "VN")))
+        assertEquals(AppLanguage.VI, AppLanguage.fromLocale(vietnameseLocale))
         assertEquals(AppLanguage.VI, AppLanguage.fromLocale(Locale.FRANCE))
     }
 
     @Test
-    fun languageMetadataMatchesExpectedTags() {
+    fun languageMetadataMatchesExpectedValues() {
         assertEquals("en", AppLanguage.EN.storageValue)
-        assertEquals("en-US", AppLanguage.EN.sttLanguageTag)
         assertEquals(Locale.US, AppLanguage.EN.ttsLocale)
+        assertEquals(VOICE_INPUT_LANGUAGE_TAG, AppLanguage.EN.sttLanguageTag)
         assertEquals("vi", AppLanguage.VI.storageValue)
-        assertEquals("vi-VN", AppLanguage.VI.sttLanguageTag)
+        assertEquals(VOICE_INPUT_LANGUAGE_TAG, AppLanguage.VI.sttLanguageTag)
+    }
+
+    @Test
+    fun sttLanguageTag_allAppLanguages_useVietnameseVoiceInput() {
+        AppLanguage.entries.forEach { language ->
+            assertEquals(VOICE_INPUT_LANGUAGE_TAG, language.sttLanguageTag)
+        }
     }
 }

@@ -39,12 +39,26 @@ fun SettingsScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
-    val ttsSpeedLabel = "%.2f".format(state.ttsSpeed)
+    val ttsSpeed = state.ttsSpeed.snapToTtsSpeedStep()
+    val ttsSpeedLabel = "%.2f".format(ttsSpeed)
     val screenDescription = stringResource(R.string.settings_screen_description)
     val autoTranslateDescription = stringResource(R.string.settings_auto_translate_description)
     val autoTranslateSwitchDescription = stringResource(R.string.settings_auto_translate_switch_description)
     val increaseLabel = stringResource(R.string.blind_action_increase)
     val decreaseLabel = stringResource(R.string.blind_action_decrease)
+    val ttsSpeedDecreaseDescription = stringResource(R.string.settings_tts_speed_decrease_description)
+    val ttsSpeedIncreaseDescription = stringResource(R.string.settings_tts_speed_increase_description)
+    val decreaseTtsSpeed = viewModel::selectPreviousTtsSpeedAndAnnounce
+    val increaseTtsSpeed = viewModel::selectNextTtsSpeedAndAnnounce
+    val ttsSpeedPresets = TTS_SPEED_PRESET_VALUES.map { preset ->
+        SettingSpeedPreset(
+            focusId = "settings_tts_speed_preset_${preset.idSuffix}",
+            label = "${preset.label}x",
+            contentDescription = stringResource(R.string.settings_tts_speed_preset_description, preset.label),
+            selected = ttsSpeed == preset.speed,
+            onSelect = { viewModel.setTtsSpeedAndAnnounce(preset.speed) }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -54,26 +68,35 @@ fun SettingsScreen(
             .semantics { contentDescription = screenDescription },
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = stringResource(R.string.settings_title),
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.semantics { heading() }
-        )
-        SettingSliderCard(
+        SettingSpeedCard(
             title = stringResource(R.string.settings_tts_speed_title),
             valueLabel = "${ttsSpeedLabel}x",
-            contentDescription = stringResource(R.string.settings_tts_speed_slider_description, ttsSpeedLabel),
+            contentDescription = stringResource(R.string.settings_tts_speed_selector_description, ttsSpeedLabel),
+            sliderContentDescription = stringResource(R.string.settings_tts_speed_slider_description, ttsSpeedLabel),
             sliderStateDescription = stringResource(R.string.settings_slider_state_description, ttsSpeedLabel),
-            value = state.ttsSpeed,
-            valueRange = 0.5f..2.0f,
-            onValueChange = viewModel::setTtsSpeed,
+            sliderFocusId = "settings_tts_speed_slider",
+            sliderAdjustStartDescription = stringResource(R.string.settings_tts_speed_slider_adjust_start),
+            value = ttsSpeed,
+            valueRange = TTS_SPEED_RANGE,
+            steps = TTS_SPEED_SLIDER_STEPS,
+            onValueChange = { viewModel.setTtsSpeed(it.snapToTtsSpeedStep()) },
+            onValueChangeFinished = viewModel::announceCurrentTtsSpeed,
+            onDecrease = decreaseTtsSpeed,
+            onIncrease = increaseTtsSpeed,
+            decreaseFocusId = "settings_tts_speed_decrease",
+            increaseFocusId = "settings_tts_speed_increase",
+            decreaseContentDescription = ttsSpeedDecreaseDescription,
+            increaseContentDescription = ttsSpeedIncreaseDescription,
+            canDecrease = ttsSpeed > TTS_SPEED_MIN,
+            canIncrease = ttsSpeed < TTS_SPEED_MAX,
+            presets = ttsSpeedPresets,
             modifier = Modifier.blindFocusable(
                 id = "settings_tts_speed",
-                label = stringResource(R.string.settings_tts_speed_slider_description, ttsSpeedLabel),
+                label = stringResource(R.string.settings_tts_speed_selector_description, ttsSpeedLabel),
                 onActivate = {},
                 actions = listOf(
-                    BlindAction(label = increaseLabel, onActivate = { viewModel.setTtsSpeed((state.ttsSpeed + 0.05f).coerceAtMost(2.0f)) }),
-                    BlindAction(label = decreaseLabel, onActivate = { viewModel.setTtsSpeed((state.ttsSpeed - 0.05f).coerceAtLeast(0.5f)) })
+                    BlindAction(label = increaseLabel, onActivate = increaseTtsSpeed),
+                    BlindAction(label = decreaseLabel, onActivate = decreaseTtsSpeed)
                 )
             )
         )
@@ -195,18 +218,36 @@ private fun SettingsScreenPreview() {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = stringResource(R.string.settings_title),
-                style = MaterialTheme.typography.headlineSmall
-            )
-            SettingSliderCard(
+            SettingSpeedCard(
                 title = stringResource(R.string.settings_tts_speed_title),
-                valueLabel = "1.10x",
-                contentDescription = stringResource(R.string.settings_tts_speed_slider_description, "1.10"),
-                sliderStateDescription = stringResource(R.string.settings_slider_state_description, "1.10"),
-                value = 1.1f,
-                valueRange = 0.5f..2.0f,
-                onValueChange = {}
+                valueLabel = "1.00x",
+                contentDescription = stringResource(R.string.settings_tts_speed_selector_description, "1.00"),
+                sliderContentDescription = stringResource(R.string.settings_tts_speed_slider_description, "1.00"),
+                sliderStateDescription = stringResource(R.string.settings_slider_state_description, "1.00"),
+                sliderFocusId = "preview_tts_speed_slider",
+                sliderAdjustStartDescription = stringResource(R.string.settings_tts_speed_slider_adjust_start),
+                value = 1.0f,
+                valueRange = TTS_SPEED_RANGE,
+                steps = TTS_SPEED_SLIDER_STEPS,
+                onValueChange = {},
+                onValueChangeFinished = {},
+                onDecrease = {},
+                onIncrease = {},
+                decreaseFocusId = "preview_tts_speed_decrease",
+                increaseFocusId = "preview_tts_speed_increase",
+                decreaseContentDescription = stringResource(R.string.settings_tts_speed_decrease_description),
+                increaseContentDescription = stringResource(R.string.settings_tts_speed_increase_description),
+                canDecrease = true,
+                canIncrease = true,
+                presets = TTS_SPEED_PRESET_VALUES.map { preset ->
+                    SettingSpeedPreset(
+                        focusId = "preview_tts_speed_preset_${preset.idSuffix}",
+                        label = "${preset.label}x",
+                        contentDescription = stringResource(R.string.settings_tts_speed_preset_description, preset.label),
+                        selected = preset.speed == 1.0f,
+                        onSelect = {}
+                    )
+                }
             )
             LanguageCard(
                 selectedLanguage = AppLanguage.VI,

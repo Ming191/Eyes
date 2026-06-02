@@ -15,8 +15,6 @@ import com.example.eyes.application.ports.OcrGuidanceAnalyzerPort
 import com.example.eyes.application.scene.DescribeSceneUseCase
 import com.example.eyes.application.ports.AudioRouteProvider
 import com.example.eyes.application.ports.HapticFeedback
-import com.example.eyes.application.ports.VoiceCommandRepository
-import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.infrastructure.i18n.LocalizedTextProvider
 import com.example.eyes.domain.ocr.OcrGuidanceStatus
@@ -24,6 +22,7 @@ import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.domain.ocr.OcrTextBounds
 import com.example.eyes.application.ports.SpeechOutput
 import com.example.eyes.infrastructure.camera.CameraImageConverter
+import com.example.eyes.infrastructure.ocr.OcrExperimentLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -92,13 +91,13 @@ class CameraViewModel(
     private val hapticService: HapticFeedback,
     private val observeCameraPreferences: ObserveCameraPreferencesUseCase,
     private val setCameraOcrModeUseCase: SetCameraOcrModeUseCase,
-    private val voiceCommandRepository: VoiceCommandRepository,
     private val describeSceneUseCase: DescribeSceneUseCase,
     private val detectObjectsUseCase: DetectObjectsUseCase,
     private val warmUpObjectDetectionUseCase: WarmUpObjectDetectionUseCase,
     private val audioRouteProvider: AudioRouteProvider,
     private val recognizeCurrencyUseCase: RecognizeCurrencyUseCase,
     private val imageConverter: CameraImageConverter,
+    private val ocrExperimentLogger: OcrExperimentLogger,
     private val localizedTextProvider: LocalizedTextProvider
 ) : ViewModel() {
 
@@ -136,6 +135,7 @@ class CameraViewModel(
         speechOutput = speechOutput,
         hapticService = hapticService,
         imageConverter = imageConverter,
+        ocrExperimentLogger = ocrExperimentLogger,
         cameraText = { cameraText },
         appLanguage = { appLanguage.get() },
         resetGuidance = ocrGuidanceController::reset,
@@ -168,7 +168,6 @@ class CameraViewModel(
         recognizeCurrencyUseCase = recognizeCurrencyUseCase,
         speechOutput = speechOutput,
         hapticService = hapticService,
-        bitmapStore = bitmapStore,
         imageConverter = imageConverter,
         currencyTextMapper = currencyTextMapper,
         cameraText = { cameraText },
@@ -190,44 +189,6 @@ class CameraViewModel(
                 }
             }
         }
-        viewModelScope.launch {
-            voiceCommandRepository.lastVoiceCommandFlow.collect { command ->
-                when (command) {
-                    VoiceCommand.ReadText -> applyVoiceCameraCommand(
-                        mode = CameraMode.OCR,
-                        statusMessage = cameraText.waitingForClearTextFrame
-                    )
-
-                    VoiceCommand.DescribeScene -> applyVoiceCameraCommand(
-                        mode = CameraMode.SCENE_DESCRIPTION,
-                        title = cameraText.sceneDescriptionTitle,
-                        summary = cameraText.sceneDescriptionSummary,
-                        statusMessage = cameraText.waitingForSceneFrame
-                    )
-
-                    VoiceCommand.RecognizeCurrency -> applyVoiceCameraCommand(
-                        mode = CameraMode.CURRENCY,
-                        title = cameraText.currencyTitle,
-                        summary = cameraText.currencySummary,
-                        statusMessage = cameraText.currencyInstruction
-                    )
-
-                    VoiceCommand.DetectObjects -> applyVoiceCameraCommand(
-                        mode = CameraMode.OBJECT_DETECTION,
-                        title = cameraText.objectDetectionTitle,
-                        summary = cameraText.objectDetectionSummary,
-                        statusMessage = cameraText.objectDetectionStatus
-                    )
-
-                    VoiceCommand.OcrQuick -> selectOcrMode(OcrMode.QUICK)
-
-                    VoiceCommand.OcrAccurate -> selectOcrMode(OcrMode.ACCURACY)
-
-                    else -> return@collect
-                }
-                voiceCommandRepository.clearLastVoiceCommand()
-            }
-        }
         objectDetectionController.warmUp(viewModelScope)
     }
 
@@ -240,40 +201,13 @@ class CameraViewModel(
         refreshLanguageBoundUiText(previousText, cameraText)
     }
 
-    private fun applyVoiceCameraCommand(
-        mode: CameraMode,
-        title: String = cameraText.ocrTitle,
-        summary: String = cameraText.ocrSummary,
-        statusMessage: String
-    ) {
-        objectDetectionController.resetAnnouncementDebounce()
-        resetCurrencyAnnouncementDebounce()
-        _uiState.update {
-            it
-                .resetOcrRuntime(cameraText)
-                .resetDetectionAndCurrency()
-                .copy(
-                activeMode = mode,
-                title = title,
-                summary = summary,
-                statusMessage = statusMessage,
-                lastAnnouncement = statusMessage,
-                isDescribingScene = false
-            )
-        }
-    }
-
     fun processFrame(imageProxy: ImageProxy) {
         when (_uiState.value.activeMode) {
             CameraMode.OCR -> processOcrGuidanceImageProxy(imageProxy)
             CameraMode.SCENE_DESCRIPTION -> imageProxy.close()
             CameraMode.OBJECT_DETECTION -> processObjectDetectionImageProxy(imageProxy)
-            CameraMode.CURRENCY -> processCurrencyPreviewImageProxy(imageProxy)
+            CameraMode.CURRENCY -> imageProxy.close()
         }
-    }
-
-    private fun processCurrencyPreviewImageProxy(imageProxy: ImageProxy) {
-        currencyRecognitionController.processPreviewImageProxy(imageProxy, viewModelScope)
     }
 
     private fun processObjectDetectionImageProxy(imageProxy: ImageProxy) {

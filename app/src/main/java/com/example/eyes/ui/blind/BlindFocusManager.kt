@@ -20,9 +20,14 @@ class BlindFocusManager(
     private var selectedActionIndex = -1
     private var lastSpokenItemId: String? = null
     private var activeRouteKey = GLOBAL_ROUTE_KEY
+    private var horizontalSwipeOverride: ((BlindHorizontalSwipeDirection) -> Boolean)? = null
+    private var activeAdjustmentKey: FocusItemKey? = null
 
     var focusedBounds by mutableStateOf<Rect?>(null)
         private set
+
+    val isAdjusting: Boolean
+        get() = activeAdjustmentKey != null
 
     fun registerOrUpdate(item: BlindFocusItem) {
         val index = items.indexOfFirst { it.id == item.id && it.routeKey == item.routeKey }
@@ -46,6 +51,9 @@ class BlindFocusManager(
         if (focusedItemKey == FocusItemKey(id, routeKey)) {
             clearFocus()
             return
+        }
+        if (activeAdjustmentKey == FocusItemKey(id, routeKey)) {
+            activeAdjustmentKey = null
         }
         focusedIndex = focusedIndex.coerceIn(-1, activeItems().lastIndex)
         updateFocusedBounds()
@@ -85,6 +93,14 @@ class BlindFocusManager(
         speakFocused(force = true)
     }
 
+    fun setHorizontalSwipeOverride(handler: ((BlindHorizontalSwipeDirection) -> Boolean)?) {
+        horizontalSwipeOverride = handler
+    }
+
+    fun handleHorizontalSwipe(direction: BlindHorizontalSwipeDirection): Boolean {
+        return horizontalSwipeOverride?.invoke(direction) == true
+    }
+
     fun focusNextAction() {
         val item = activeItems().getOrNull(focusedIndex) ?: return
         if (item.actions.isEmpty()) {
@@ -115,9 +131,34 @@ class BlindFocusManager(
             action.onActivate()
             selectedActionIndex = -1
         } else {
+            if (item.adjustment != null) {
+                activeAdjustmentKey = item.key
+                speakInterrupting(item.activateLabel ?: item.adjustment.startLabel)
+                return
+            }
             speakInterrupting(item.activateLabel ?: item.label)
             item.onActivate()
         }
+    }
+
+    fun beginFocusedAdjustment(): Boolean {
+        val adjustment = activeAdjustmentItem()?.adjustment
+        if (adjustment == null) {
+            activeAdjustmentKey = null
+            return false
+        }
+        adjustment.onStart()
+        return true
+    }
+
+    fun dragFocusedAdjustment(deltaFraction: Float) {
+        activeAdjustmentItem()?.adjustment?.onDrag(deltaFraction)
+    }
+
+    fun finishFocusedAdjustment() {
+        val adjustment = activeAdjustmentItem()?.adjustment
+        activeAdjustmentKey = null
+        adjustment?.onFinish()
     }
 
     fun focusAt(position: Offset) {
@@ -162,6 +203,7 @@ class BlindFocusManager(
         focusedIndex = -1
         focusedItemKey = null
         selectedActionIndex = -1
+        activeAdjustmentKey = null
         focusedBounds = null
         lastSpokenItemId = null
     }
@@ -172,6 +214,11 @@ class BlindFocusManager(
 
     private fun activeItems(): List<BlindFocusItem> {
         return items.filter { it.routeKey == GLOBAL_ROUTE_KEY || it.routeKey == activeRouteKey }
+    }
+
+    private fun activeAdjustmentItem(): BlindFocusItem? {
+        val key = activeAdjustmentKey ?: return null
+        return activeItems().firstOrNull { it.key == key }
     }
 
     private fun speakInterrupting(text: String) {
@@ -190,6 +237,18 @@ data class BlindAction(
     val activateLabel: String? = null
 )
 
+data class BlindDragAdjustment(
+    val startLabel: String,
+    val onStart: () -> Unit = {},
+    val onDrag: (Float) -> Unit,
+    val onFinish: () -> Unit = {}
+)
+
+enum class BlindHorizontalSwipeDirection {
+    Left,
+    Right
+}
+
 data class BlindFocusItem(
     val id: String,
     val routeKey: String,
@@ -197,7 +256,8 @@ data class BlindFocusItem(
     val bounds: Rect,
     val onActivate: () -> Unit,
     val activateLabel: String? = null,
-    val actions: List<BlindAction> = emptyList()
+    val actions: List<BlindAction> = emptyList(),
+    val adjustment: BlindDragAdjustment? = null
 ) {
     val key: FocusItemKey
         get() = FocusItemKey(id = id, routeKey = routeKey)

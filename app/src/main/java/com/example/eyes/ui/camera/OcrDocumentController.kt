@@ -56,6 +56,7 @@ class OcrDocumentController(
         if (!state.isOcrDocumentMode) return
         val sentence = state.currentOcrSentence
         val locale = if (looksEnglish(sentence)) Locale.US else VIETNAMESE_LOCALE
+        speechOutput.stop()
         speechOutput.speak(
             cameraText().ocrSentencePosition(state.ocrCurrentIndex + 1, state.ocrSentences.size, sentence),
             locale
@@ -66,6 +67,7 @@ class OcrDocumentController(
         if (!canHandleOcrSwipe()) return
         val state = uiState.value
         if (!state.hasNextOcrSentence) {
+            speechOutput.stop()
             speechOutput.speak(cameraText().endOfText, appLanguage().ttsLocale)
             return
         }
@@ -77,6 +79,7 @@ class OcrDocumentController(
         if (!canHandleOcrSwipe()) return
         val state = uiState.value
         if (!state.hasPrevOcrSentence) {
+            speechOutput.stop()
             speechOutput.speak(cameraText().startOfText, appLanguage().ttsLocale)
             return
         }

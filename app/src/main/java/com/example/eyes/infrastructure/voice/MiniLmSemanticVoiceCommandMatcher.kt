@@ -1,16 +1,17 @@
 package com.example.eyes.infrastructure.voice
 
-import android.content.Context
-import android.util.Log
 import ai.djl.huggingface.tokenizers.HuggingFaceTokenizer
-import com.example.eyes.application.voice.SemanticVoiceCommandMatcher
-import com.example.eyes.domain.i18n.AppLanguage
-import com.example.eyes.domain.voice.VoiceCommand
-import java.io.File
-import kotlin.math.sqrt
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import android.content.Context
+import android.util.Log
+import com.example.eyes.application.voice.SemanticVoiceCommandMatcher
+import com.example.eyes.domain.i18n.AppLanguage
+import com.example.eyes.domain.voice.VoiceCameraTarget
+import com.example.eyes.domain.voice.VoiceIntent
+import java.io.File
+import kotlin.math.sqrt
 
 class MiniLmSemanticVoiceCommandMatcher(
     private val context: Context
@@ -19,6 +20,7 @@ class MiniLmSemanticVoiceCommandMatcher(
     @Volatile
     private var disabled = false
 
+    private val assetCopier = MiniLmModelAssetCopier(context)
     private val environment: OrtEnvironment by lazy { OrtEnvironment.getEnvironment() }
     private val session: OrtSession by lazy {
         environment.createSession(modelFile().absolutePath, OrtSession.SessionOptions())
@@ -28,40 +30,53 @@ class MiniLmSemanticVoiceCommandMatcher(
     }
     private val catalog: List<CatalogItem> by lazy { buildCatalog() }
 
-    override fun match(text: String, language: AppLanguage): VoiceCommand? {
+    override fun match(text: String, language: AppLanguage): VoiceIntent? {
         if (disabled) return null
         if (!modelFilesReady()) return null
         return runCatching {
             val query = embed(text)
             val best = catalog.maxByOrNull { cosine(query, it.embedding) } ?: return null
             val score = cosine(query, best.embedding)
-            if (score >= ACCEPT_THRESHOLD) best.command else null
+            if (score >= ACCEPT_THRESHOLD) best.intent else null
         }.onFailure { error ->
             disabled = true
             Log.w(TAG, "MiniLM semantic matcher unavailable; falling back to keyword parser", error)
         }.getOrNull()
     }
 
-    private fun buildCatalog(): List<CatalogItem> = COMMAND_PHRASES.flatMap { (command, phrases) ->
-        phrases.map { phrase -> CatalogItem(command, embed(phrase)) }
+    private fun buildCatalog(): List<CatalogItem> = COMMAND_PHRASES.flatMap { (intent, phrases) ->
+        phrases.map { phrase -> CatalogItem(intent, embed(phrase)) }
     }
 
     private fun embed(text: String): FloatArray {
         val encoding = tokenizer.encode(text)
-        val ids = encoding.ids.map { it.toLong() }.take(MAX_TOKENS)
-        val mask = encoding.attentionMask.map { it.toLong() }.take(MAX_TOKENS)
+        val ids = encoding.ids.take(MAX_TOKENS)
+        val mask = encoding.attentionMask.take(MAX_TOKENS)
+        val types = encoding.typeIds?.take(MAX_TOKENS).orEmpty()
         val inputIds = arrayOf(LongArray(MAX_TOKENS) { index -> ids.getOrElse(index) { PAD_ID } })
         val attentionMask = arrayOf(LongArray(MAX_TOKENS) { index -> mask.getOrElse(index) { 0L } })
+        val tokenTypeIds = arrayOf(LongArray(MAX_TOKENS) { index -> types.getOrElse(index) { 0L } })
+        val tensors = mutableListOf<OnnxTensor>()
+        val inputs = linkedMapOf<String, OnnxTensor>()
 
-        OnnxTensor.createTensor(environment, inputIds).use { idsTensor ->
-            OnnxTensor.createTensor(environment, attentionMask).use { maskTensor ->
-                val result = session.run(mapOf("input_ids" to idsTensor, "attention_mask" to maskTensor))
-                result.use { output ->
-                    @Suppress("UNCHECKED_CAST")
-                    val hidden = output[0].value as Array<Array<FloatArray>>
-                    return meanPoolAndNormalize(hidden[0], attentionMask[0])
-                }
+        fun addInput(name: String, value: Array<LongArray>) {
+            if (!session.inputNames.contains(name)) return
+            val tensor = OnnxTensor.createTensor(environment, value)
+            tensors += tensor
+            inputs[name] = tensor
+        }
+
+        return try {
+            addInput("input_ids", inputIds)
+            addInput("attention_mask", attentionMask)
+            addInput("token_type_ids", tokenTypeIds)
+            session.run(inputs).use { output ->
+                @Suppress("UNCHECKED_CAST")
+                val hidden = output[0].value as Array<Array<FloatArray>>
+                meanPoolAndNormalize(hidden[0], attentionMask[0])
             }
+        } finally {
+            tensors.forEach { it.close() }
         }
     }
 
@@ -91,7 +106,10 @@ class MiniLmSemanticVoiceCommandMatcher(
         return dot
     }
 
-    private fun modelFilesReady(): Boolean = modelFile().isFile && tokenizerFile().isFile
+    private fun modelFilesReady(): Boolean {
+        if (modelFile().isFile && tokenizerFile().isFile) return true
+        return assetCopier.copyIfAvailable(modelDir()) && modelFile().isFile && tokenizerFile().isFile
+    }
 
     private fun modelFile(): File = File(modelDir(), MODEL_FILE)
 
@@ -99,7 +117,7 @@ class MiniLmSemanticVoiceCommandMatcher(
 
     private fun modelDir(): File = File(context.filesDir, MODEL_DIR)
 
-    private data class CatalogItem(val command: VoiceCommand, val embedding: FloatArray)
+    private data class CatalogItem(val intent: VoiceIntent, val embedding: FloatArray)
 
     private companion object {
         private const val MODEL_DIR = "models/minilm"
@@ -111,17 +129,42 @@ class MiniLmSemanticVoiceCommandMatcher(
         private const val TAG = "MiniLmSemantic"
 
         private val COMMAND_PHRASES = mapOf(
-            VoiceCommand.ReadText to listOf("đọc văn bản", "đọc chữ trước camera", "đọc nội dung này", "read text in front of me", "đọc giúp tôi cái chữ này"),
-            VoiceCommand.DescribeScene to listOf("mô tả khung cảnh", "trước mặt có gì", "xung quanh tôi có gì", "describe what is in front", "camera đang thấy gì", "nhìn xem phía trước có gì"),
-            VoiceCommand.RecognizeCurrency to listOf("nhận diện tiền", "tờ tiền này bao nhiêu", "xem mệnh giá tờ tiền", "how much is this bill", "đây là tờ bao nhiêu", "xem hộ tờ này bao nhiêu tiền"),
-            VoiceCommand.DetectObjects to listOf("nhận diện vật thể", "vật thể trước mặt", "có vật gì", "phát hiện đồ vật", "detect objects", "object detection"),
-            VoiceCommand.OcrQuick to listOf("đọc nhanh", "ocr nhanh", "chế độ nhanh", "đọc văn bản nhanh", "quick ocr", "read quickly"),
-            VoiceCommand.OcrAccurate to listOf("đọc chính xác", "ocr chính xác", "ocr kỹ", "đọc văn bản chính xác", "accurate ocr", "read accurately"),
-            VoiceCommand.OpenSettings to listOf("mở cài đặt", "cài đặt", "vào cài đặt", "thiết lập", "settings", "open settings"),
-            VoiceCommand.OpenHome to listOf("về trang chủ", "mở trang chủ", "trang chủ", "home", "go home"),
-            VoiceCommand.OpenEmergency to listOf("gọi khẩn cấp", "mở gọi khẩn cấp", "khẩn cấp", "emergency call", "open emergency"),
-            VoiceCommand.Repeat to listOf("đọc lại", "nói lại câu vừa rồi", "repeat last response", "nói lại giúp tôi", "nhắc lại câu vừa rồi"),
-            VoiceCommand.Help to listOf("tôi nói được gì", "hướng dẫn lệnh", "help", "giúp đỡ", "có thể nói lệnh gì")
+            VoiceIntent.OpenCamera(VoiceCameraTarget.OCR) to listOf(
+                "đọc văn bản",
+                "đọc chữ trước camera",
+                "đọc nội dung này",
+                "read text in front of me",
+                "đọc giúp tôi cái chữ này"
+            ),
+            VoiceIntent.OpenCamera(VoiceCameraTarget.SCENE_DESCRIPTION) to listOf(
+                "mô tả khung cảnh",
+                "trước mặt có gì",
+                "xung quanh tôi có gì",
+                "describe what is in front",
+                "camera đang thấy gì",
+                "nhìn xem phía trước có gì"
+            ),
+            VoiceIntent.OpenCamera(VoiceCameraTarget.CURRENCY) to listOf(
+                "nhận diện tiền",
+                "tờ tiền này bao nhiêu",
+                "xem mệnh giá tờ tiền",
+                "how much is this bill",
+                "đây là tờ bao nhiêu",
+                "xem hộ tờ này bao nhiêu tiền"
+            ),
+            VoiceIntent.OpenCamera(VoiceCameraTarget.OBJECT_DETECTION) to listOf(
+                "nhận diện vật thể",
+                "vật thể trước mặt",
+                "có vật gì",
+                "phát hiện đồ vật",
+                "detect objects",
+                "object detection"
+            ),
+            VoiceIntent.OpenSettings to listOf("mở cài đặt", "cài đặt", "vào cài đặt", "thiết lập", "settings", "open settings"),
+            VoiceIntent.OpenHome to listOf("về trang chủ", "mở trang chủ", "trang chủ", "home", "go home"),
+            VoiceIntent.OpenEmergencyList to listOf("gọi khẩn cấp", "mở gọi khẩn cấp", "khẩn cấp", "emergency call", "open emergency"),
+            VoiceIntent.Repeat to listOf("đọc lại", "nói lại câu vừa rồi", "repeat last response", "nói lại giúp tôi", "nhắc lại câu vừa rồi"),
+            VoiceIntent.Help to listOf("tôi nói được gì", "hướng dẫn lệnh", "help", "giúp đỡ", "có thể nói lệnh gì")
         )
     }
 }

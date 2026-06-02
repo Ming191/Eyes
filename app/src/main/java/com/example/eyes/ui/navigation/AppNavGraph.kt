@@ -9,8 +9,10 @@ import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
@@ -20,7 +22,7 @@ import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -57,9 +59,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.eyes.R
 import com.example.eyes.application.ports.SpeechOutput
+import com.example.eyes.application.voice.VoiceNavigationTargetKind
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.infrastructure.accessibility.AccessibilityStateProvider
-import com.example.eyes.domain.voice.VoiceCommand
+import com.example.eyes.domain.voice.VoiceCameraTarget
 import com.example.eyes.ui.blind.BlindAction
 import com.example.eyes.ui.blind.BlindGestureLayer
 import com.example.eyes.ui.blind.LocalBlindFocusManager
@@ -73,7 +76,6 @@ import com.example.eyes.domain.ocr.OcrMode
 import com.example.eyes.ui.onboarding.OnboardingScreen
 import com.example.eyes.ui.settings.SettingsScreen
 import com.example.eyes.ui.voice.VoiceCommandViewModel
-import com.example.eyes.ui.voice.VoiceNavigationTarget
 import org.koin.compose.koinInject
 import org.koin.androidx.compose.koinViewModel
 
@@ -175,7 +177,7 @@ private fun MainNavigationScaffold(
         val context = LocalContext.current
         val navController = rememberNavController()
         val lastVoiceStartAtMs = remember { mutableLongStateOf(0L) }
-        val requestedCameraMode by viewModel.requestedCameraMode.collectAsStateWithLifecycle()
+        val cameraLaunchRequest by viewModel.cameraLaunchRequest.collectAsStateWithLifecycle()
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentDestination = navBackStackEntry?.destination
         val currentRouteKey = currentDestination?.route ?: HomeRoute::class.qualifiedName.orEmpty()
@@ -217,7 +219,7 @@ private fun MainNavigationScaffold(
         }
 
         fun startVoiceRecognition() {
-            val languageTag = appLanguage.ttsLocale.toLanguageTag()
+            val languageTag = appLanguage.sttLanguageTag
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
@@ -261,22 +263,33 @@ private fun MainNavigationScaffold(
             startVoiceRecognition()
         }
 
+        fun openDialer(number: String) {
+            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.applicationContext.startActivity(intent)
+        }
+
         LaunchedEffect(voiceCommandViewModel, navController) {
-            voiceCommandViewModel.navigation.collect { target ->
-                when (target) {
-                    VoiceNavigationTarget.Camera -> {
-                        val command = voiceCommandViewModel.uiState.value.lastCommand
-                        val ocrMode = command.ocrModeOrNull()
-                        if (ocrMode != null) {
-                            viewModel.requestOpenCameraOcr(ocrMode)
-                        } else {
-                            viewModel.requestOpenCamera(command.cameraMode())
-                        }
+            voiceCommandViewModel.actions.collect { action ->
+                action.dialNumber?.let { number ->
+                    openDialer(number)
+                    return@collect
+                }
+
+                when (action.navigationTarget) {
+                    VoiceNavigationTargetKind.Camera -> {
+                        viewModel.requestCameraLaunch(
+                            target = action.cameraTarget ?: VoiceCameraTarget.OCR,
+                            ocrMode = action.ocrMode,
+                            autoCapture = action.autoCapture
+                        )
                         navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
                     }
-                    VoiceNavigationTarget.Home -> navController.navigateToTopLevelDestination(TopLevelDestination.HOME)
-                    VoiceNavigationTarget.Settings -> navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
-                    VoiceNavigationTarget.Emergency -> navController.navigate(EmergencyRoute)
+                    VoiceNavigationTargetKind.Home -> navController.navigateToTopLevelDestination(TopLevelDestination.HOME)
+                    VoiceNavigationTargetKind.Settings -> navController.navigateToTopLevelDestination(TopLevelDestination.SETTINGS)
+                    VoiceNavigationTargetKind.Emergency -> navController.navigate(EmergencyRoute)
+                    null -> Unit
                 }
             }
         }
@@ -297,56 +310,83 @@ private fun MainNavigationScaffold(
                 )
             },
             bottomBar = {
-                NavigationBar(
-                    modifier = Modifier.semantics {
-                        contentDescription = bottomBarDescription
-                    }
-                ) {
-                    TopLevelDestination.entries.forEach { destination ->
-                        val isSelected = currentDestination.isInHierarchy(destination)
-                        val destinationAnnouncement = stringResource(destination.announcementRes)
-
-                        NavigationBarItem(
-                            selected = isSelected,
-                            onClick = {
-                                if (destination == TopLevelDestination.CAMERA) {
-                                    viewModel.requestOpenCamera(CameraMode.OBJECT_DETECTION)
-                                }
-                                navController.navigateToTopLevelDestination(destination)
-                            },
-                            icon = {
-                                Icon(
-                                    imageVector = destination.icon,
-                                    contentDescription = null
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(80.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        FilledIconButton(
+                            onClick = ::requestMicrophoneOrStart,
+                            modifier = Modifier
+                                .size(64.dp)
+                                .semantics { contentDescription = voiceCommandDescription }
+                                .blindFocusable(
+                                    id = "global_voice_command",
+                                    label = voiceCommandDescription,
+                                    activateLabel = voiceCommandDescription,
+                                    onActivate = ::requestMicrophoneOrStart
                                 )
-                            },
-                            label = { Text(text = stringResource(destination.labelRes)) },
-                            modifier = Modifier.semantics {
-                                stateDescription = if (isSelected) selectedDescription else unselectedDescription
-                            }.blindFocusable(
-                                id = "bottom_nav_${destination.name}",
-                                label = stringResource(destination.labelRes),
-                                activateLabel = destinationAnnouncement,
-                                onActivate = {
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Mic,
+                                contentDescription = null,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+                    NavigationBar(
+                        modifier = Modifier.semantics {
+                            contentDescription = bottomBarDescription
+                        }
+                    ) {
+                        TopLevelDestination.entries.forEach { destination ->
+                            val isSelected = currentDestination.isInHierarchy(destination)
+                            val destinationAnnouncement = stringResource(destination.announcementRes)
+
+                            NavigationBarItem(
+                                selected = isSelected,
+                                onClick = {
                                     if (destination == TopLevelDestination.CAMERA) {
                                         viewModel.requestOpenCamera(CameraMode.OBJECT_DETECTION)
                                     }
                                     navController.navigateToTopLevelDestination(destination)
                                 },
-                                actions = listOf(
-                                    BlindAction(
-                                        label = stringResource(destination.labelRes),
-                                        activateLabel = destinationAnnouncement,
-                                        onActivate = {
-                                            if (destination == TopLevelDestination.CAMERA) {
-                                                viewModel.requestOpenCamera(CameraMode.OBJECT_DETECTION)
-                                            }
-                                            navController.navigateToTopLevelDestination(destination)
+                                icon = {
+                                    Icon(
+                                        imageVector = destination.icon,
+                                        contentDescription = null
+                                    )
+                                },
+                                label = { Text(text = stringResource(destination.labelRes)) },
+                                modifier = Modifier.semantics {
+                                    stateDescription = if (isSelected) selectedDescription else unselectedDescription
+                                }.blindFocusable(
+                                    id = "bottom_nav_${destination.name}",
+                                    label = stringResource(destination.labelRes),
+                                    activateLabel = destinationAnnouncement,
+                                    onActivate = {
+                                        if (destination == TopLevelDestination.CAMERA) {
+                                            viewModel.requestOpenCamera(CameraMode.OBJECT_DETECTION)
                                         }
+                                        navController.navigateToTopLevelDestination(destination)
+                                    },
+                                    actions = listOf(
+                                        BlindAction(
+                                            label = stringResource(destination.labelRes),
+                                            activateLabel = destinationAnnouncement,
+                                            onActivate = {
+                                                if (destination == TopLevelDestination.CAMERA) {
+                                                    viewModel.requestOpenCamera(CameraMode.OBJECT_DETECTION)
+                                                }
+                                                navController.navigateToTopLevelDestination(destination)
+                                            }
+                                        )
                                     )
                                 )
                             )
-                        )
+                        }
                     }
                 }
             }
@@ -368,7 +408,11 @@ private fun MainNavigationScaffold(
                                     viewModel.requestOpenCameraOcr(OcrMode.QUICK)
                                     navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
                                 },
-	                            onOpenCameraMode = { mode ->
+                                onOpenOcrAccuracy = {
+                                    viewModel.requestOpenCameraOcr(OcrMode.ACCURACY)
+                                    navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
+                                },
+                                onOpenCameraMode = { mode ->
                                     viewModel.requestOpenCamera(mode)
                                     navController.navigateToTopLevelDestination(TopLevelDestination.CAMERA)
                                 },
@@ -376,10 +420,7 @@ private fun MainNavigationScaffold(
                                     if (number == null) {
                                         navController.navigate(EmergencyRoute)
                                     } else {
-                                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")).apply {
-                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        }
-                                        context.applicationContext.startActivity(intent)
+                                        openDialer(number)
                                     }
                                 }
                             )
@@ -388,9 +429,9 @@ private fun MainNavigationScaffold(
                     composable<CameraRoute> {
                         CompositionLocalProvider(LocalBlindFocusRouteKey provides CameraRoute::class.qualifiedName.orEmpty()) {
                             CameraScreen(
-                                requestedMode = requestedCameraMode,
+                                launchRequest = cameraLaunchRequest,
                                 appLanguage = appLanguage,
-                                onRequestedModeConsumed = viewModel::clearRequestedCameraMode
+                                onLaunchRequestConsumed = viewModel::clearCameraLaunchRequest
                             )
                         }
                     }
@@ -412,42 +453,9 @@ private fun MainNavigationScaffold(
                     text = currentSpokenText,
                     modifier = Modifier.align(Alignment.BottomCenter)
                 )
-                FloatingActionButton(
-                    onClick = ::requestMicrophoneOrStart,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 88.dp)
-                        .navigationBarsPadding()
-                        .semantics { contentDescription = voiceCommandDescription }
-                        .blindFocusable(
-                            id = "global_voice_command",
-                            label = voiceCommandDescription,
-                            activateLabel = voiceCommandDescription,
-                            onActivate = ::requestMicrophoneOrStart
-                        )
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Mic,
-                        contentDescription = null,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
             }
         }
     }
-}
-
-private fun VoiceCommand?.cameraMode(): CameraMode = when (this) {
-    VoiceCommand.DescribeScene -> CameraMode.SCENE_DESCRIPTION
-    VoiceCommand.RecognizeCurrency -> CameraMode.CURRENCY
-    VoiceCommand.DetectObjects -> CameraMode.OBJECT_DETECTION
-    else -> CameraMode.OCR
-}
-
-private fun VoiceCommand?.ocrModeOrNull(): OcrMode? = when (this) {
-    VoiceCommand.OcrQuick -> OcrMode.QUICK
-    VoiceCommand.OcrAccurate -> OcrMode.ACCURACY
-    else -> null
 }
 
 @Composable

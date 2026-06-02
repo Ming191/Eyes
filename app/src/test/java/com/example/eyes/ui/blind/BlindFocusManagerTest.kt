@@ -99,6 +99,29 @@ class BlindFocusManagerTest {
         assertEquals(listOf("Nhận diện tiền", "Nhận diện tiền"), speechOutput.spokenTexts)
     }
 
+    @Test
+    fun horizontalSwipeOverride_handlesSwipeBeforeFocusNavigation() {
+        // GIVEN
+        val handledDirections = mutableListOf<BlindHorizontalSwipeDirection>()
+        manager.registerOrUpdate(item(id = "bottom_nav_HOME", routeKey = BlindFocusManager.GLOBAL_ROUTE_KEY, top = 900f))
+        manager.registerOrUpdate(item(id = "bottom_nav_CAMERA", routeKey = BlindFocusManager.GLOBAL_ROUTE_KEY, top = 900f, left = 100f))
+        manager.setHorizontalSwipeOverride { direction ->
+            handledDirections += direction
+            true
+        }
+
+        // WHEN
+        val handled = manager.handleHorizontalSwipe(BlindHorizontalSwipeDirection.Left)
+        if (!handled) {
+            manager.focusNext()
+        }
+
+        // THEN
+        assertEquals(true, handled)
+        assertEquals(listOf(BlindHorizontalSwipeDirection.Left), handledDirections)
+        assertEquals(emptyList<String>(), speechOutput.spokenTexts)
+    }
+
     private fun item(
         id: String,
         routeKey: String,

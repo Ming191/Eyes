@@ -1,6 +1,7 @@
 package com.example.eyes.application.ocr
 
 import com.example.eyes.application.ports.OcrEnginePort
+import com.example.eyes.application.ports.OcrEngineRefusalException
 import com.example.eyes.application.ports.OcrTranslatorPort
 import com.example.eyes.domain.image.ImageFrame
 import com.example.eyes.domain.ocr.OcrMode
@@ -67,16 +68,13 @@ class RecognizeOcrDocumentUseCase(
             )
             OcrMode.ACCURACY -> {
                 val accuracyResult = runCatching { accuracyOcrEngine.recognize(imageFrame) }
-                val text = accuracyResult.getOrNull()?.fullText.orEmpty()
-                val refused = accuracyResult.isSuccess && looksLikeGptRefusal(text)
-                if (accuracyResult.isSuccess && !refused) {
+                if (accuracyResult.isSuccess) {
                     OcrRecognitionOutcome(
                         result = accuracyResult,
                         usedFallbackFromAccuracy = false
                     )
                 } else {
                     val reason = when {
-                        refused -> OcrFallbackReason.GptRefused
                         accuracyResult.exceptionOrNull() != null -> buildFallbackReason(accuracyResult.exceptionOrNull()!!)
                         else -> OcrFallbackReason.Unknown
                     }
@@ -99,22 +97,10 @@ class RecognizeOcrDocumentUseCase(
         return translateToVietnameseOrFallback(result.fullText)
     }
 
-    private fun looksLikeGptRefusal(text: String): Boolean {
-        val normalized = text.trim().lowercase()
-        if (normalized.isBlank()) return true
-        val refusalMarkers = listOf(
-            "i'm sorry, i can't assist with that",
-            "i can't assist with that",
-            "i cannot assist with that",
-            "i'm sorry",
-            "i cannot help with that request"
-        )
-        return refusalMarkers.any { normalized.startsWith(it) }
-    }
-
     private fun buildFallbackReason(error: Throwable): OcrFallbackReason {
         val message = error.message?.trim().orEmpty()
         return when {
+            error is OcrEngineRefusalException -> OcrFallbackReason.GptRefused
             message.contains("401") -> OcrFallbackReason.ApiKey
             message.contains("403") -> OcrFallbackReason.ModelPermission
             message.contains("429") -> OcrFallbackReason.Quota

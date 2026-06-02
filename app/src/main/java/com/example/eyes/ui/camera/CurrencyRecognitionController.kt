@@ -1,6 +1,5 @@
 package com.example.eyes.ui.camera
 
-import android.graphics.Bitmap
 import android.util.Log
 import androidx.camera.core.ImageProxy
 import com.example.eyes.application.currency.CurrencyRecognitionPolicy
@@ -8,62 +7,26 @@ import com.example.eyes.application.currency.RecognizeCurrencyUseCase
 import com.example.eyes.application.ports.HapticFeedback
 import com.example.eyes.domain.i18n.AppLanguage
 import com.example.eyes.application.ports.SpeechOutput
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Locale
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicLong
 
 internal class CurrencyRecognitionController(
     private val uiState: MutableStateFlow<CameraUiState>,
     private val recognizeCurrencyUseCase: RecognizeCurrencyUseCase,
     private val speechOutput: SpeechOutput,
     private val hapticService: HapticFeedback,
-    private val bitmapStore: CameraBitmapStore,
     private val imageConverter: com.example.eyes.infrastructure.camera.CameraImageConverter,
     private val currencyTextMapper: CurrencyTextMapper,
     private val cameraText: () -> CameraText,
     private val appLanguage: () -> AppLanguage,
     private val updateUiStateAndRecycleReplacedBitmap: ((CameraUiState) -> CameraUiState) -> Unit
 ) {
-    private val isProcessingCurrencyPreview = AtomicBoolean(false)
-    private val lastCurrencyPreviewAtMs = AtomicLong(0L)
     private val recognitionPolicy = CurrencyRecognitionPolicy()
     private val onCurrencyResultCallback: (String, Float) -> Unit = ::onCurrencyResult
-
-    fun processPreviewImageProxy(imageProxy: ImageProxy, scope: CoroutineScope) {
-        val now = System.currentTimeMillis()
-        if (now - lastCurrencyPreviewAtMs.get() < CURRENCY_PREVIEW_INTERVAL_MS) {
-            imageProxy.close()
-            return
-        }
-        if (!isProcessingCurrencyPreview.compareAndSet(false, true)) {
-            imageProxy.close()
-            return
-        }
-        lastCurrencyPreviewAtMs.set(now)
-
-        scope.launch(Dispatchers.Default) {
-            var bitmap: Bitmap? = null
-            try {
-                if (!ensureCurrencyRecognizer()) return@launch
-                bitmap = imageConverter.toBitmapWithRotation(imageProxy)
-                recognizeCurrencyUseCase.analyze(imageConverter.toImageFrame(bitmap), onCurrencyResultCallback)
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Throwable) {
-                Log.e(TAG, "Currency preview frame failed", error)
-            } finally {
-                bitmapStore.recycle(bitmap)
-                imageProxy.close()
-                isProcessingCurrencyPreview.set(false)
-            }
-        }
-    }
 
     fun onCaptureRequested() {
         val state = uiState.value
@@ -260,6 +223,5 @@ internal class CurrencyRecognitionController(
 
     private companion object {
         private const val TAG = "CurrencyRecognitionController"
-        private const val CURRENCY_PREVIEW_INTERVAL_MS = 1_500L
     }
 }

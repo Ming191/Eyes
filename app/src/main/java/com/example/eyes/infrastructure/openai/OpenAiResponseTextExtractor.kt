@@ -1,5 +1,6 @@
 package com.example.eyes.infrastructure.openai
 
+import com.example.eyes.application.ports.OcrEngineRefusalException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.contentOrNull
@@ -19,16 +20,29 @@ internal object OpenAiResponseTextExtractor {
 
         val outputArray = root["output"]?.jsonArray ?: JsonArray(emptyList())
         val lines = mutableListOf<String>()
+        val refusals = mutableListOf<String>()
 
         outputArray.forEach { outputItem ->
             val contentArray = outputItem.jsonObject["content"]?.jsonArray ?: JsonArray(emptyList())
             contentArray.forEach { contentItem ->
-                contentItem.jsonObject["text"]
+                val contentObject = contentItem.jsonObject
+                if (contentObject["type"]?.jsonPrimitive?.contentOrNull == "refusal") {
+                    contentObject["refusal"]
+                        ?.jsonPrimitive
+                        ?.contentOrNull
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { refusals.add(it.trim()) }
+                }
+                contentObject["text"]
                     ?.jsonPrimitive
                     ?.contentOrNull
                     ?.takeIf { it.isNotBlank() }
                     ?.let { lines.add(it.trim()) }
             }
+        }
+
+        if (lines.isEmpty() && refusals.isNotEmpty()) {
+            throw OcrEngineRefusalException(refusals.joinToString("\n"))
         }
 
         return lines.joinToString("\n").trim()

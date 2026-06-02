@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 
 enum class HomeActionType {
     ReadTextQuick,
+    ReadTextAccuracy,
     DescribeScene,
     DetectObjects,
     RecognizeCurrency,
@@ -99,6 +100,7 @@ class HomeViewModel(
 
     private fun HomeActionKind.toUiType(): HomeActionType = when (this) {
         HomeActionKind.ReadTextQuick -> HomeActionType.ReadTextQuick
+        HomeActionKind.ReadTextAccuracy -> HomeActionType.ReadTextAccuracy
         HomeActionKind.DescribeScene -> HomeActionType.DescribeScene
         HomeActionKind.DetectObjects -> HomeActionType.DetectObjects
         HomeActionKind.RecognizeCurrency -> HomeActionType.RecognizeCurrency

@@ -23,9 +23,11 @@ class AndroidTextProvidersTest {
 
         assertEquals(text(R.string.home_welcome_title), state.welcomeTitle)
         assertEquals(text(R.string.home_welcome_summary), state.welcomeSummary)
-        assertEquals(5, state.actions.size)
+        assertEquals(6, state.actions.size)
         assertEquals(HomeActionKind.ReadTextQuick, state.actions[0].kind)
         assertEquals(text(R.string.home_action_read_quick_title), state.actions[0].title)
+        assertEquals(HomeActionKind.ReadTextAccuracy, state.actions[1].kind)
+        assertEquals(HomeActionKind.RecognizeCurrency, state.actions[4].kind)
         assertEquals(HomeActionKind.EmergencyCall, state.actions.last().kind)
         assertEquals(text(R.string.home_action_emergency_accessibility), state.actions.last().accessibilityLabel)
     }

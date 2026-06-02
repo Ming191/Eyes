@@ -1,12 +1,5 @@
 package com.example.eyes.ui.home
 
-import android.app.Activity
-import android.content.ActivityNotFoundException
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.speech.RecognizerIntent
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -19,29 +12,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.eyes.R
-import com.example.eyes.domain.voice.VoiceCommand
 import com.example.eyes.ui.blind.BlindAction
 import com.example.eyes.ui.camera.CameraMode
 import com.example.eyes.ui.theme.EyesTheme
-import com.example.eyes.ui.voice.VoiceCommandViewModel
-import com.example.eyes.ui.voice.VoiceNavigationTarget
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun HomeScreen(
     onOpenOcrQuick: () -> Unit,
+    onOpenOcrAccuracy: () -> Unit,
     onOpenCameraMode: (CameraMode) -> Unit,
     onOpenEmergency: (String?) -> Unit,
     viewModel: HomeViewModel = koinViewModel(),
@@ -57,6 +44,7 @@ fun HomeScreen(
         onActionSelected = { action ->
             when (action) {
                 HomeActionType.ReadTextQuick -> onOpenOcrQuick()
+                HomeActionType.ReadTextAccuracy -> onOpenOcrAccuracy()
                 HomeActionType.DescribeScene -> onOpenCameraMode(CameraMode.SCENE_DESCRIPTION)
                 HomeActionType.DetectObjects -> onOpenCameraMode(CameraMode.OBJECT_DETECTION)
                 HomeActionType.RecognizeCurrency -> onOpenCameraMode(CameraMode.CURRENCY)
@@ -67,12 +55,6 @@ fun HomeScreen(
             onOpenEmergency(number)
         }
     )
-}
-
-private fun VoiceCommand?.cameraMode(): CameraMode = when (this) {
-    VoiceCommand.DescribeScene -> CameraMode.SCENE_DESCRIPTION
-    VoiceCommand.RecognizeCurrency -> CameraMode.CURRENCY
-    else -> CameraMode.OCR
 }
 
 @Composable
