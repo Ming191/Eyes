@@ -8,19 +8,23 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
-class GptTranslationEngine : OcrTranslatorPort {
-    private val httpClient = OpenAiResponsesHttpClient()
-    private val json = Json { ignoreUnknownKeys = true }
+class GptTranslationEngine(
+    private val httpClient: OpenAiResponsesHttpClient = OpenAiResponsesHttpClient(),
+    private val json: Json = Json { ignoreUnknownKeys = true },
+    private val apiKeyProvider: () -> String = { BuildConfig.OPENAI_API_KEY },
+    private val endpointProvider: () -> String = { BuildConfig.OPENAI_BASE_URL.ifBlank { DEFAULT_ENDPOINT } },
+    private val modelProvider: () -> String = { BuildConfig.OPENAI_OCR_MODEL.ifBlank { DEFAULT_MODEL } }
+) : OcrTranslatorPort {
 
     override suspend fun translateToVietnamese(text: String): String {
         return withContext(Dispatchers.IO) {
-            val apiKey = BuildConfig.OPENAI_API_KEY
+            val apiKey = apiKeyProvider()
             if (apiKey.isBlank()) {
                 throw IOException("OPENAI_API_KEY chưa được cấu hình trong .env hoặc biến môi trường")
             }
 
-            val endpoint = BuildConfig.OPENAI_BASE_URL.ifBlank { DEFAULT_ENDPOINT }
-            val model = BuildConfig.OPENAI_OCR_MODEL.ifBlank { DEFAULT_MODEL }
+            val endpoint = endpointProvider()
+            val model = modelProvider()
             val requestBody = buildRequestBody(model = model, sourceText = text)
 
             val rawResponse = httpClient.postJsonWithRetry(

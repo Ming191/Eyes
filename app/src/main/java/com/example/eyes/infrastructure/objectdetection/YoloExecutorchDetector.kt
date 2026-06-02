@@ -10,8 +10,6 @@ import com.example.eyes.domain.objectdetection.YoloOutputInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.pytorch.executorch.EValue
-import org.pytorch.executorch.Tensor
 
 class YoloExecutorchDetector(
     private val modelLoader: YoloExecutorchModelLoader,
@@ -22,18 +20,16 @@ class YoloExecutorchDetector(
 
     override suspend fun inspectOutputShape(): List<YoloOutputInfo> = withContext(Dispatchers.Default) {
         val input = FloatArray(1 * CHANNELS * inputSize * inputSize)
-        val inputTensor = Tensor.fromBlob(
+        val outputs = modelLoader.load().forward(
             input,
             longArrayOf(1L, CHANNELS.toLong(), inputSize.toLong(), inputSize.toLong())
         )
-        val outputs = modelLoader.load().forward(EValue.from(inputTensor))
         outputs.mapIndexed { index, output ->
-            val tensor = output.toTensor()
             YoloOutputInfo(
                 index = index,
-                shape = tensor.shape().toList(),
-                dtype = tensor.dtype().name,
-                elementCount = tensor.numel()
+                shape = output.shape.toList(),
+                dtype = output.dtypeName,
+                elementCount = output.elementCount
             )
         }.also { outputInfo ->
             Log.i(TAG, "YOLO ExecuTorch output info: $outputInfo")
@@ -49,16 +45,15 @@ class YoloExecutorchDetector(
         return withContext(Dispatchers.Default) {
             try {
                 val input = preprocessor.preprocess(bitmap)
-                val inputTensor = Tensor.fromBlob(
+                val outputs = modelLoader.load().forward(
                     input,
                     longArrayOf(1L, CHANNELS.toLong(), inputSize.toLong(), inputSize.toLong())
                 )
-                val outputs = modelLoader.load().forward(EValue.from(inputTensor))
                 if (outputs.isEmpty()) {
                     Log.e(TAG, "YOLO ExecuTorch forward returned no outputs")
                     return@withContext emptyList()
                 }
-                val output = outputs[0].toTensor().getDataAsFloatArray()
+                val output = outputs[0].data
                 postprocessor.postprocess(
                     output = output,
                     frameWidth = bitmap.width,

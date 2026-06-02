@@ -17,9 +17,13 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
-class Gpt4oOcrEngine : OcrEnginePort {
-    private val httpClient = OpenAiResponsesHttpClient()
-    private val json = Json { ignoreUnknownKeys = true }
+class Gpt4oOcrEngine(
+    private val httpClient: OpenAiResponsesHttpClient = OpenAiResponsesHttpClient(),
+    private val json: Json = Json { ignoreUnknownKeys = true },
+    private val apiKeyProvider: () -> String = { BuildConfig.OPENAI_API_KEY },
+    private val endpointProvider: () -> String = { BuildConfig.OPENAI_BASE_URL.ifBlank { DEFAULT_ENDPOINT } },
+    private val modelProvider: () -> String = { BuildConfig.OPENAI_OCR_MODEL.ifBlank { DEFAULT_MODEL } }
+) : OcrEnginePort {
 
     suspend fun recognize(imageProxy: ImageProxy): OcrResult {
         return try {
@@ -34,13 +38,13 @@ class Gpt4oOcrEngine : OcrEnginePort {
 
     suspend fun recognize(bitmap: Bitmap): OcrResult {
         return withContext(Dispatchers.IO) {
-            val apiKey = BuildConfig.OPENAI_API_KEY
+            val apiKey = apiKeyProvider()
             if (apiKey.isBlank()) {
                 throw IOException("OPENAI_API_KEY chưa được cấu hình trong .env hoặc biến môi trường")
             }
 
-            val endpoint = BuildConfig.OPENAI_BASE_URL.ifBlank { DEFAULT_ENDPOINT }
-            val model = BuildConfig.OPENAI_OCR_MODEL.ifBlank { DEFAULT_MODEL }
+            val endpoint = endpointProvider()
+            val model = modelProvider()
             val imageDataUrl = bitmap.toDataUrl()
             val requestBody = buildRequestBody(model = model, imageDataUrl = imageDataUrl)
 

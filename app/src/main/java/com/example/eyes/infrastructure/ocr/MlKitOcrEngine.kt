@@ -16,9 +16,13 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
-class MlKitOcrEngine : OcrEnginePort {
+class MlKitOcrEngine(
+    private val bitmapRecognizer: suspend (Bitmap) -> OcrResult = { bitmap -> recognizeBitmapWithMlKit(bitmap) },
+    private val closeAction: () -> Unit = {}
+) : OcrEnginePort {
 
-    private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    private val recognizerDelegate = lazy { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
+    private val recognizer by recognizerDelegate
 
     @ExperimentalGetImage
     suspend fun recognize(imageProxy: ImageProxy): OcrResult =
@@ -49,19 +53,22 @@ class MlKitOcrEngine : OcrEnginePort {
 
     override suspend fun recognize(imageFrame: ImageFrame): OcrResult = recognize(imageFrame.toBitmap())
 
-    suspend fun recognize(bitmap: Bitmap): OcrResult =
-        suspendCancellableCoroutine { cont ->
-            val inputImage = InputImage.fromBitmap(bitmap, 0)
-            recognizer.process(inputImage)
-                .addOnSuccessListener { visionText ->
-                    cont.resume(OcrPostProcessor.process(visionText.text))
-                }
-                .addOnFailureListener { e ->
-                    cont.resumeWithException(e)
-                }
-        }
+    suspend fun recognize(bitmap: Bitmap): OcrResult = bitmapRecognizer(bitmap)
 
     override fun close() {
-        recognizer.close()
+        closeAction()
+        if (recognizerDelegate.isInitialized()) recognizer.close()
     }
 }
+
+private suspend fun recognizeBitmapWithMlKit(bitmap: Bitmap): OcrResult =
+    suspendCancellableCoroutine { cont ->
+        val inputImage = InputImage.fromBitmap(bitmap, 0)
+        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS).process(inputImage)
+            .addOnSuccessListener { visionText ->
+                cont.resume(OcrPostProcessor.process(visionText.text))
+            }
+            .addOnFailureListener { e ->
+                cont.resumeWithException(e)
+            }
+    }

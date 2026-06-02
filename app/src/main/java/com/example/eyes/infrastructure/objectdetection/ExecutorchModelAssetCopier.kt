@@ -5,9 +5,11 @@ import android.util.Log
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
+import java.io.InputStream
 
 class ExecutorchModelAssetCopier(
-    private val context: Context
+    private val context: Context,
+    private val assetOpener: (String) -> InputStream = { path -> context.assets.open(path) }
 ) {
 
     fun copyModelToFilesDir(
@@ -21,7 +23,7 @@ class ExecutorchModelAssetCopier(
             }
 
             val targetFile = File(targetDir, fileName)
-            val assetSize = context.assets.open(assetPath).use { it.available().toLong() }
+            val assetSize = assetOpener(assetPath).use { it.available().toLong() }
             if (targetFile.exists()) {
                 if (targetFile.length() == assetSize) {
                     return targetFile
@@ -29,7 +31,7 @@ class ExecutorchModelAssetCopier(
                 targetFile.delete()
             }
 
-            context.assets.open(assetPath).use { input ->
+            assetOpener(assetPath).use { input ->
                 targetFile.outputStream().use { output ->
                     input.copyTo(output)
                 }

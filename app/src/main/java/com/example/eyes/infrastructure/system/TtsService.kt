@@ -329,6 +329,30 @@ class TtsService(context: Context) : SpeechOutput {
     }
 
     private fun preprocessText(raw: String, locale: Locale?): String {
+        return TtsTextPreprocessor.preprocess(raw, locale)
+    }
+
+    private fun isLocaleUnsupported(result: Int): Boolean {
+        return result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED
+    }
+
+    private fun isScreenReaderLikelyEnabled(): Boolean =
+        accessibilityManager.isEnabled && accessibilityManager.isTouchExplorationEnabled
+
+    private companion object {
+        private const val TAG = "TtsService"
+        private const val DEFAULT_SPEECH_RATE = 1.2f
+        private const val MIN_SPEECH_RATE = 0.5f
+        private const val MAX_SPEECH_RATE = 2.0f
+        private val VIETNAMESE_LOCALE = Locale.Builder()
+            .setLanguage("vi")
+            .setRegion("VN")
+            .build()
+    }
+}
+
+internal object TtsTextPreprocessor {
+    fun preprocess(raw: String, locale: Locale?): String {
         val isEnglish = locale?.language.equals(Locale.ENGLISH.language, ignoreCase = true)
         return raw
             .replace(URL_REGEX, "link")
@@ -359,34 +383,17 @@ class TtsService(context: Context) : SpeechOutput {
         .replace(TALKBACK_REGEX, "TalkBack")
         .replace(DOUBLE_TAP_REGEX, "double tap")
 
-    private fun isLocaleUnsupported(result: Int): Boolean {
-        return result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED
-    }
-
-    private fun isScreenReaderLikelyEnabled(): Boolean =
-        accessibilityManager.isEnabled && accessibilityManager.isTouchExplorationEnabled
-
-    private companion object {
-        private const val TAG = "TtsService"
-        private const val DEFAULT_SPEECH_RATE = 1.2f
-        private const val MIN_SPEECH_RATE = 0.5f
-        private const val MAX_SPEECH_RATE = 2.0f
-        private val VIETNAMESE_LOCALE = Locale.Builder()
-            .setLanguage("vi")
-            .setRegion("VN")
-            .build()
-        private val URL_REGEX = Regex("https?://\\S+")
-        private val EN_TO_VI_REGEX = Regex("\\bEN\\s*[-–—]*>\\s*VI\\b", RegexOption.IGNORE_CASE)
-        private val GPT_4O_REGEX = Regex("\\bGPT[- ]?4o\\b", RegexOption.IGNORE_CASE)
-        private val ML_KIT_REGEX = Regex("\\bML Kit\\b", RegexOption.IGNORE_CASE)
-        private val OCR_REGEX = Regex("\\bOCR\\b", RegexOption.IGNORE_CASE)
-        private val API_REGEX = Regex("\\bAPI\\b", RegexOption.IGNORE_CASE)
-        private val TALKBACK_REGEX = Regex("\\bTalkBack\\b", RegexOption.IGNORE_CASE)
-        private val DOUBLE_TAP_REGEX = Regex("\\bDouble tap\\b", RegexOption.IGNORE_CASE)
-        private val DEBUG_REGEX = Regex("\\bDebug\\b", RegexOption.IGNORE_CASE)
-        private val FALLBACK_REGEX = Regex("\\bfallback\\b", RegexOption.IGNORE_CASE)
-        private val MODE_REGEX = Regex("\\bmode\\b", RegexOption.IGNORE_CASE)
-        private val SYMBOL_REGEX = Regex("[|■▪►]")
-        private val WHITESPACE_REGEX = Regex("\\s+")
-    }
+    private val URL_REGEX = Regex("https?://\\S+")
+    private val EN_TO_VI_REGEX = Regex("\\bEN\\s*[-–—]*>\\s*VI\\b", RegexOption.IGNORE_CASE)
+    private val GPT_4O_REGEX = Regex("\\bGPT[- ]?4o\\b", RegexOption.IGNORE_CASE)
+    private val ML_KIT_REGEX = Regex("\\bML Kit\\b", RegexOption.IGNORE_CASE)
+    private val OCR_REGEX = Regex("\\bOCR\\b", RegexOption.IGNORE_CASE)
+    private val API_REGEX = Regex("\\bAPI\\b", RegexOption.IGNORE_CASE)
+    private val TALKBACK_REGEX = Regex("\\bTalkBack\\b", RegexOption.IGNORE_CASE)
+    private val DOUBLE_TAP_REGEX = Regex("\\bDouble tap\\b", RegexOption.IGNORE_CASE)
+    private val DEBUG_REGEX = Regex("\\bDebug\\b", RegexOption.IGNORE_CASE)
+    private val FALLBACK_REGEX = Regex("\\bfallback\\b", RegexOption.IGNORE_CASE)
+    private val MODE_REGEX = Regex("\\bmode\\b", RegexOption.IGNORE_CASE)
+    private val SYMBOL_REGEX = Regex("[|■▪►]")
+    private val WHITESPACE_REGEX = Regex("\\s+")
 }

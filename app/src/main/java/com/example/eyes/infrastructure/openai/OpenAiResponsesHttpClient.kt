@@ -21,10 +21,11 @@ internal class OpenAiHttpException(
     }
 )
 
-internal open class OpenAiResponsesHttpClient(
+open class OpenAiResponsesHttpClient(
     private val connectTimeoutMs: Int = 20_000,
     private val readTimeoutMs: Int = 60_000,
-    private val retryDelayMs: Long = 400L
+    private val retryDelayMs: Long = 400L,
+    private val connectionFactory: (URL) -> HttpURLConnection = { url -> url.openConnection() as HttpURLConnection }
 ) {
 
     open suspend fun postJsonWithRetry(
@@ -51,7 +52,7 @@ internal open class OpenAiResponsesHttpClient(
 
     private fun postJson(endpoint: String, apiKey: String, requestBody: String): String {
         val url = URL(endpoint)
-        val connection = (url.openConnection() as HttpURLConnection).apply {
+        val connection = connectionFactory(url).apply {
             requestMethod = "POST"
             connectTimeout = connectTimeoutMs
             readTimeout = readTimeoutMs
