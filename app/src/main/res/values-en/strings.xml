@@ -253,7 +253,9 @@
     <string name="camera_analyzing_image">Analyzing image...</string>
     <string name="camera_ocr_swipe_hint">Swipe left or right to change sentence</string>
     <string name="camera_capture_another_description">Capture another image</string>
-    <string name="camera_capture_another_text">Capture another image</string>
+    <string name="camera_capture_another_text">Retake</string>
+    <string name="camera_repeat_result_description">Read result again</string>
+    <string name="camera_repeat_result_text">Read again</string>
     <string name="camera_show_status_description">Show camera status panel</string>
     <string name="camera_ocr_mode_selector_description">Select OCR mode</string>
     <string name="camera_ocr_mode_quick_description">Select quick OCR mode</string>

@@ -5,12 +5,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AttachMoney
@@ -77,9 +78,10 @@ fun CameraScreen(
     )
     val capturedOcrDescription = stringResource(R.string.camera_captured_ocr_description)
     val analyzingImageText = stringResource(R.string.camera_analyzing_image)
-    val ocrSwipeHint = stringResource(R.string.camera_ocr_swipe_hint)
     val captureAnotherDescription = stringResource(R.string.camera_capture_another_description)
     val captureAnotherText = stringResource(R.string.camera_capture_another_text)
+    val repeatResultDescription = stringResource(R.string.camera_repeat_result_description)
+    val repeatResultText = stringResource(R.string.camera_repeat_result_text)
     val canRetakeOcr = uiState.activeMode == CameraMode.OCR &&
         uiState.isOcrDocumentMode &&
         !uiState.isOcrScanning
@@ -326,48 +328,44 @@ fun CameraScreen(
             }
         }
 
-        if (uiState.isOcrDocumentMode) {
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 16.dp, vertical = 210.dp)
-                    .fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-                shape = MaterialTheme.shapes.medium
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = "${uiState.ocrCurrentIndex + 1} / ${uiState.ocrSentences.size}",
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                    Text(
-                        text = uiState.currentOcrSentence,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Text(
-                        text = ocrSwipeHint,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
         if (canRetakeOcr || canRetakeScene || canRetakeCurrency) {
-            Button(
-                onClick = ::prepareNextCaptureForActiveMode,
+            Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .heightIn(min = 88.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
                     .padding(bottom = 164.dp)
-                    .semantics { contentDescription = captureAnotherDescription }
-                    .blindFocusable(
-                        id = "camera_capture_another",
-                        label = captureAnotherDescription,
-                        onActivate = ::prepareNextCaptureForActiveMode
-                    )
+                    .heightIn(min = 88.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(captureAnotherText)
+                Button(
+                    onClick = viewModel::repeatCurrentResult,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 88.dp)
+                        .semantics { contentDescription = repeatResultDescription }
+                        .blindFocusable(
+                            id = "camera_repeat_result",
+                            label = repeatResultDescription,
+                            onActivate = viewModel::repeatCurrentResult
+                        )
+                ) {
+                    Text(repeatResultText)
+                }
+                Button(
+                    onClick = ::prepareNextCaptureForActiveMode,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 88.dp)
+                        .semantics { contentDescription = captureAnotherDescription }
+                        .blindFocusable(
+                            id = "camera_capture_another",
+                            label = captureAnotherDescription,
+                            onActivate = ::prepareNextCaptureForActiveMode
+                        )
+                ) {
+                    Text(captureAnotherText)
+                }
             }
         }
 
