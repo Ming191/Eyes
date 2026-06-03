@@ -13,9 +13,9 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class CurrencyAnalyzerTest {
     @Test
-    fun analyzeReturnsLabelWhenFakeRecognizerConfidenceHigh() {
+    fun analyzeReturnsLabelWhenRecognizerConfidenceHigh() {
         val results = mutableListOf<Pair<String, Float>>()
-        val analyzer = CurrencyAnalyzer(FakeRecognizer(classification = "50000" to 0.91f)) { label, confidence ->
+        val analyzer = CurrencyAnalyzer(FakeRecognizer(recognition = "50000" to 0.91f)) { label, confidence ->
             results += label to confidence
         }
 
@@ -25,10 +25,10 @@ class CurrencyAnalyzerTest {
     }
 
     @Test
-    fun analyzeReturnsEmptyWhenDetectionMissingOrConfidenceLow() {
+    fun analyzeReturnsEmptyWhenRecognitionMissingOrConfidenceLow() {
         val results = mutableListOf<Pair<String, Float>>()
-        val noDetection = CurrencyAnalyzer(FakeRecognizer(box = null)) { label, confidence -> results += label to confidence }
-        val lowConfidence = CurrencyAnalyzer(FakeRecognizer(classification = "10000" to 0.69f)) { label, confidence ->
+        val noDetection = CurrencyAnalyzer(FakeRecognizer(recognition = null)) { label, confidence -> results += label to confidence }
+        val lowConfidence = CurrencyAnalyzer(FakeRecognizer(recognition = "10000" to 0.69f)) { label, confidence ->
             results += label to confidence
         }
 
@@ -53,7 +53,7 @@ class CurrencyAnalyzerTest {
     @Test
     fun streamingFrameRequiresStableHighConfidenceWindow() {
         val results = mutableListOf<Pair<String, Float>>()
-        val analyzer = CurrencyAnalyzer(FakeRecognizer(classification = "20000" to 0.9f)) { label, confidence ->
+        val analyzer = CurrencyAnalyzer(FakeRecognizer(recognition = "20000" to 0.9f)) { label, confidence ->
             results += label to confidence
         }
         val bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888)
@@ -67,18 +67,14 @@ class CurrencyAnalyzerTest {
     }
 
     @Test
-    fun streamingFrameHandlesMissingDetectionAndInvalidCrop() {
+    fun streamingFrameHandlesMissingDetection() {
         val results = mutableListOf<Pair<String, Float>>()
-        val missing = CurrencyAnalyzer(FakeRecognizer(box = null)) { label, confidence -> results += label to confidence }
-        val invalidCrop = CurrencyAnalyzer(FakeRecognizer(box = CurrencyAnalyzer.BBox(0.5f, 0.5f, 0.5f, 1f))) { label, confidence ->
-            results += label to confidence
-        }
+        val missing = CurrencyAnalyzer(FakeRecognizer(recognition = null)) { label, confidence -> results += label to confidence }
         val bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888)
 
         repeat(3) { missing.analyzeStreamingFrame(bitmap) }
-        invalidCrop.analyzeStreamingFrame(bitmap)
 
-        assertEquals(listOf("" to 0f, "" to 0f, "" to 0f, "" to 0f), results)
+        assertEquals(listOf("" to 0f, "" to 0f, "" to 0f), results)
     }
 
     @Test
@@ -102,14 +98,11 @@ class CurrencyAnalyzerTest {
     }
 
     private class FakeRecognizer(
-        private val box: CurrencyAnalyzer.BBox? = CurrencyAnalyzer.BBox(0f, 0f, 1f, 1f),
-        private val classification: Pair<String, Float> = "20000" to 0.8f
+        private val recognition: Pair<String, Float>? = "20000" to 0.8f
     ) : CurrencyAnalyzer.CurrencyRecognizer {
         var closed = false
 
-        override fun detect(bitmap: Bitmap): CurrencyAnalyzer.BBox? = box
-
-        override fun classify(cropped: Bitmap): Pair<String, Float> = classification
+        override fun recognize(bitmap: Bitmap): Pair<String, Float>? = recognition
 
         override fun close() {
             closed = true
@@ -117,9 +110,7 @@ class CurrencyAnalyzerTest {
     }
 
     private class ThrowingRecognizer : CurrencyAnalyzer.CurrencyRecognizer {
-        override fun detect(bitmap: Bitmap): CurrencyAnalyzer.BBox = error("boom")
-
-        override fun classify(cropped: Bitmap): Pair<String, Float> = error("boom")
+        override fun recognize(bitmap: Bitmap): Pair<String, Float> = error("boom")
 
         override fun close() = Unit
     }

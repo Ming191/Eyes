@@ -13,9 +13,9 @@ import java.nio.ByteOrder
 import java.util.LinkedList
 
 /**
- * Vietnamese banknote recognition with 2 stages:
- * 1) best.tflite (YOLO) detects the banknote region.
- * 2) EfficientNet_float32.tflite classifies denomination from the cropped region.
+ * Vietnamese banknote recognition using a single YOLOv8 detector (best.tflite).
+ * The model's 9 classes correspond directly to denominations listed in
+ * currency_labels.txt, so no separate classification stage is required.
  */
 class CurrencyAnalyzer internal constructor(
     private val recognizer: CurrencyRecognizer,
@@ -66,52 +66,25 @@ class CurrencyAnalyzer internal constructor(
     }
 
     private fun processSingleCapture(bitmap: Bitmap) {
-        val box = recognizer.detect(bitmap) ?: run {
-            onResult(EMPTY_LABEL, 0f)
-            return
-        }
-
-        val cropped = cropBitmap(bitmap, box) ?: run {
-            onResult(EMPTY_LABEL, 0f)
-            return
-        }
-
-        val (label, confidence) = recognizer.classify(cropped)
-        cropped.recycle()
-
-        if (confidence >= CLASSIFIER_CONFIDENCE_THRESHOLD) {
-            onResult(label, confidence)
+        val result = recognizer.recognize(bitmap)
+        if (result != null && result.second >= CONFIDENCE_THRESHOLD) {
+            onResult(result.first, result.second)
         } else {
             onResult(EMPTY_LABEL, 0f)
         }
     }
 
     private fun processFrame(bitmap: Bitmap) {
-        val box = recognizer.detect(bitmap)
-        if (box == null) {
-            pushWindow(null)
-            val hadAnyResult = frameWindow.any { it.isNotEmpty() }
-            if (!hadAnyResult) {
-                onResult(EMPTY_LABEL, 0f)
-            }
-            computeStable()
-            return
-        }
-
-        val cropped = cropBitmap(bitmap, box)
-        if (cropped == null) {
-            pushWindow(null)
-            onResult(EMPTY_LABEL, 0f)
-            return
-        }
-
-        val (label, confidence) = recognizer.classify(cropped)
-        cropped.recycle()
-
-        if (confidence >= CLASSIFIER_CONFIDENCE_THRESHOLD) {
-            pushWindow(mapOf(label to confidence))
+        val result = recognizer.recognize(bitmap)
+        if (result != null && result.second >= CONFIDENCE_THRESHOLD) {
+            pushWindow(mapOf(result.first to result.second))
         } else {
             pushWindow(null)
+            if (result == null && frameWindow.none { it.isNotEmpty() }) {
+                onResult(EMPTY_LABEL, 0f)
+                computeStable()
+                return
+            }
         }
 
         val (stableLabel, stableConfidence) = computeStable()
@@ -122,129 +95,61 @@ class CurrencyAnalyzer internal constructor(
         }
     }
 
-    internal data class BBox(
-        val x1: Float,
-        val y1: Float,
-        val x2: Float,
-        val y2: Float
-    )
-
     internal interface CurrencyRecognizer {
-        fun detect(bitmap: Bitmap): BBox?
-        fun classify(cropped: Bitmap): Pair<String, Float>
+        fun recognize(bitmap: Bitmap): Pair<String, Float>?
         fun close()
     }
 
     private class TensorFlowCurrencyRecognizer(context: Context) : CurrencyRecognizer {
-        private val yoloInterpreter: Interpreter
-        private val classifierInterpreter: Interpreter
+        private val interpreter: Interpreter
         private val labels: List<String>
 
-        private val yoloBitmap = Bitmap.createBitmap(YOLO_INPUT_SIZE, YOLO_INPUT_SIZE, Bitmap.Config.ARGB_8888)
-        private val classifierBitmap = Bitmap.createBitmap(CLASSIFIER_INPUT_SIZE, CLASSIFIER_INPUT_SIZE, Bitmap.Config.ARGB_8888)
-        private val yoloCanvas = Canvas(yoloBitmap)
-        private val classifierCanvas = Canvas(classifierBitmap)
-
-        private val yoloPixels = IntArray(YOLO_INPUT_SIZE * YOLO_INPUT_SIZE)
-        private val classifierPixels = IntArray(CLASSIFIER_INPUT_SIZE * CLASSIFIER_INPUT_SIZE)
-
-        private val yoloInputBuffer = ByteBuffer
-            .allocateDirect(YOLO_INPUT_SIZE * YOLO_INPUT_SIZE * 3 * 4)
-            .order(ByteOrder.nativeOrder())
-        private val classifierInputBuffer = ByteBuffer
-            .allocateDirect(CLASSIFIER_INPUT_SIZE * CLASSIFIER_INPUT_SIZE * 3 * 4)
+        private val inputBitmap = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888)
+        private val canvas = Canvas(inputBitmap)
+        private val pixels = IntArray(INPUT_SIZE * INPUT_SIZE)
+        private val inputBuffer = ByteBuffer
+            .allocateDirect(INPUT_SIZE * INPUT_SIZE * 3 * 4)
             .order(ByteOrder.nativeOrder())
 
         init {
             val options = Interpreter.Options().apply { numThreads = 4 }
-            yoloInterpreter = Interpreter(FileUtil.loadMappedFile(context, YOLO_MODEL_PATH), options)
-            classifierInterpreter = Interpreter(FileUtil.loadMappedFile(context, CLASSIFIER_MODEL_PATH), options)
+            interpreter = Interpreter(FileUtil.loadMappedFile(context, MODEL_PATH), options)
             labels = FileUtil.loadLabels(context, LABELS_PATH)
         }
 
-        override fun detect(bitmap: Bitmap): BBox? {
-        yoloCanvas.drawBitmap(bitmap, null, Rect(0, 0, YOLO_INPUT_SIZE, YOLO_INPUT_SIZE), null)
-        yoloBitmap.getPixels(yoloPixels, 0, YOLO_INPUT_SIZE, 0, 0, YOLO_INPUT_SIZE, YOLO_INPUT_SIZE)
+        override fun recognize(bitmap: Bitmap): Pair<String, Float>? {
+            canvas.drawBitmap(bitmap, null, Rect(0, 0, INPUT_SIZE, INPUT_SIZE), null)
+            inputBitmap.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
 
-        yoloInputBuffer.rewind()
-        for (pixel in yoloPixels) {
-            yoloInputBuffer.putFloat(((pixel shr 16) and 0xFF) / 255f)
-            yoloInputBuffer.putFloat(((pixel shr 8) and 0xFF) / 255f)
-            yoloInputBuffer.putFloat((pixel and 0xFF) / 255f)
-        }
-        yoloInputBuffer.rewind()
-
-        val detectionsCount = yoloInterpreter.getOutputTensor(0).shape()[1]
-        val output = Array(1) { Array(detectionsCount) { FloatArray(6) } }
-        yoloInterpreter.run(yoloInputBuffer, output)
-
-        var bestConfidence = YOLO_CONFIDENCE_THRESHOLD
-        var bestBox: BBox? = null
-        for (index in 0 until detectionsCount) {
-            val detection = output[0][index]
-            val confidence = detection[4]
-            if (confidence > bestConfidence) {
-                bestConfidence = confidence
-                bestBox = BBox(
-                    x1 = detection[0].coerceIn(0f, 1f),
-                    y1 = detection[1].coerceIn(0f, 1f),
-                    x2 = detection[2].coerceIn(0f, 1f),
-                    y2 = detection[3].coerceIn(0f, 1f)
-                )
+            inputBuffer.rewind()
+            for (pixel in pixels) {
+                inputBuffer.putFloat(((pixel shr 16) and 0xFF) / 255f)
+                inputBuffer.putFloat(((pixel shr 8) and 0xFF) / 255f)
+                inputBuffer.putFloat((pixel and 0xFF) / 255f)
             }
+            inputBuffer.rewind()
+
+            val detectionsCount = interpreter.getOutputTensor(0).shape()[1]
+            val output = Array(1) { Array(detectionsCount) { FloatArray(DETECTION_STRIDE) } }
+            interpreter.run(inputBuffer, output)
+
+            var bestConfidence = CONFIDENCE_THRESHOLD
+            var bestLabel: String? = null
+            for (index in 0 until detectionsCount) {
+                val detection = output[0][index]
+                val confidence = detection[4]
+                if (confidence <= bestConfidence) continue
+                val classId = detection[5].toInt()
+                if (classId !in labels.indices) continue
+                bestConfidence = confidence
+                bestLabel = labels[classId]
+            }
+            return bestLabel?.let { it to bestConfidence }
         }
-        return bestBox
-    }
-
-        override fun classify(cropped: Bitmap): Pair<String, Float> {
-        classifierCanvas.drawBitmap(
-            cropped,
-            null,
-            Rect(0, 0, CLASSIFIER_INPUT_SIZE, CLASSIFIER_INPUT_SIZE),
-            null
-        )
-
-        classifierBitmap.getPixels(
-            classifierPixels,
-            0,
-            CLASSIFIER_INPUT_SIZE,
-            0,
-            0,
-            CLASSIFIER_INPUT_SIZE,
-            CLASSIFIER_INPUT_SIZE
-        )
-
-        classifierInputBuffer.rewind()
-        for (pixel in classifierPixels) {
-            classifierInputBuffer.putFloat((((pixel shr 16) and 0xFF) / 255f - 0.485f) / 0.229f)
-            classifierInputBuffer.putFloat((((pixel shr 8) and 0xFF) / 255f - 0.456f) / 0.224f)
-            classifierInputBuffer.putFloat(((pixel and 0xFF) / 255f - 0.406f) / 0.225f)
-        }
-        classifierInputBuffer.rewind()
-
-        val output = Array(1) { FloatArray(labels.size) }
-        classifierInterpreter.run(classifierInputBuffer, output)
-
-        val scores = output[0]
-        val maxIndex = scores.indices.maxByOrNull { scores[it] } ?: 0
-        return labels[maxIndex] to scores[maxIndex]
-    }
 
         override fun close() {
-            yoloInterpreter.close()
-            classifierInterpreter.close()
+            interpreter.close()
         }
-    }
-
-    private fun cropBitmap(source: Bitmap, box: BBox): Bitmap? {
-        val x1 = (box.x1 * source.width).toInt().coerceIn(0, source.width)
-        val y1 = (box.y1 * source.height).toInt().coerceIn(0, source.height)
-        val x2 = (box.x2 * source.width).toInt().coerceIn(0, source.width)
-        val y2 = (box.y2 * source.height).toInt().coerceIn(0, source.height)
-        val width = x2 - x1
-        val height = y2 - y1
-        if (width <= 0 || height <= 0) return null
-        return Bitmap.createBitmap(source, x1, y1, width, height)
     }
 
     private fun pushWindow(scores: Map<String, Float>?) {
@@ -275,7 +180,7 @@ class CurrencyAnalyzer internal constructor(
 
         val best = weightedScores.maxByOrNull { it.value } ?: return null to 0f
         val bestCount = appearanceCount.getOrDefault(best.key, 0)
-        if (best.value < CLASSIFIER_CONFIDENCE_THRESHOLD * 0.5f) return null to 0f
+        if (best.value < CONFIDENCE_THRESHOLD * 0.5f) return null to 0f
         if (bestCount < STABLE_FRAMES) return null to 0f
 
         val averageConfidence = totalScores.getValue(best.key) / bestCount.toFloat()
@@ -285,15 +190,13 @@ class CurrencyAnalyzer internal constructor(
     companion object {
         const val EMPTY_LABEL = ""
 
-        private const val YOLO_MODEL_PATH = "best.tflite"
-        private const val CLASSIFIER_MODEL_PATH = "EfficientNet_float32.tflite"
+        private const val MODEL_PATH = "best.tflite"
         private const val LABELS_PATH = "currency_labels.txt"
 
-        private const val YOLO_INPUT_SIZE = 640
-        private const val CLASSIFIER_INPUT_SIZE = 224
+        private const val INPUT_SIZE = 640
+        private const val DETECTION_STRIDE = 6
         private const val WINDOW_SIZE = 5
         private const val STABLE_FRAMES = 3
-        private const val YOLO_CONFIDENCE_THRESHOLD = 0.40f
-        private const val CLASSIFIER_CONFIDENCE_THRESHOLD = 0.70f
+        private const val CONFIDENCE_THRESHOLD = 0.70f
     }
 }
