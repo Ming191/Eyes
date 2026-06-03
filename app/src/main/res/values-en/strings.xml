@@ -46,6 +46,8 @@
     <string name="home_hero_description">Home summary. %1$s. %2$s</string>
     <string name="home_action_open_label">Open %1$s</string>
     <string name="blind_gesture_no_actions">No secondary actions</string>
+    <string name="blind_gesture_layer_description">Accessibility gesture layer</string>
+    <string name="blind_focus_overlay_description">Current focus frame</string>
     <string name="blind_action_increase">Increase</string>
     <string name="blind_action_decrease">Decrease</string>
     <string name="voice_response_read_text">Opening read text mode.</string>
