@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AttachMoney
+import androidx.compose.material.icons.rounded.CenterFocusStrong
 import androidx.compose.material.icons.rounded.ImageSearch
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.Visibility
@@ -44,8 +45,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -147,8 +146,12 @@ fun CameraScreen(
         val request = launchRequest
         if (request != null) {
             viewModel.setAppLanguage(appLanguage)
-            request.ocrMode?.let(viewModel::selectOcrMode)
-            viewModel.selectMode(request.target.toCameraMode())
+            if (request.target == VoiceCameraTarget.OCR && request.ocrMode != null) {
+                viewModel.selectOcrCameraMode(request.ocrMode)
+            } else {
+                request.ocrMode?.let(viewModel::selectOcrMode)
+                viewModel.selectMode(request.target.toCameraMode())
+            }
             if (request.autoCapture) {
                 pendingAutoCaptureRequest = request
             }
@@ -300,21 +303,13 @@ fun CameraScreen(
         }
         CameraModeSelector(
             mode = uiState.activeMode,
+            ocrMode = uiState.ocrMode,
             onModeSelected = viewModel::selectMode,
+            onOcrModeSelected = viewModel::selectOcrCameraMode,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 16.dp, vertical = 24.dp)
         )
-
-        if (uiState.activeMode == CameraMode.OCR) {
-            OcrEngineModeSelector(
-                mode = uiState.ocrMode,
-                onModeSelected = viewModel::selectOcrMode,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 16.dp, vertical = 132.dp)
-            )
-        }
 
         if (uiState.isOcrScanning || uiState.isDescribingScene || uiState.isCurrencyScanning) {
             Surface(
@@ -383,10 +378,12 @@ fun CameraScreen(
 @Composable
 private fun CameraModeSelector(
     mode: CameraMode,
+    ocrMode: OcrMode,
     onModeSelected: (CameraMode) -> Unit,
+    onOcrModeSelected: (OcrMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val modes = remember { CameraMode.entries }
+    val modes = remember { CameraModeOption.entries }
     val selectorDescription = stringResource(R.string.camera_mode_selector_description)
     val selectedDescription = stringResource(R.string.camera_selected_description)
     val unselectedDescription = stringResource(R.string.camera_unselected_description)
@@ -398,11 +395,11 @@ private fun CameraModeSelector(
             }
     ) {
         modes.forEachIndexed { index, item ->
-            val selected = item == mode
+            val selected = item.isSelected(mode, ocrMode)
             val itemDescription = item.localizedDescription()
             SegmentedButton(
                 selected = selected,
-                onClick = { onModeSelected(item) },
+                onClick = { item.select(onModeSelected, onOcrModeSelected) },
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
                 colors = SegmentedButtonDefaults.colors(
                     activeContainerColor = MaterialTheme.colorScheme.primary,
@@ -420,10 +417,10 @@ private fun CameraModeSelector(
                     stateDescription = if (selected) selectedDescription else unselectedDescription
                 }
                 .blindFocusable(
-                    id = "camera_mode_${item.name}",
+                    id = item.focusId,
                     label = itemDescription,
                     activateLabel = "",
-                    onActivate = { onModeSelected(item) }
+                    onActivate = { item.select(onModeSelected, onOcrModeSelected) }
                 ),
                 icon = {},
                 label = {
@@ -438,13 +435,6 @@ private fun CameraModeSelector(
     }
 }
 
-private fun CameraMode.icon(): ImageVector = when (this) {
-    CameraMode.OCR -> Icons.Rounded.TextFields
-    CameraMode.SCENE_DESCRIPTION -> Icons.Rounded.ImageSearch
-    CameraMode.OBJECT_DETECTION -> Icons.Rounded.Visibility
-    CameraMode.CURRENCY -> Icons.Rounded.AttachMoney
-}
-
 private fun VoiceCameraTarget.toCameraMode(): CameraMode = when (this) {
     VoiceCameraTarget.OCR -> CameraMode.OCR
     VoiceCameraTarget.SCENE_DESCRIPTION -> CameraMode.SCENE_DESCRIPTION
@@ -452,67 +442,59 @@ private fun VoiceCameraTarget.toCameraMode(): CameraMode = when (this) {
     VoiceCameraTarget.CURRENCY -> CameraMode.CURRENCY
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun OcrEngineModeSelector(
-    mode: OcrMode,
-    onModeSelected: (OcrMode) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val modes = remember { OcrMode.entries }
-    val selectorDescription = stringResource(R.string.camera_ocr_mode_selector_description)
-    val quickDescription = stringResource(R.string.camera_ocr_mode_quick_description)
-    val accurateDescription = stringResource(R.string.camera_ocr_mode_accurate_description)
-    val selectedDescription = stringResource(R.string.camera_selected_description)
-    val unselectedDescription = stringResource(R.string.camera_unselected_description)
-    val quickLabel = stringResource(R.string.camera_ocr_mode_quick_label)
-    val accurateLabel = stringResource(R.string.camera_ocr_mode_accurate_label)
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .semantics(mergeDescendants = true) { contentDescription = selectorDescription },
-        shape = MaterialTheme.shapes.large,
-        tonalElevation = 4.dp,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
-    ) {
-        SingleChoiceSegmentedButtonRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-        ) {
-            modes.forEachIndexed { index, item ->
-                val selected = item == mode
-                SegmentedButton(
-                    selected = selected,
-                    onClick = { onModeSelected(item) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 48.dp)
-                        .semantics {
-                            contentDescription = if (item == OcrMode.QUICK) quickDescription else accurateDescription
-                            stateDescription = if (selected) selectedDescription else unselectedDescription
-                        }
-                        .blindFocusable(
-                            id = "camera_ocr_mode_${item.name}",
-                            label = if (item == OcrMode.QUICK) quickDescription else accurateDescription,
-                            activateLabel = "",
-                            onActivate = { onModeSelected(item) }
-                        ),
-                    icon = {},
-                    label = {
-                        Text(
-                            text = if (item == OcrMode.QUICK) quickLabel else accurateLabel,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                )
-            }
-        }
+private enum class CameraModeOption {
+    OCR_QUICK,
+    OCR_ACCURATE,
+    SCENE_DESCRIPTION,
+    OBJECT_DETECTION,
+    CURRENCY
+}
+
+private val CameraModeOption.focusId: String
+    get() = when (this) {
+        CameraModeOption.OCR_QUICK -> "camera_mode_OCR_QUICK"
+        CameraModeOption.OCR_ACCURATE -> "camera_mode_OCR_ACCURATE"
+        CameraModeOption.SCENE_DESCRIPTION -> "camera_mode_SCENE_DESCRIPTION"
+        CameraModeOption.OBJECT_DETECTION -> "camera_mode_OBJECT_DETECTION"
+        CameraModeOption.CURRENCY -> "camera_mode_CURRENCY"
     }
+
+private fun CameraModeOption.isSelected(mode: CameraMode, ocrMode: OcrMode): Boolean = when (this) {
+    CameraModeOption.OCR_QUICK -> mode == CameraMode.OCR && ocrMode == OcrMode.QUICK
+    CameraModeOption.OCR_ACCURATE -> mode == CameraMode.OCR && ocrMode == OcrMode.ACCURACY
+    CameraModeOption.SCENE_DESCRIPTION -> mode == CameraMode.SCENE_DESCRIPTION
+    CameraModeOption.OBJECT_DETECTION -> mode == CameraMode.OBJECT_DETECTION
+    CameraModeOption.CURRENCY -> mode == CameraMode.CURRENCY
+}
+
+private fun CameraModeOption.select(
+    onModeSelected: (CameraMode) -> Unit,
+    onOcrModeSelected: (OcrMode) -> Unit
+) {
+    when (this) {
+        CameraModeOption.OCR_QUICK -> onOcrModeSelected(OcrMode.QUICK)
+        CameraModeOption.OCR_ACCURATE -> onOcrModeSelected(OcrMode.ACCURACY)
+        CameraModeOption.SCENE_DESCRIPTION -> onModeSelected(CameraMode.SCENE_DESCRIPTION)
+        CameraModeOption.OBJECT_DETECTION -> onModeSelected(CameraMode.OBJECT_DETECTION)
+        CameraModeOption.CURRENCY -> onModeSelected(CameraMode.CURRENCY)
+    }
+}
+
+private fun CameraModeOption.icon(): ImageVector = when (this) {
+    CameraModeOption.OCR_QUICK -> Icons.Rounded.TextFields
+    CameraModeOption.OCR_ACCURATE -> Icons.Rounded.CenterFocusStrong
+    CameraModeOption.SCENE_DESCRIPTION -> Icons.Rounded.ImageSearch
+    CameraModeOption.OBJECT_DETECTION -> Icons.Rounded.Visibility
+    CameraModeOption.CURRENCY -> Icons.Rounded.AttachMoney
+}
+
+@Composable
+private fun CameraModeOption.localizedDescription(): String = when (this) {
+    CameraModeOption.OCR_QUICK -> stringResource(R.string.camera_ocr_mode_quick_description)
+    CameraModeOption.OCR_ACCURATE -> stringResource(R.string.camera_ocr_mode_accurate_description)
+    CameraModeOption.SCENE_DESCRIPTION -> stringResource(R.string.camera_mode_scene_description_description)
+    CameraModeOption.OBJECT_DETECTION -> stringResource(R.string.camera_mode_object_detection_description)
+    CameraModeOption.CURRENCY -> stringResource(R.string.camera_mode_currency_description)
 }
 
 @Composable

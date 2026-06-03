@@ -346,11 +346,32 @@ class CameraViewModel(
         if (currentOcrMode.value == mode) return
         viewModelScope.launch {
             setCameraOcrModeUseCase(mode)
+            updateCurrentOcrMode(mode)
             hapticService.confirm()
             speechOutput.speak(
                 cameraText.switchedOcrMode(mode),
                 appLanguage.get().ttsLocale
             )
+        }
+    }
+
+    fun selectOcrCameraMode(mode: OcrMode) {
+        val wasInOcrMode = _uiState.value.activeMode == CameraMode.OCR
+        if (wasInOcrMode && currentOcrMode.value == mode) return
+        viewModelScope.launch {
+            if (currentOcrMode.value != mode) {
+                setCameraOcrModeUseCase(mode)
+                updateCurrentOcrMode(mode)
+            }
+            if (wasInOcrMode) {
+                hapticService.confirm()
+                speechOutput.speak(
+                    cameraText.switchedOcrMode(mode),
+                    appLanguage.get().ttsLocale
+                )
+            } else {
+                selectMode(CameraMode.OCR)
+            }
         }
     }
 
@@ -452,5 +473,10 @@ class CameraViewModel(
             updatedState
         }
         if (previousBitmap !== nextBitmap) bitmapStore.recycle(previousBitmap)
+    }
+
+    private fun updateCurrentOcrMode(mode: OcrMode) {
+        currentOcrMode.value = mode
+        _uiState.update { it.copy(ocrMode = mode) }
     }
 }
