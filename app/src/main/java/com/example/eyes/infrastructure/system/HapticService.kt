@@ -20,15 +20,15 @@ class HapticService(context: Context) : HapticFeedback {
     }
 
     override fun confirm() {
-        vibrate(longArrayOf(0, 45, 35, 45))
+        vibrate(longArrayOf(0, 50))
     }
 
     override fun loading() {
-        vibrate(longArrayOf(0, 20, 30, 20, 30, 20))
+        vibrate(longArrayOf(0, 150, 120, 150))
     }
 
     override fun error() {
-        vibrate(longArrayOf(0, 200, 50, 120, 50, 200))
+        vibrate(longArrayOf(0, 50, 60, 50))
     }
 
     private fun vibrate(pattern: LongArray) {
