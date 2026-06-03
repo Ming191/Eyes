@@ -255,7 +255,9 @@
     <string name="camera_analyzing_image">Đang phân tích ảnh...</string>
     <string name="camera_ocr_swipe_hint">Vuốt trái/phải để đổi câu</string>
     <string name="camera_capture_another_description">Chụp ảnh khác</string>
-    <string name="camera_capture_another_text">Chụp ảnh khác</string>
+    <string name="camera_capture_another_text">Chụp lại</string>
+    <string name="camera_repeat_result_description">Đọc lại kết quả</string>
+    <string name="camera_repeat_result_text">Đọc lại</string>
     <string name="camera_show_status_description">Hiện bảng trạng thái camera</string>
     <string name="camera_ocr_mode_selector_description">Chọn chế độ OCR</string>
     <string name="camera_ocr_mode_quick_description">Chọn mode OCR Nhanh</string>

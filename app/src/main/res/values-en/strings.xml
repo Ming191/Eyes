@@ -46,6 +46,8 @@
     <string name="home_hero_description">Home summary. %1$s. %2$s</string>
     <string name="home_action_open_label">Open %1$s</string>
     <string name="blind_gesture_no_actions">No secondary actions</string>
+    <string name="blind_gesture_layer_description">Accessibility gesture layer</string>
+    <string name="blind_focus_overlay_description">Current focus frame</string>
     <string name="blind_action_increase">Increase</string>
     <string name="blind_action_decrease">Decrease</string>
     <string name="voice_response_read_text">Opening read text mode.</string>
@@ -253,7 +255,9 @@
     <string name="camera_analyzing_image">Analyzing image...</string>
     <string name="camera_ocr_swipe_hint">Swipe left or right to change sentence</string>
     <string name="camera_capture_another_description">Capture another image</string>
-    <string name="camera_capture_another_text">Capture another image</string>
+    <string name="camera_capture_another_text">Retake</string>
+    <string name="camera_repeat_result_description">Read result again</string>
+    <string name="camera_repeat_result_text">Read again</string>
     <string name="camera_show_status_description">Show camera status panel</string>
     <string name="camera_ocr_mode_selector_description">Select OCR mode</string>
     <string name="camera_ocr_mode_quick_description">Select quick OCR mode</string>

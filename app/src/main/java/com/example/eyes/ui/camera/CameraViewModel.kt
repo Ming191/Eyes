@@ -238,6 +238,15 @@ class CameraViewModel(
         ocrCaptureController.prepareForNextCapture()
     }
 
+    fun repeatCurrentResult() {
+        when (_uiState.value.activeMode) {
+            CameraMode.OCR -> ocrDocumentController.speakCurrentOcrSentence()
+            CameraMode.SCENE_DESCRIPTION,
+            CameraMode.CURRENCY -> speakLastAnnouncement()
+            CameraMode.OBJECT_DETECTION -> Unit
+        }
+    }
+
     fun nextOcrSentence() {
         ocrDocumentController.nextOcrSentence()
     }
@@ -346,11 +355,32 @@ class CameraViewModel(
         if (currentOcrMode.value == mode) return
         viewModelScope.launch {
             setCameraOcrModeUseCase(mode)
+            updateCurrentOcrMode(mode)
             hapticService.confirm()
             speechOutput.speak(
                 cameraText.switchedOcrMode(mode),
                 appLanguage.get().ttsLocale
             )
+        }
+    }
+
+    fun selectOcrCameraMode(mode: OcrMode) {
+        val wasInOcrMode = _uiState.value.activeMode == CameraMode.OCR
+        if (wasInOcrMode && currentOcrMode.value == mode) return
+        viewModelScope.launch {
+            if (currentOcrMode.value != mode) {
+                setCameraOcrModeUseCase(mode)
+                updateCurrentOcrMode(mode)
+            }
+            if (wasInOcrMode) {
+                hapticService.confirm()
+                speechOutput.speak(
+                    cameraText.switchedOcrMode(mode),
+                    appLanguage.get().ttsLocale
+                )
+            } else {
+                selectMode(CameraMode.OCR)
+            }
         }
     }
 
@@ -452,5 +482,16 @@ class CameraViewModel(
             updatedState
         }
         if (previousBitmap !== nextBitmap) bitmapStore.recycle(previousBitmap)
+    }
+
+    private fun updateCurrentOcrMode(mode: OcrMode) {
+        currentOcrMode.value = mode
+        _uiState.update { it.copy(ocrMode = mode) }
+    }
+
+    private fun speakLastAnnouncement() {
+        val announcement = _uiState.value.lastAnnouncement.takeIf { it.isNotBlank() } ?: return
+        speechOutput.stop()
+        speechOutput.speak(announcement, appLanguage.get().ttsLocale)
     }
 }

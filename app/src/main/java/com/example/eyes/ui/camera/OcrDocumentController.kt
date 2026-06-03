@@ -57,10 +57,7 @@ class OcrDocumentController(
         val sentence = state.currentOcrSentence
         val locale = if (looksEnglish(sentence)) Locale.US else VIETNAMESE_LOCALE
         speechOutput.stop()
-        speechOutput.speak(
-            cameraText().ocrSentencePosition(state.ocrCurrentIndex + 1, state.ocrSentences.size, sentence),
-            locale
-        )
+        speechOutput.speak(sentence, locale)
     }
 
     fun nextOcrSentence() {
