@@ -14,9 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -27,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -38,14 +35,12 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -86,7 +81,6 @@ fun AppNavGraph(
     accessibilityStateProvider: AccessibilityStateProvider = koinInject()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val currentSpokenText by viewModel.currentSpokenText.collectAsStateWithLifecycle(initialValue = null)
     val isScreenReaderLikelyEnabled by accessibilityStateProvider.screenReaderLikelyEnabledFlow
         .collectAsStateWithLifecycle(initialValue = accessibilityStateProvider.isScreenReaderLikelyEnabled)
 
@@ -103,12 +97,10 @@ fun AppNavGraph(
             uiState.onboardingCompleted -> MainNavigationScaffold(
                 viewModel = viewModel,
                 speechOutput = speechOutput,
-                appLanguage = uiState.appLanguage,
-                currentSpokenText = currentSpokenText
+                appLanguage = uiState.appLanguage
             )
             else -> OnboardingNavHost(
                 appLanguage = uiState.appLanguage,
-                currentSpokenText = currentSpokenText,
                 onLanguageSelected = viewModel::setAppLanguage,
                 onFinish = viewModel::completeOnboarding
             )
@@ -132,7 +124,6 @@ private fun LoadingScreen() {
 @Composable
 private fun OnboardingNavHost(
     appLanguage: AppLanguage,
-    currentSpokenText: String?,
     onLanguageSelected: (AppLanguage) -> Unit,
     onFinish: () -> Unit
 ) {
@@ -156,10 +147,6 @@ private fun OnboardingNavHost(
                     )
                 }
             }
-            SpeechSubtitle(
-                text = currentSpokenText,
-                modifier = Modifier.align(Alignment.BottomCenter)
-            )
         }
     }
 }
@@ -170,8 +157,7 @@ private fun MainNavigationScaffold(
     viewModel: AppNavViewModel,
     speechOutput: SpeechOutput,
     voiceCommandViewModel: VoiceCommandViewModel = koinViewModel(),
-    appLanguage: AppLanguage,
-    currentSpokenText: String?
+    appLanguage: AppLanguage
 ) {
     key("main") {
         val context = LocalContext.current
@@ -449,44 +435,11 @@ private fun MainNavigationScaffold(
                         }
                     }
                 }
-                SpeechSubtitle(
-                    text = currentSpokenText,
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                )
             }
         }
     }
 }
 
-@Composable
-private fun SpeechSubtitle(
-    text: String?,
-    modifier: Modifier = Modifier
-) {
-    if (text.isNullOrBlank()) return
-    val subtitleDescription = stringResource(R.string.voice_guide_subtitle_description, text)
-
-    Surface(
-        modifier = modifier
-            .navigationBarsPadding()
-            .padding(horizontal = 24.dp, vertical = 16.dp)
-            .widthIn(max = 560.dp)
-            .fillMaxWidth()
-            .semantics { contentDescription = subtitleDescription },
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
-        color = Color.Black.copy(alpha = 0.78f),
-        tonalElevation = 8.dp,
-        shadowElevation = 8.dp
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
-            color = Color.White,
-            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center
-        )
-    }
-}
 private fun NavHostController.navigateToTopLevelDestination(
     destination: TopLevelDestination
 ) {
